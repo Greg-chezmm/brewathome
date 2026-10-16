@@ -4,7 +4,7 @@ import { useParams } from 'react-router-dom'
 import { GravityCorrectionTool } from '@/components/brew-day/GravityCorrectionTool'
 import { StrikeWaterTool } from '@/components/brew-day/StrikeWaterTool'
 import { useAlertSound } from '@/hooks/useAlertSound'
-import { formatDuration, useNowTick } from '@/hooks/useBrewTimer'
+import { formatDuration, formatDurationLong, useNowTick } from '@/hooks/useBrewTimer'
 import { useWakeLock } from '@/hooks/useWakeLock'
 import { calculateVolumes } from '@/lib/brew-calc/volumes'
 import {
@@ -16,16 +16,25 @@ import {
   type BatchStepType,
 } from '@/lib/db/queries/batches'
 import { getEquipmentProfile } from '@/lib/db/queries/equipmentProfiles'
+import type { Fermentable } from '@/lib/brew-calc/types'
 
 const STEP_ICONS: Record<BatchStepType, string> = {
+  'strike-water': '🔥',
   mash: '🌾',
   'mash-step': '🌡️',
+  'sparge-water': '🔥',
   sparge: '💧',
+  'heat-to-boil': '🔥',
   boil: '🔥',
   'hop-addition': '🌿',
+  'other-addition': '➕',
   whirlpool: '🌀',
   cooling: '❄️',
+  'dry-hop-addition': '🧊',
 }
+
+/** Étapes dont le déclenchement se calcule par rapport au compte à rebours d'ébullition. */
+const BOIL_TRIGGERED_STEP_TYPES: BatchStepType[] = ['hop-addition', 'other-addition']
 
 export function BrewDay() {
   const { batchId } = useParams<{ batchId: string }>()
@@ -66,7 +75,8 @@ export function BrewDay() {
     if (!soundEnabled || !boilStep || !steps) return
     const boilRemainingPlanned = boilStep.plannedDurationMin ?? 0
     for (const step of steps) {
-      if (step.stepType !== 'hop-addition' || step.status !== 'todo' || step.triggerTimeMin === null) continue
+      if (!BOIL_TRIGGERED_STEP_TYPES.includes(step.stepType) || step.status !== 'todo' || step.triggerTimeMin === null)
+        continue
       const triggerAtSeconds = (boilRemainingPlanned - step.triggerTimeMin) * 60
       const isDue = boilStep.actualStartAt !== null && boilElapsedSeconds >= triggerAtSeconds
       if (isDue && !alertedStepIds.current.has(step.id)) {
@@ -103,9 +113,8 @@ export function BrewDay() {
 
   if (!batch || !steps) return <p className="text-slate-500">Chargement…</p>
 
-  const totalGrainKg = batch.recipeSnapshot.fermentables
-    .filter((f) => f.type === 'grain')
-    .reduce((sum, f) => sum + f.amountKg, 0)
+  const grainFermentables = batch.recipeSnapshot.fermentables.filter((f) => f.type === 'grain')
+  const totalGrainKg = grainFermentables.reduce((sum, f) => sum + f.amountKg, 0)
   const mashWaterL = equipmentProfile
     ? calculateVolumes(batch.recipeSnapshot.targetVolumeL, totalGrainKg, equipmentProfile).mashWaterL
     : undefined
@@ -137,11 +146,11 @@ export function BrewDay() {
         {steps.map((step, index) => {
           const boilRemainingPlanned = boilStep?.plannedDurationMin ?? 0
           const triggerAtSeconds =
-            step.stepType === 'hop-addition' && step.triggerTimeMin !== null
+            BOIL_TRIGGERED_STEP_TYPES.includes(step.stepType) && step.triggerTimeMin !== null
               ? (boilRemainingPlanned - step.triggerTimeMin) * 60
               : null
           const isDue =
-            step.stepType === 'hop-addition' &&
+            BOIL_TRIGGERED_STEP_TYPES.includes(step.stepType) &&
             step.status === 'todo' &&
             boilStep?.actualStartAt &&
             triggerAtSeconds !== null &&
@@ -179,6 +188,7 @@ export function BrewDay() {
           boilElapsedSeconds={boilElapsedSeconds}
           totalGrainKg={totalGrainKg}
           mashWaterL={mashWaterL}
+          grainFermentables={grainFermentables}
           onStart={startStep}
           onComplete={completeStep}
           onReset={resetStep}
@@ -214,6 +224,7 @@ function ActiveStepCard({
   boilElapsedSeconds,
   totalGrainKg,
   mashWaterL,
+  grainFermentables,
   onStart,
   onComplete,
   onReset,
@@ -224,17 +235,18 @@ function ActiveStepCard({
   boilElapsedSeconds: number
   totalGrainKg: number
   mashWaterL: number | undefined
+  grainFermentables: Fermentable[]
   onStart: (step: BatchStep) => void
   onComplete: (step: BatchStep) => void
   onReset: (step: BatchStep) => void
 }) {
   const boilRemainingPlanned = boilStep?.plannedDurationMin ?? 0
   const triggerAtSeconds =
-    step.stepType === 'hop-addition' && step.triggerTimeMin !== null
+    BOIL_TRIGGERED_STEP_TYPES.includes(step.stepType) && step.triggerTimeMin !== null
       ? (boilRemainingPlanned - step.triggerTimeMin) * 60
       : null
   const isDue =
-    step.stepType === 'hop-addition' &&
+    BOIL_TRIGGERED_STEP_TYPES.includes(step.stepType) &&
     step.status === 'todo' &&
     !!boilStep?.actualStartAt &&
     triggerAtSeconds !== null &&
@@ -286,29 +298,50 @@ function ActiveStepCard({
       <StepTimer step={step} now={now} />
       <StepProgressBar step={step} now={now} isDue={isDue} triggerAtSeconds={triggerAtSeconds} boilElapsedSeconds={boilElapsedSeconds} />
 
-      {step.stepType === 'hop-addition' && triggerAtSeconds !== null && boilStep?.actualStartAt && (
+      {BOIL_TRIGGERED_STEP_TYPES.includes(step.stepType) && triggerAtSeconds !== null && boilStep?.actualStartAt && (
         <p className={`mt-2 ${isDue ? 'font-mono text-2xl font-bold text-red-700' : 'text-sm text-slate-500'}`}>
           {isDue ? '⚠ À ajouter maintenant !' : `Dans ${formatDuration(triggerAtSeconds - boilElapsedSeconds)}`}
         </p>
       )}
 
-      {step.stepType === 'mash' && (
+      {step.stepType === 'strike-water' && (
         <div className="mt-4 border-t border-slate-200 pt-4">
           <StrikeWaterTool defaultGrainWeightKg={totalGrainKg} defaultWaterVolumeL={mashWaterL} embedded />
         </div>
+      )}
+
+      {step.stepType === 'mash' && grainFermentables.length > 0 && (
+        <div className="mt-4 border-t border-slate-200 pt-4">
+          <p className="mb-1.5 text-sm font-medium text-slate-600">Grain à ajouter :</p>
+          <ul className="space-y-1 text-sm text-slate-700">
+            {grainFermentables.map((f, i) => (
+              <li key={i}>
+                <span className="font-semibold text-slate-800">{f.amountKg} kg</span> — {f.name}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {step.stepType === 'sparge-water' && (
+        <p className="mt-3 text-sm text-slate-500">
+          Peut chauffer pendant la fin de l'empâtage pour être prête à temps pour le rinçage.
+        </p>
       )}
     </div>
   )
 }
 
 function StepTimer({ step, now }: { step: BatchStep; now: number }) {
+  const fmt = step.stepType === 'dry-hop-addition' ? formatDurationLong : formatDuration
+
   if (step.status === 'done') {
     if (!step.actualStartAt || !step.actualEndAt) return null
     const totalSec = Math.max(
       0,
       Math.round((new Date(step.actualEndAt).getTime() - new Date(step.actualStartAt).getTime()) / 1000),
     )
-    return <p className="mt-2 text-sm text-slate-400">Durée réelle : {formatDuration(totalSec)}</p>
+    return <p className="mt-2 text-sm text-slate-400">Durée réelle : {fmt(totalSec)}</p>
   }
 
   if (step.status !== 'in-progress' || !step.actualStartAt) return null
@@ -324,7 +357,7 @@ function StepTimer({ step, now }: { step: BatchStep; now: number }) {
           className={`font-mono text-4xl font-bold tabular-nums ${overdue ? 'text-red-600' : 'text-indigo-600'}`}
         >
           {overdue ? '+' : ''}
-          {formatDuration(Math.abs(remainingSec))}
+          {fmt(Math.abs(remainingSec))}
         </span>
         <span className="text-sm text-slate-500">{overdue ? 'de dépassement' : 'restant'}</span>
       </div>
@@ -333,7 +366,7 @@ function StepTimer({ step, now }: { step: BatchStep; now: number }) {
 
   return (
     <div className="mt-2 flex items-baseline gap-2">
-      <span className="font-mono text-4xl font-bold tabular-nums text-indigo-600">{formatDuration(elapsedSec)}</span>
+      <span className="font-mono text-4xl font-bold tabular-nums text-indigo-600">{fmt(elapsedSec)}</span>
       <span className="text-sm text-slate-500">écoulé</span>
     </div>
   )

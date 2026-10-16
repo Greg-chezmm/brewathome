@@ -10,7 +10,19 @@ import { getRecipeWithDetails, updateRecipeStatus } from './recipes'
 import { supabase } from '@/lib/supabase/client'
 
 export type BatchStatus = 'planned' | 'brew_day' | 'fermentation' | 'conditioning' | 'completed'
-export type BatchStepType = 'mash' | 'mash-step' | 'sparge' | 'boil' | 'hop-addition' | 'whirlpool' | 'cooling'
+export type BatchStepType =
+  | 'strike-water'
+  | 'mash'
+  | 'mash-step'
+  | 'sparge-water'
+  | 'sparge'
+  | 'heat-to-boil'
+  | 'boil'
+  | 'hop-addition'
+  | 'other-addition'
+  | 'whirlpool'
+  | 'cooling'
+  | 'dry-hop-addition'
 export type BatchStepStatus = 'todo' | 'in-progress' | 'done'
 
 export interface BatchStep {
@@ -46,9 +58,27 @@ function buildBatchSteps(recipe: RecipeDetails, equipmentProfile: EquipmentProfi
   const steps: Omit<BatchStep, 'id'>[] = []
   let order = 0
 
+  const grainFermentables = recipe.fermentables.filter((f) => f.type === 'grain')
+  const totalGrainKg = grainFermentables.reduce((sum, f) => sum + f.amountKg, 0)
+  const grainList = grainFermentables.map((f) => `${f.amountKg} kg ${f.name}`).join(', ')
+  const volumes = equipmentProfile ? calculateVolumes(recipe.targetVolumeL, totalGrainKg, equipmentProfile) : null
+
+  steps.push({
+    stepType: 'strike-water',
+    label: volumes
+      ? `Chauffer l'eau d'empâtage : ${volumes.mashWaterL.toFixed(1)} L`
+      : "Chauffer l'eau d'empâtage",
+    orderIndex: order++,
+    plannedDurationMin: null,
+    triggerTimeMin: null,
+    status: 'todo',
+    actualStartAt: null,
+    actualEndAt: null,
+  })
+
   steps.push({
     stepType: 'mash',
-    label: 'Empâtage',
+    label: grainList ? `Empâtage — ajouter le grain : ${grainList}` : 'Empâtage — ajouter le grain',
     orderIndex: order++,
     plannedDurationMin: 60,
     triggerTimeMin: null,
@@ -57,22 +87,39 @@ function buildBatchSteps(recipe: RecipeDetails, equipmentProfile: EquipmentProfi
     actualEndAt: null,
   })
 
-  if (equipmentProfile) {
-    const totalGrainKg = recipe.fermentables.filter((f) => f.type === 'grain').reduce((sum, f) => sum + f.amountKg, 0)
-    const spargeWaterL = calculateVolumes(recipe.targetVolumeL, totalGrainKg, equipmentProfile).spargeWaterL
-    if (spargeWaterL > 0) {
-      steps.push({
-        stepType: 'sparge',
-        label: `Rinçage : ${spargeWaterL.toFixed(1)} L d'eau @ ${SPARGE_WATER_TEMP_C} °C`,
-        orderIndex: order++,
-        plannedDurationMin: null,
-        triggerTimeMin: null,
-        status: 'todo',
-        actualStartAt: null,
-        actualEndAt: null,
-      })
-    }
+  if (volumes && volumes.spargeWaterL > 0) {
+    steps.push({
+      stepType: 'sparge-water',
+      label: `Chauffer l'eau de rinçage : ${volumes.spargeWaterL.toFixed(1)} L @ ${SPARGE_WATER_TEMP_C} °C`,
+      orderIndex: order++,
+      plannedDurationMin: null,
+      triggerTimeMin: null,
+      status: 'todo',
+      actualStartAt: null,
+      actualEndAt: null,
+    })
+    steps.push({
+      stepType: 'sparge',
+      label: `Rinçage : ${volumes.spargeWaterL.toFixed(1)} L d'eau @ ${SPARGE_WATER_TEMP_C} °C`,
+      orderIndex: order++,
+      plannedDurationMin: null,
+      triggerTimeMin: null,
+      status: 'todo',
+      actualStartAt: null,
+      actualEndAt: null,
+    })
   }
+
+  steps.push({
+    stepType: 'heat-to-boil',
+    label: "Chauffer jusqu'à ébullition",
+    orderIndex: order++,
+    plannedDurationMin: null,
+    triggerTimeMin: null,
+    status: 'todo',
+    actualStartAt: null,
+    actualEndAt: null,
+  })
 
   steps.push({
     stepType: 'boil',
@@ -85,16 +132,27 @@ function buildBatchSteps(recipe: RecipeDetails, equipmentProfile: EquipmentProfi
     actualEndAt: null,
   })
 
-  const boilHops = recipe.hops
-    .filter((h) => h.use === 'boil' || h.use === 'first-wort')
-    .sort((a, b) => b.timeMin - a.timeMin)
-  for (const hop of boilHops) {
+  const boilAdditions = [
+    ...recipe.hops
+      .filter((h) => h.use === 'boil' || h.use === 'first-wort')
+      .map((h) => ({
+        stepType: 'hop-addition' as const,
+        label: `Ajout houblon : ${h.name} (${h.amountG} g)`,
+        timeMin: h.timeMin,
+      })),
+    ...recipe.otherIngredients.map((o) => ({
+      stepType: 'other-addition' as const,
+      label: `Ajout : ${o.name} (${o.amount})`,
+      timeMin: o.timeMin,
+    })),
+  ].sort((a, b) => b.timeMin - a.timeMin)
+  for (const addition of boilAdditions) {
     steps.push({
-      stepType: 'hop-addition',
-      label: `Ajout houblon : ${hop.name} (${hop.amountG} g)`,
+      stepType: addition.stepType,
+      label: addition.label,
       orderIndex: order++,
       plannedDurationMin: null,
-      triggerTimeMin: hop.timeMin,
+      triggerTimeMin: addition.timeMin,
       status: 'todo',
       actualStartAt: null,
       actualEndAt: null,
@@ -124,6 +182,24 @@ function buildBatchSteps(recipe: RecipeDetails, equipmentProfile: EquipmentProfi
     actualStartAt: null,
     actualEndAt: null,
   })
+
+  const dryHops = recipe.hops.filter((h) => h.use === 'dry-hop')
+  for (const hop of dryHops) {
+    const days = hop.dryHopDays ?? 0
+    steps.push({
+      stepType: 'dry-hop-addition',
+      label:
+        hop.dryHopTempC != null
+          ? `Houblonnage à froid : ${hop.name} (${hop.amountG} g) — ${days} j @ ${hop.dryHopTempC} °C`
+          : `Houblonnage à froid : ${hop.name} (${hop.amountG} g) — ${days} j`,
+      orderIndex: order++,
+      plannedDurationMin: days * 24 * 60,
+      triggerTimeMin: null,
+      status: 'todo',
+      actualStartAt: null,
+      actualEndAt: null,
+    })
+  }
 
   return steps
 }
@@ -285,6 +361,7 @@ export async function updateBatchRecipeSnapshot(
     fermentables: patch.fermentables,
     hops: patch.hops,
     yeasts: patch.yeasts,
+    otherIngredients: patch.otherIngredients,
     estOg: og,
     estFg: fg,
     estIbu: ibu,

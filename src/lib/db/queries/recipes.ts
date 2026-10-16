@@ -2,7 +2,7 @@ import { calculateABV } from '@/lib/brew-calc/abv'
 import { calculateSRM } from '@/lib/brew-calc/color'
 import { calculateFG, calculateOG } from '@/lib/brew-calc/gravity'
 import { calculateIBU_Tinseth } from '@/lib/brew-calc/ibu'
-import type { Fermentable, Hop, Yeast } from '@/lib/brew-calc/types'
+import type { Fermentable, Hop, OtherIngredient, Yeast } from '@/lib/brew-calc/types'
 import { resolveBjcpStyleId } from '@/lib/beerxml/mapping'
 import type { ParsedRecipeDraft } from '@/lib/beerxml/types'
 import { supabase } from '@/lib/supabase/client'
@@ -31,6 +31,7 @@ export interface RecipeDetails extends RecipeSummary {
   fermentables: Fermentable[]
   hops: Hop[]
   yeasts: Yeast[]
+  otherIngredients: OtherIngredient[]
 }
 
 function computeStats(fermentables: Fermentable[], hops: Hop[], yeasts: Yeast[], volumeL: number, efficiency: number) {
@@ -70,15 +71,21 @@ export async function getRecipeWithDetails(recipeId: string): Promise<RecipeDeta
     .single()
   if (recipeError) throw recipeError
 
-  const [{ data: fermentables, error: fErr }, { data: hops, error: hErr }, { data: yeasts, error: yErr }] =
-    await Promise.all([
-      supabase.from('recipe_fermentables').select('*').eq('recipe_id', recipeId).order('sort_order'),
-      supabase.from('recipe_hops').select('*').eq('recipe_id', recipeId).order('sort_order'),
-      supabase.from('recipe_yeasts').select('*').eq('recipe_id', recipeId).order('sort_order'),
-    ])
+  const [
+    { data: fermentables, error: fErr },
+    { data: hops, error: hErr },
+    { data: yeasts, error: yErr },
+    { data: otherIngredients, error: oErr },
+  ] = await Promise.all([
+    supabase.from('recipe_fermentables').select('*').eq('recipe_id', recipeId).order('sort_order'),
+    supabase.from('recipe_hops').select('*').eq('recipe_id', recipeId).order('sort_order'),
+    supabase.from('recipe_yeasts').select('*').eq('recipe_id', recipeId).order('sort_order'),
+    supabase.from('recipe_other_ingredients').select('*').eq('recipe_id', recipeId).order('sort_order'),
+  ])
   if (fErr) throw fErr
   if (hErr) throw hErr
   if (yErr) throw yErr
+  if (oErr) throw oErr
 
   return {
     id: recipe.id,
@@ -112,12 +119,19 @@ export async function getRecipeWithDetails(recipeId: string): Promise<RecipeDeta
       timeMin: h.time_min,
       use: h.use,
       form: h.form ?? undefined,
+      dryHopDays: h.dry_hop_days ?? undefined,
+      dryHopTempC: h.dry_hop_temp_c !== null && h.dry_hop_temp_c !== undefined ? Number(h.dry_hop_temp_c) : undefined,
     })),
     yeasts: (yeasts ?? []).map((y) => ({
       name: y.name,
       type: y.type,
       style: y.style,
       attenuationPercent: Number(y.attenuation_percent),
+    })),
+    otherIngredients: (otherIngredients ?? []).map((o) => ({
+      name: o.name,
+      amount: o.amount,
+      timeMin: o.time_min,
     })),
   }
 }
@@ -135,6 +149,7 @@ export interface RecipeInput {
   fermentables: Fermentable[]
   hops: Hop[]
   yeasts: Yeast[]
+  otherIngredients: OtherIngredient[]
 }
 
 async function replaceChildRows(recipeId: string, input: RecipeInput): Promise<void> {
@@ -142,6 +157,7 @@ async function replaceChildRows(recipeId: string, input: RecipeInput): Promise<v
     supabase.from('recipe_fermentables').delete().eq('recipe_id', recipeId),
     supabase.from('recipe_hops').delete().eq('recipe_id', recipeId),
     supabase.from('recipe_yeasts').delete().eq('recipe_id', recipeId),
+    supabase.from('recipe_other_ingredients').delete().eq('recipe_id', recipeId),
   ])
 
   if (input.fermentables.length > 0) {
@@ -169,6 +185,21 @@ async function replaceChildRows(recipeId: string, input: RecipeInput): Promise<v
         time_min: h.timeMin,
         use: h.use,
         form: h.form ?? 'pellet',
+        dry_hop_days: h.dryHopDays ?? null,
+        dry_hop_temp_c: h.dryHopTempC ?? null,
+        sort_order: i,
+      })),
+    )
+    if (error) throw error
+  }
+
+  if (input.otherIngredients.length > 0) {
+    const { error } = await supabase.from('recipe_other_ingredients').insert(
+      input.otherIngredients.map((o, i) => ({
+        recipe_id: recipeId,
+        name: o.name,
+        amount: o.amount,
+        time_min: o.timeMin,
         sort_order: i,
       })),
     )

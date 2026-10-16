@@ -28,6 +28,7 @@ export function RecipeEdit() {
           fermentables: r.fermentables,
           hops: r.hops,
           yeasts: r.yeasts,
+          otherIngredients: r.otherIngredients,
         }),
       )
       .catch((err) => setError((err as Error).message))

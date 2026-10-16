@@ -7,7 +7,7 @@ import { calculateFG, calculateOG } from '@/lib/brew-calc/gravity'
 import { calculateIBU_Rager, calculateIBU_Tinseth } from '@/lib/brew-calc/ibu'
 import { matchStyle } from '@/lib/brew-calc/style-matching'
 import { calculateVolumes, estimateFinalVolumeFromPreBoil, SPARGE_WATER_TEMP_C } from '@/lib/brew-calc/volumes'
-import type { Fermentable, Hop, HopUse, IBUFormulaName, Yeast } from '@/lib/brew-calc/types'
+import type { Fermentable, Hop, HopUse, IBUFormulaName, OtherIngredient, Yeast } from '@/lib/brew-calc/types'
 import { listEquipmentProfiles } from '@/lib/db/queries/equipmentProfiles'
 import type { RecipeInput } from '@/lib/db/queries/recipes'
 import { BeerGlass } from '@/components/BeerGlass'
@@ -25,6 +25,7 @@ const HOP_USE_LABELS: Record<HopUse, string> = {
 const emptyFermentable: Fermentable = { name: '', type: 'grain', amountKg: 1, colorLovibond: 3, yieldPercent: 80 }
 const emptyHop: Hop = { name: '', amountG: 10, alphaAcidPercent: 10, timeMin: 60, use: 'boil', form: 'pellet' }
 const emptyYeast: Yeast = { name: '', type: 'dry', style: 'ale', attenuationPercent: 75 }
+const emptyOther: OtherIngredient = { name: '', amount: '', timeMin: 10 }
 
 export interface RecipeFormValue {
   name: string
@@ -39,6 +40,7 @@ export interface RecipeFormValue {
   fermentables: Fermentable[]
   hops: Hop[]
   yeasts: Yeast[]
+  otherIngredients: OtherIngredient[]
 }
 
 export const EMPTY_RECIPE_FORM: RecipeFormValue = {
@@ -54,6 +56,7 @@ export const EMPTY_RECIPE_FORM: RecipeFormValue = {
   fermentables: [],
   hops: [],
   yeasts: [],
+  otherIngredients: [],
 }
 
 export function RecipeForm({
@@ -157,6 +160,9 @@ export function RecipeForm({
   }
   function updateYeast(index: number, patch: Partial<Yeast>) {
     set('yeasts', value.yeasts.map((y, i) => (i === index ? { ...y, ...patch } : y)))
+  }
+  function updateOther(index: number, patch: Partial<OtherIngredient>) {
+    set('otherIngredients', value.otherIngredients.map((o, i) => (i === index ? { ...o, ...patch } : o)))
   }
 
   return (
@@ -469,20 +475,22 @@ export function RecipeForm({
         rows={value.hops}
         onAdd={() => set('hops', [...value.hops, { ...emptyHop }])}
         onRemove={(i) => set('hops', value.hops.filter((_, idx) => idx !== i))}
-        headers={['Nom', 'Poids (g)', 'Acide alpha (%AA)', 'Temps (min)', 'Usage']}
+        headers={['Nom', 'Poids (g)', 'Acide alpha (%AA)', 'Temps (min)', 'Usage', 'Dry hop (jours)', 'Dry hop (°C)']}
         headerHints={[
           undefined,
           'Quantité de houblon ajoutée, en grammes.',
           "Teneur en acides alpha de ce houblon (indiquée sur l'emballage) — plus elle est élevée, plus l'amertume potentielle est forte.",
-          "Temps restant en ébullition au moment de l'ajout. Un ajout à 60 min en ébullition de 60 min = ajout en début d'ébullition (amertume maximale) ; un ajout à 5 min = arôme, peu d'amertume.",
+          "Temps restant en ébullition au moment de l'ajout. Un ajout à 60 min en ébullition de 60 min = ajout en début d'ébullition (amertume maximale) ; un ajout à 5 min = arôme, peu d'amertume. Sans effet pour un houblon Dry hop.",
           "First wort (ajouté dès le remplissage de la cuve), Ébullition, Whirlpool (après coupure du feu), Dry hop (dans le fermenteur, sans ébullition) ou Empâtage.",
+          "Dry hop uniquement : durée du contact du houblon avec la bière après fermentation, en jours.",
+          'Dry hop uniquement : température visée pendant le contact.',
         ]}
         renderRow={(h, i) => (
           <>
             <input value={h.name} onChange={(e) => updateHop(i, { name: e.target.value })} placeholder="Nom" className="col-span-2 field-input" />
             <input type="number" step="1" value={h.amountG} onChange={(e) => updateHop(i, { amountG: Number.parseFloat(e.target.value) })} placeholder="g" className="field-input" />
             <input type="number" step="0.1" value={h.alphaAcidPercent} onChange={(e) => updateHop(i, { alphaAcidPercent: Number.parseFloat(e.target.value) })} placeholder="%AA" className="field-input" />
-            <input type="number" step="1" value={h.timeMin} onChange={(e) => updateHop(i, { timeMin: Number.parseInt(e.target.value, 10) })} placeholder="min" className="field-input" />
+            <input type="number" step="1" value={h.timeMin} onChange={(e) => updateHop(i, { timeMin: Number.parseInt(e.target.value, 10) })} placeholder="min" className="field-input" disabled={h.use === 'dry-hop'} />
             <select value={h.use} onChange={(e) => updateHop(i, { use: e.target.value as HopUse })} className="field-input">
               {HOP_USES.map((u) => (
                 <option key={u} value={u}>
@@ -490,9 +498,50 @@ export function RecipeForm({
                 </option>
               ))}
             </select>
+            <input
+              type="number"
+              step="1"
+              value={h.dryHopDays ?? ''}
+              onChange={(e) => updateHop(i, { dryHopDays: e.target.value === '' ? undefined : Number.parseInt(e.target.value, 10) })}
+              placeholder="jours"
+              className="field-input"
+              disabled={h.use !== 'dry-hop'}
+            />
+            <input
+              type="number"
+              step="0.5"
+              value={h.dryHopTempC ?? ''}
+              onChange={(e) => updateHop(i, { dryHopTempC: e.target.value === '' ? undefined : Number.parseFloat(e.target.value) })}
+              placeholder="°C"
+              className="field-input"
+              disabled={h.use !== 'dry-hop'}
+            />
           </>
         )}
-        columns="2fr 1fr 1fr 1fr 1fr"
+        columns="2fr 1fr 1fr 1fr 1fr 1fr 1fr"
+      />
+
+      {/* Autres ajouts (ébullition) */}
+      <RowSection
+        title="Autres ajouts (ébullition)"
+        hint="Ajouts divers pendant l'ébullition : clarifiant (Whirlfloc, Irish moss), nutriment levure, etc. La quantité est en texte libre (ex : « 1 pastille », « 5 g ») car ces produits n'ont pas d'unité commune. Le temps suit la même convention que les houblons : minutes restantes en ébullition au moment de l'ajout."
+        rows={value.otherIngredients}
+        onAdd={() => set('otherIngredients', [...value.otherIngredients, { ...emptyOther }])}
+        onRemove={(i) => set('otherIngredients', value.otherIngredients.filter((_, idx) => idx !== i))}
+        headers={['Nom', 'Quantité', 'Temps (min)']}
+        headerHints={[
+          undefined,
+          'Quantité en texte libre (ex : 1 pastille, 5 g, 1 c. à café).',
+          "Temps restant en ébullition au moment de l'ajout.",
+        ]}
+        renderRow={(o, i) => (
+          <>
+            <input value={o.name} onChange={(e) => updateOther(i, { name: e.target.value })} placeholder="Nom" className="col-span-2 field-input" />
+            <input value={o.amount} onChange={(e) => updateOther(i, { amount: e.target.value })} placeholder="Quantité" className="field-input" />
+            <input type="number" step="1" value={o.timeMin} onChange={(e) => updateOther(i, { timeMin: Number.parseInt(e.target.value, 10) })} placeholder="min" className="field-input" />
+          </>
+        )}
+        columns="2fr 1fr 1fr"
       />
 
       {/* Levures */}

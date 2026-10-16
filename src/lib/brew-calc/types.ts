@@ -21,10 +21,22 @@ export interface Hop {
   name: string
   amountG: number
   alphaAcidPercent: number
-  /** Temps restant en ébullition au moment de l'ajout (minutes). */
+  /** Temps restant en ébullition au moment de l'ajout (minutes). Sans effet pour les houblons 'dry-hop'. */
   timeMin: number
   use: HopUse
   form?: HopForm
+  /** Houblons 'dry-hop' uniquement : durée du contact avec la bière, en jours. */
+  dryHopDays?: number
+  /** Houblons 'dry-hop' uniquement : température visée pendant le contact, en °C. */
+  dryHopTempC?: number
+}
+
+export interface OtherIngredient {
+  name: string
+  /** Quantité en texte libre (ex: "1 tablette", "5 g", "1 c. à café") — les ajouts divers (clarifiant, nutriment...) n'ont pas d'unité commune. */
+  amount: string
+  /** Temps restant en ébullition au moment de l'ajout (minutes), même convention que pour les houblons. */
+  timeMin: number
 }
 
 export type YeastType = 'dry' | 'liquid'

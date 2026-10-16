@@ -133,6 +133,19 @@ export const recipeHops = pgTable('recipe_hops', {
     .notNull()
     .default('boil'),
   form: text('form', { enum: ['pellet', 'leaf', 'plug'] }).default('pellet'),
+  dryHopDays: integer('dry_hop_days'),
+  dryHopTempC: numeric('dry_hop_temp_c', { precision: 4, scale: 1 }),
+  sortOrder: integer('sort_order').notNull().default(0),
+})
+
+export const recipeOtherIngredients = pgTable('recipe_other_ingredients', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  recipeId: uuid('recipe_id')
+    .notNull()
+    .references(() => recipes.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  amount: text('amount').notNull(),
+  timeMin: integer('time_min').notNull().default(10),
   sortOrder: integer('sort_order').notNull().default(0),
 })
 
@@ -186,7 +199,20 @@ export const batchSteps = pgTable('batch_steps', {
     .notNull()
     .references(() => batches.id, { onDelete: 'cascade' }),
   stepType: text('step_type', {
-    enum: ['mash', 'mash-step', 'sparge', 'boil', 'hop-addition', 'whirlpool', 'cooling'],
+    enum: [
+      'strike-water',
+      'mash',
+      'mash-step',
+      'sparge-water',
+      'sparge',
+      'heat-to-boil',
+      'boil',
+      'hop-addition',
+      'other-addition',
+      'whirlpool',
+      'cooling',
+      'dry-hop-addition',
+    ],
   }).notNull(),
   label: text('label').notNull(),
   orderIndex: integer('order_index').notNull().default(0),

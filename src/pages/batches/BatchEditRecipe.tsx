@@ -35,6 +35,7 @@ export function BatchEditRecipe() {
       fermentables: r.fermentables,
       hops: r.hops,
       yeasts: r.yeasts,
+      otherIngredients: r.otherIngredients ?? [],
     })
     setLoaded(true)
   }, [batch, loaded])

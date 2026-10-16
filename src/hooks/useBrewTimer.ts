@@ -44,3 +44,19 @@ export function formatDuration(totalSeconds: number): string {
   const seconds = abs % 60
   return `${sign}${minutes}:${seconds.toString().padStart(2, '0')}`
 }
+
+/**
+ * Format jours/heures/minutes pour les durées longues (houblonnage à froid,
+ * plusieurs jours) — `formatDuration` en M:SS serait illisible sur ces échelles.
+ */
+export function formatDurationLong(totalSeconds: number): string {
+  const sign = totalSeconds < 0 ? '-' : ''
+  const abs = Math.abs(totalSeconds)
+  const totalMinutes = Math.floor(abs / 60)
+  const days = Math.floor(totalMinutes / (24 * 60))
+  const hours = Math.floor((totalMinutes % (24 * 60)) / 60)
+  const minutes = totalMinutes % 60
+  if (days > 0) return `${sign}${days} j ${hours} h`
+  if (hours > 0) return `${sign}${hours} h ${minutes} min`
+  return `${sign}${minutes} min`
+}
