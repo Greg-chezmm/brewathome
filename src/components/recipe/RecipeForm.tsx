@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import bjcpStyles from '@/data/bjcp-styles-2021.json'
 import { calculateABV } from '@/lib/brew-calc/abv'
@@ -6,7 +6,7 @@ import { calculateSRM } from '@/lib/brew-calc/color'
 import { calculateFG, calculateOG } from '@/lib/brew-calc/gravity'
 import { calculateIBU_Rager, calculateIBU_Tinseth } from '@/lib/brew-calc/ibu'
 import { matchStyle } from '@/lib/brew-calc/style-matching'
-import { calculateVolumes } from '@/lib/brew-calc/volumes'
+import { calculateVolumes, estimateFinalVolumeFromPreBoil } from '@/lib/brew-calc/volumes'
 import type { Fermentable, Hop, HopUse, IBUFormulaName, Yeast } from '@/lib/brew-calc/types'
 import { listEquipmentProfiles } from '@/lib/db/queries/equipmentProfiles'
 import type { RecipeInput } from '@/lib/db/queries/recipes'
@@ -108,6 +108,31 @@ export function RecipeForm({
   const volumes = selectedEquipment ? calculateVolumes(value.targetVolumeL, totalGrainKg, selectedEquipment) : null
   const kettleOverflow = selectedEquipment && volumes ? volumes.preBoilVolumeL > selectedEquipment.boilKettleVolumeL : false
 
+  // Permet d'ancrer la recette sur le volume pré-ébullition (limite de cuve)
+  // plutôt que sur le volume final : le volume final est alors dérivé et
+  // c'est lui qui pilote le dimensionnement des ingrédients (OG/IBU/eau).
+  const [volumeAnchor, setVolumeAnchor] = useState<'final' | 'preboil'>('final')
+  const [preBoilTargetL, setPreBoilTargetL] = useState<string>('')
+
+  useEffect(() => {
+    if (volumeAnchor !== 'preboil' || !selectedEquipment) return
+    const parsed = Number.parseFloat(preBoilTargetL)
+    if (!Number.isFinite(parsed)) return
+    const derivedFinal = Math.round(estimateFinalVolumeFromPreBoil(parsed, selectedEquipment) * 100) / 100
+    if (Math.abs(derivedFinal - value.targetVolumeL) > 0.01) {
+      set('targetVolumeL', derivedFinal)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [volumeAnchor, preBoilTargetL, selectedEquipment])
+
+  function switchVolumeAnchor(anchor: 'final' | 'preboil') {
+    if (anchor === 'preboil' && selectedEquipment) {
+      const currentPreBoil = calculateVolumes(value.targetVolumeL, totalGrainKg, selectedEquipment).preBoilVolumeL
+      setPreBoilTargetL(String(Math.round(currentPreBoil * 10) / 10))
+    }
+    setVolumeAnchor(anchor)
+  }
+
   function set<K extends keyof RecipeFormValue>(key: K, v: RecipeFormValue[K]) {
     onChange({ ...value, [key]: v })
   }
@@ -129,7 +154,7 @@ export function RecipeForm({
         e.preventDefault()
         onSubmit()
       }}
-      className="space-y-6"
+      className="space-y-8"
     >
       <div className="card grid gap-4 sm:grid-cols-2">
         <div className="sm:col-span-2">
@@ -142,9 +167,9 @@ export function RecipeForm({
             Style BJCP
           </FieldLabel>
           {selectedStyle ? (
-            <div className="flex items-center justify-between rounded-lg border border-stone-300 bg-white px-3 py-1.5 text-sm">
+            <div className="flex items-center justify-between rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm">
               <span>{selectedStyle.name}</span>
-              <button type="button" onClick={() => set('styleId', null)} className="text-xs font-medium text-amber-800 underline">
+              <button type="button" onClick={() => set('styleId', null)} className="text-xs font-medium text-indigo-600 underline">
                 Changer
               </button>
             </div>
@@ -157,7 +182,7 @@ export function RecipeForm({
                 className="field-input"
               />
               {filteredStyles.length > 0 && (
-                <ul className="mt-1 max-h-40 overflow-y-auto rounded-lg border border-stone-200 bg-white text-sm shadow-sm">
+                <ul className="mt-1 max-h-40 overflow-y-auto rounded-lg border border-slate-200 bg-white text-sm shadow-sm">
                   {filteredStyles.map((s) => (
                     <li key={s.id}>
                       <button
@@ -166,7 +191,7 @@ export function RecipeForm({
                           set('styleId', s.id)
                           setStyleQuery('')
                         }}
-                        className="block w-full px-3 py-1.5 text-left hover:bg-amber-50"
+                        className="block w-full px-3 py-1.5 text-left hover:bg-indigo-50"
                       >
                         {s.name}
                       </button>
@@ -207,18 +232,60 @@ export function RecipeForm({
           </select>
         </div>
 
-        <div>
-          <FieldLabel hint="Volume final visé dans le fermenteur, après ébullition et refroidissement. C'est la base de tous les calculs (densité, IBU, SRM, eau à prévoir).">
-            Volume cible (L)
+        <div className="sm:col-span-2">
+          <FieldLabel hint="Par défaut, vous fixez le volume final visé et tout le reste (eau, pré-ébullition) est calculé en aval. En choisissant « Volume pré-ébullition », vous fixez à la place la limite de votre cuve et c'est le volume final réellement atteignable qui est déduit — utile pour dimensionner correctement le grain/houblon/levure quand la cuve est le facteur limitant.">
+            Ancrer le dimensionnement sur
           </FieldLabel>
-          <input
-            type="number"
-            step="0.1"
-            value={value.targetVolumeL}
-            onChange={(e) => set('targetVolumeL', Number.parseFloat(e.target.value))}
-            className="field-input"
-          />
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => switchVolumeAnchor('final')}
+              className={volumeAnchor === 'final' ? 'btn-primary btn-sm' : 'btn-secondary btn-sm'}
+            >
+              Volume final (fermenteur)
+            </button>
+            <button
+              type="button"
+              onClick={() => switchVolumeAnchor('preboil')}
+              disabled={!selectedEquipment}
+              title={!selectedEquipment ? "Sélectionnez d'abord un profil d'équipement" : undefined}
+              className={volumeAnchor === 'preboil' ? 'btn-primary btn-sm' : 'btn-secondary btn-sm'}
+            >
+              Volume pré-ébullition (cuve)
+            </button>
+          </div>
         </div>
+
+        {volumeAnchor === 'final' ? (
+          <div>
+            <FieldLabel hint="Volume final visé dans le fermenteur, après ébullition et refroidissement. C'est la base de tous les calculs (densité, IBU, SRM, eau à prévoir).">
+              Volume cible (L)
+            </FieldLabel>
+            <input
+              type="number"
+              step="0.1"
+              value={value.targetVolumeL}
+              onChange={(e) => set('targetVolumeL', Number.parseFloat(e.target.value))}
+              className="field-input"
+            />
+          </div>
+        ) : (
+          <div>
+            <FieldLabel hint="Le volume maximal que votre cuve peut contenir avant ébullition (laissez une marge anti-débordement). Le volume final en fermenteur est recalculé automatiquement à partir de cette limite.">
+              Volume pré-ébullition visé (L)
+            </FieldLabel>
+            <input
+              type="number"
+              step="0.1"
+              value={preBoilTargetL}
+              onChange={(e) => setPreBoilTargetL(e.target.value)}
+              className="field-input"
+            />
+            <p className="mt-1 text-xs text-slate-500">
+              ≈ <strong>{value.targetVolumeL.toFixed(1)} L</strong> dans le fermenteur
+            </p>
+          </div>
+        )}
         <div>
           <FieldLabel hint="Durée de l'ébullition en minutes. Impacte l'évaporation (donc le volume d'eau à prévoir), l'utilisation des houblons amérisants (IBU) et la concentration finale du moût.">
             Durée d'ébullition (min)
@@ -292,7 +359,7 @@ export function RecipeForm({
           </div>
         </div>
         {selectedStyle && (
-          <p className={`mt-3 text-sm font-medium ${styleMatch?.allMatch ? 'text-green-700' : 'text-amber-700'}`}>
+          <p className={`mt-3 text-sm font-medium ${styleMatch?.allMatch ? 'text-green-700' : 'text-orange-600'}`}>
             {styleMatch?.allMatch ? '✓ Conforme au style ' : '⚠ Hors plage pour certains critères du style '}
             {selectedStyle.name} (OG {selectedStyle.ogMin}-{selectedStyle.ogMax}, IBU {selectedStyle.ibuMin}-
             {selectedStyle.ibuMax}, SRM {selectedStyle.srmMin}-{selectedStyle.srmMax}, ABV {selectedStyle.abvMin}-
@@ -308,17 +375,17 @@ export function RecipeForm({
             <h2 className="section-title">Eau &amp; volumes</h2>
             <InlineHint text="Calculé à partir du profil d'équipement sélectionné : évaporation, absorption du grain, pertes de cuve et contraction thermique. Permet de savoir combien d'eau prévoir et si votre cuve est assez grande." />
           </div>
-          <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-3">
+            <VolumeStat label="Eau d'empâtage" value={volumes.mashWaterL} />
+            <VolumeStat label="Eau de rinçage" value={volumes.spargeWaterL} />
             <VolumeStat label="Eau totale à prévoir" value={volumes.totalWaterNeededL} />
-            <VolumeStat
-              label="Volume pré-ébullition"
-              value={volumes.preBoilVolumeL}
-              warn={kettleOverflow}
-            />
+          </div>
+          <div className="mt-3 grid grid-cols-2 gap-3 text-sm sm:grid-cols-3">
+            <VolumeStat label="Volume pré-ébullition" value={volumes.preBoilVolumeL} warn={kettleOverflow} />
             <VolumeStat label="Volume post-ébullition" value={volumes.postBoilVolumeL} />
             <VolumeStat label="Volume en fermenteur" value={volumes.volumeIntoFermenterL} />
           </div>
-          <p className="mt-2 text-xs text-stone-500">
+          <p className="mt-2 text-xs text-slate-500">
             Cuve d'ébullition « {selectedEquipment.name} » : {selectedEquipment.boilKettleVolumeL} L de capacité.
           </p>
           {kettleOverflow && (
@@ -331,7 +398,7 @@ export function RecipeForm({
         </div>
       )}
       {!selectedEquipment && (
-        <p className="text-sm text-stone-500">
+        <p className="text-sm text-slate-500">
           Sélectionnez un profil d'équipement ci-dessus pour calculer les volumes d'eau et vérifier que votre matériel
           convient à cette recette.
         </p>
@@ -459,13 +526,13 @@ function InlineHintButton({ text }: { text: string }) {
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-stone-200 text-[10px] font-bold text-stone-600 hover:bg-amber-300 hover:text-amber-950"
+        className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-slate-200 text-[10px] font-bold text-slate-600 hover:bg-indigo-100 hover:text-indigo-700"
         aria-label="Aide"
       >
         ?
       </button>
       {open && (
-        <div className="absolute left-0 top-full z-30 mt-2 w-72 rounded-lg border border-stone-700 bg-stone-900 p-3 text-xs font-normal leading-relaxed text-stone-100 shadow-xl">
+        <div className="absolute left-0 top-full z-30 mt-2 w-72 rounded-lg border border-slate-700 bg-slate-900 p-3 text-xs font-normal leading-relaxed text-slate-100 shadow-xl">
           {text}
         </div>
       )}
@@ -475,12 +542,12 @@ function InlineHintButton({ text }: { text: string }) {
 
 function Stat({ label, value, ok, hint }: { label: string; value: string; ok?: boolean; hint?: string }) {
   return (
-    <div className={`rounded-xl border px-2.5 py-1.5 ${ok === undefined ? 'border-stone-200 bg-white' : ok ? 'border-green-300 bg-green-50' : 'border-red-300 bg-red-50'}`}>
-      <div className="flex items-center text-xs text-stone-500">
+    <div className={`rounded-xl border px-2.5 py-1.5 ${ok === undefined ? 'border-slate-200 bg-white' : ok ? 'border-green-300 bg-green-50' : 'border-red-300 bg-red-50'}`}>
+      <div className="flex items-center text-xs text-slate-500">
         {label}
         {hint && <InfoTooltipInline text={hint} />}
       </div>
-      <div className="font-semibold text-stone-800">{value}</div>
+      <div className="font-semibold text-slate-800">{value}</div>
     </div>
   )
 }
@@ -492,13 +559,13 @@ function InfoTooltipInline({ text }: { text: string }) {
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="ml-1 inline-flex h-3.5 w-3.5 items-center justify-center rounded-full bg-stone-200 text-[9px] font-bold text-stone-600 hover:bg-amber-300 hover:text-amber-950"
+        className="ml-1 inline-flex h-3.5 w-3.5 items-center justify-center rounded-full bg-slate-200 text-[9px] font-bold text-slate-600 hover:bg-indigo-100 hover:text-indigo-700"
         aria-label="Aide"
       >
         ?
       </button>
       {open && (
-        <div className="absolute left-1/2 top-full z-30 mt-2 w-56 -translate-x-1/2 rounded-lg border border-stone-700 bg-stone-900 p-2.5 text-xs font-normal leading-relaxed text-stone-100 shadow-xl">
+        <div className="absolute left-1/2 top-full z-30 mt-2 w-56 -translate-x-1/2 rounded-lg border border-slate-700 bg-slate-900 p-2.5 text-xs font-normal leading-relaxed text-slate-100 shadow-xl">
           {text}
         </div>
       )}
@@ -508,9 +575,9 @@ function InfoTooltipInline({ text }: { text: string }) {
 
 function VolumeStat({ label, value, warn }: { label: string; value: number; warn?: boolean }) {
   return (
-    <div className={`rounded-xl border px-2.5 py-1.5 ${warn ? 'border-red-300 bg-red-100' : 'border-stone-200 bg-white'}`}>
-      <div className="text-xs text-stone-500">{label}</div>
-      <div className={`font-semibold ${warn ? 'text-red-700' : 'text-stone-800'}`}>{value.toFixed(1)} L</div>
+    <div className={`rounded-xl border px-2.5 py-1.5 ${warn ? 'border-red-300 bg-red-100' : 'border-slate-200 bg-white'}`}>
+      <div className="text-xs text-slate-500">{label}</div>
+      <div className={`font-semibold ${warn ? 'text-red-700' : 'text-slate-800'}`}>{value.toFixed(1)} L</div>
     </div>
   )
 }
@@ -550,7 +617,7 @@ function RowSection<T>({
       {headers && rows.length > 0 && (
         <div className="mb-1 hidden gap-2 sm:grid" style={{ gridTemplateColumns: `${columns} auto` }}>
           {headers.map((h, i) => (
-            <div key={h} className="flex items-center text-xs font-semibold uppercase tracking-wide text-stone-500">
+            <div key={h} className="flex items-center text-xs font-semibold uppercase tracking-wide text-slate-500">
               {h}
               {headerHints?.[i] && <InfoTooltipInline text={headerHints[i]!} />}
             </div>
@@ -567,7 +634,7 @@ function RowSection<T>({
             </button>
           </div>
         ))}
-        {rows.length === 0 && <p className="text-sm text-stone-400">Aucune ligne.</p>}
+        {rows.length === 0 && <p className="text-sm text-slate-400">Aucune ligne.</p>}
       </div>
     </div>
   )

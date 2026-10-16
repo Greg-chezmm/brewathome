@@ -39,7 +39,7 @@ export function StrikeWaterTool({
       {!embedded && (
         <>
           <h2 className="section-title mb-1">Température d'eau d'empâtage</h2>
-          <p className="mb-3 text-sm text-stone-500">
+          <p className="mb-3 text-sm text-slate-500">
             Calcule la température à laquelle chauffer l'eau d'empâtage pour atteindre le palier visé, en tenant
             compte de l'inertie thermique du grain (plus froid que l'eau).
           </p>
@@ -92,7 +92,7 @@ export function StrikeWaterTool({
         </div>
       </div>
       {strikeTemp !== null && (
-        <p className="mt-3 text-sm font-medium text-amber-800">
+        <p className="mt-3 text-sm font-medium text-indigo-600">
           Chauffez l'eau à <strong>{strikeTemp.toFixed(1)} °C</strong> avant d'y verser le grain
           {Number.isFinite(ratio) && <> (ratio {ratio.toFixed(1)} L/kg)</>}.
         </p>

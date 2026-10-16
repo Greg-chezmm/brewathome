@@ -24,7 +24,7 @@ export function GravityCorrectionTool({ targetGravity }: { targetGravity?: numbe
       if (current > target) {
         const { waterToAddL, newVolumeL } = calculateDilutionWater(volume, current, target)
         result = (
-          <p className="text-sm font-medium text-amber-800">
+          <p className="text-sm font-medium text-indigo-600">
             Densité trop élevée : ajoutez environ <strong>{waterToAddL.toFixed(2)} L d'eau</strong> (nouveau volume ≈{' '}
             {newVolumeL.toFixed(1)} L) pour atteindre {target.toFixed(3)}.
           </p>
@@ -32,7 +32,7 @@ export function GravityCorrectionTool({ targetGravity }: { targetGravity?: numbe
       } else {
         const { gramsToAdd } = calculateFermentableAddition(volume, current, target, additionType)
         result = (
-          <p className="text-sm font-medium text-amber-800">
+          <p className="text-sm font-medium text-indigo-600">
             Densité trop basse : ajoutez environ <strong>{gramsToAdd.toFixed(0)} g</strong> de{' '}
             {FERMENTABLE_ADDITION_LABELS[additionType]} pour atteindre {target.toFixed(3)}.
           </p>
@@ -48,7 +48,7 @@ export function GravityCorrectionTool({ targetGravity }: { targetGravity?: numbe
       <div className="mb-1 flex items-center gap-1.5">
         <h2 className="section-title">Correction de densité</h2>
       </div>
-      <p className="mb-3 text-sm text-stone-500">
+      <p className="mb-3 text-sm text-slate-500">
         Si la densité mesurée s'écarte de la cible, calculez la dilution ou l'ajout de matière nécessaire.
       </p>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">

@@ -29,7 +29,7 @@ export function RecipeDetail() {
     enabled: !!recipe?.equipmentProfileId,
   })
 
-  if (isLoading) return <p className="text-stone-500">Chargement…</p>
+  if (isLoading) return <p className="text-slate-500">Chargement…</p>
   if (error) return <p className="text-red-600">{(error as Error).message}</p>
   if (!recipe) return null
 
@@ -74,13 +74,13 @@ export function RecipeDetail() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-start gap-4">
           <BeerGlass srm={recipe.estSrm} size={56} />
           <div>
-            <h1 className="font-display text-2xl font-semibold text-stone-800">{recipe.name}</h1>
-            <p className="text-stone-500">
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900">{recipe.name}</h1>
+            <p className="text-slate-500">
               {style?.name ?? 'Style non précisé'} · {recipe.targetVolumeL} L · {recipe.type}
             </p>
           </div>
@@ -129,7 +129,7 @@ export function RecipeDetail() {
           />
         </div>
         {styleMatch && (
-          <p className={`mt-2 text-sm font-medium ${styleMatch.allMatch ? 'text-green-700' : 'text-amber-700'}`}>
+          <p className={`mt-2 text-sm font-medium ${styleMatch.allMatch ? 'text-green-700' : 'text-orange-600'}`}>
             {styleMatch.allMatch ? '✓ Conforme au style' : '⚠ Hors plage pour certains critères du style'}
           </p>
         )}
@@ -137,10 +137,10 @@ export function RecipeDetail() {
 
       <section className="card">
         <h2 className="section-title mb-2">Fermentescibles</h2>
-        <ul className="divide-y divide-stone-100 text-sm text-stone-700">
+        <ul className="divide-y divide-slate-100 text-sm text-slate-700">
           {recipe.fermentables.map((f, i) => (
             <li key={i} className="py-1.5">
-              <span className="font-medium text-stone-800">{f.amountKg} kg</span> — {f.name} ({f.type},{' '}
+              <span className="font-medium text-slate-800">{f.amountKg} kg</span> — {f.name} ({f.type},{' '}
               {f.colorLovibond}°L, {f.yieldPercent}%)
             </li>
           ))}
@@ -149,10 +149,10 @@ export function RecipeDetail() {
 
       <section className="card">
         <h2 className="section-title mb-2">Houblons</h2>
-        <ul className="divide-y divide-stone-100 text-sm text-stone-700">
+        <ul className="divide-y divide-slate-100 text-sm text-slate-700">
           {recipe.hops.map((h, i) => (
             <li key={i} className="py-1.5">
-              <span className="font-medium text-stone-800">{h.amountG} g</span> — {h.name} ({h.alphaAcidPercent}%
+              <span className="font-medium text-slate-800">{h.amountG} g</span> — {h.name} ({h.alphaAcidPercent}%
               AA, {h.timeMin} min, {h.use})
             </li>
           ))}
@@ -162,17 +162,17 @@ export function RecipeDetail() {
       <section className="card">
         <h2 className="section-title mb-2">Levures &amp; quantité recommandée</h2>
         {recipe.yeasts.map((y, i) => (
-          <p key={i} className="text-sm text-stone-700">
+          <p key={i} className="text-sm text-slate-700">
             {y.name} ({y.type === 'dry' ? 'sèche' : 'liquide'}, {y.style}, atténuation {y.attenuationPercent}%)
           </p>
         ))}
         {yeastRecommendation && 'minGrams' in yeastRecommendation && (
-          <p className="mt-2 text-sm font-medium text-amber-800">
+          <p className="mt-2 text-sm font-medium text-indigo-600">
             Quantité recommandée : {yeastRecommendation.minGrams.toFixed(1)}–{yeastRecommendation.maxGrams.toFixed(1)} g
           </p>
         )}
         {yeastRecommendation && 'cellsNeededBillions' in yeastRecommendation && (
-          <p className="mt-2 text-sm font-medium text-amber-800">
+          <p className="mt-2 text-sm font-medium text-indigo-600">
             Besoin estimé : {yeastRecommendation.cellsNeededBillions.toFixed(0)} milliards de cellules viables (≈{' '}
             {yeastRecommendation.packsFresh} sachet(s)/vial(s) frais de 100 milliards)
           </p>
@@ -185,8 +185,12 @@ export function RecipeDetail() {
             <h2 className="section-title">Volumes (profil « {equipmentProfile?.name} »)</h2>
             <InfoTooltip text="Calculé à partir du profil d'équipement : évaporation, absorption du grain, pertes de cuve et contraction thermique." />
           </div>
-          <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-3">
+            <VolumeStat label="Eau d'empâtage" value={volumes.mashWaterL} />
+            <VolumeStat label="Eau de rinçage" value={volumes.spargeWaterL} />
             <VolumeStat label="Eau totale nécessaire" value={volumes.totalWaterNeededL} />
+          </div>
+          <div className="mt-3 grid grid-cols-2 gap-3 text-sm sm:grid-cols-3">
             <VolumeStat label="Volume pré-ébullition" value={volumes.preBoilVolumeL} warn={kettleOverflow} />
             <VolumeStat label="Volume post-ébullition" value={volumes.postBoilVolumeL} />
             <VolumeStat label="Volume final en fermenteur" value={volumes.volumeIntoFermenterL} />
@@ -211,21 +215,21 @@ export function RecipeDetail() {
 
 function Stat({ label, value, ok, hint }: { label: string; value: string; ok?: boolean; hint?: string }) {
   return (
-    <div className={`rounded-xl border px-2.5 py-1.5 ${ok === undefined ? 'border-stone-200 bg-white' : ok ? 'border-green-300 bg-green-50' : 'border-red-300 bg-red-50'}`}>
-      <div className="flex items-center text-xs text-stone-500">
+    <div className={`rounded-xl border px-2.5 py-1.5 ${ok === undefined ? 'border-slate-200 bg-white' : ok ? 'border-green-300 bg-green-50' : 'border-red-300 bg-red-50'}`}>
+      <div className="flex items-center text-xs text-slate-500">
         {label}
         {hint && <InfoTooltip text={hint} />}
       </div>
-      <div className="font-semibold text-stone-800">{value}</div>
+      <div className="font-semibold text-slate-800">{value}</div>
     </div>
   )
 }
 
 function VolumeStat({ label, value, warn }: { label: string; value: number; warn?: boolean }) {
   return (
-    <div className={`rounded-xl border px-2.5 py-1.5 ${warn ? 'border-red-300 bg-red-100' : 'border-stone-200 bg-white'}`}>
-      <div className="text-xs text-stone-500">{label}</div>
-      <div className={`font-semibold ${warn ? 'text-red-700' : 'text-stone-800'}`}>{value.toFixed(1)} L</div>
+    <div className={`rounded-xl border px-2.5 py-1.5 ${warn ? 'border-red-300 bg-red-100' : 'border-slate-200 bg-white'}`}>
+      <div className="text-xs text-slate-500">{label}</div>
+      <div className={`font-semibold ${warn ? 'text-red-700' : 'text-slate-800'}`}>{value.toFixed(1)} L</div>
     </div>
   )
 }

@@ -6,7 +6,7 @@ export function ProtectedRoute() {
   const location = useLocation()
 
   if (loading) {
-    return <div className="p-8 text-center text-stone-500">Chargement…</div>
+    return <div className="p-8 text-center text-slate-500">Chargement…</div>
   }
 
   if (!session) {

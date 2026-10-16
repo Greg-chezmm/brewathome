@@ -44,6 +44,12 @@ const FIELDS: Array<{ key: keyof EquipmentProfile; label: string; step?: string;
     hint: "Volume d'eau retenu par le grain gorgé d'eau après empâtage/rinçage, par kg de grain. Typique : 0,8-1,1 L/kg.",
   },
   {
+    key: 'waterToGrainRatioLPerKg',
+    label: 'Ratio eau/grain à l’empâtage (L/kg)',
+    step: '0.1',
+    hint: "Volume d'eau visé pour l'empâtage, par kg de grain (un empâtage \"épais\" utilise moins d'eau, ex. 2,5 L/kg ; \"fin\" davantage, ex. 3,5-4 L/kg). Le reste de l'eau totale nécessaire part au rinçage. Typique : 3 L/kg.",
+  },
+  {
     key: 'hopAbsorptionL',
     label: 'Absorption houblon/trub (L)',
     step: '0.1',
@@ -121,11 +127,11 @@ export function EquipmentProfileDetail() {
     navigate('/equipment-profiles')
   }
 
-  if (loading) return <p className="text-stone-500">Chargement…</p>
+  if (loading) return <p className="text-slate-500">Chargement…</p>
 
   return (
-    <div className="max-w-lg space-y-4">
-      <h1 className="font-display text-2xl font-semibold text-stone-800">
+    <div className="max-w-lg space-y-6">
+      <h1 className="text-2xl font-bold tracking-tight text-slate-900">
         {isNew ? 'Nouveau profil d’équipement' : profile.name}
       </h1>
 

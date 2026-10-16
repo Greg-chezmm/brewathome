@@ -9,19 +9,19 @@ export function EquipmentProfilesList() {
   })
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="font-display text-3xl font-semibold text-stone-800">Profils d'équipement</h1>
+        <h1 className="text-3xl font-bold tracking-tight text-slate-900">Profils d'équipement</h1>
         <Link to="/equipment-profiles/new" className="btn-primary">
           Nouveau profil
         </Link>
       </div>
 
-      {isLoading && <p className="text-stone-500">Chargement…</p>}
+      {isLoading && <p className="text-slate-500">Chargement…</p>}
       {error && <p className="text-red-600">{(error as Error).message}</p>}
 
       {profiles && profiles.length === 0 && (
-        <p className="text-stone-500">
+        <p className="text-slate-500">
           Aucun profil pour l'instant. Créez-en un pour décrire votre installation (volumes, pertes).
         </p>
       )}
@@ -30,8 +30,8 @@ export function EquipmentProfilesList() {
         {profiles?.map((p) => (
           <li key={p.id}>
             <Link to={`/equipment-profiles/${p.id}`} className="card-link">
-              <h2 className="font-semibold text-amber-900">{p.name}</h2>
-              <p className="text-sm text-stone-500">
+              <h2 className="font-semibold text-slate-900">{p.name}</h2>
+              <p className="text-sm text-slate-500">
                 {p.targetBatchVolumeL} L cible · cuve {p.boilKettleVolumeL} L · ébullition {p.boilTimeMin} min ·
                 efficacité {p.mashEfficiencyPercent}% · {p.method}
               </p>

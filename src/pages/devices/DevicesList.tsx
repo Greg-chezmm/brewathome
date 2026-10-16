@@ -56,20 +56,20 @@ export function DevicesList() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div>
-        <h1 className="font-display text-3xl font-semibold text-stone-800">Appareils connectés</h1>
-        <p className="text-stone-600">
+        <h1 className="text-3xl font-bold tracking-tight text-slate-900">Appareils connectés</h1>
+        <p className="text-slate-600">
           Associez un iSpindel à un brassin pour recevoir automatiquement densité et température dans le graphique
           de fermentation.
         </p>
       </div>
 
       <details className="card-tinted">
-        <summary className="cursor-pointer font-semibold text-amber-900">
+        <summary className="cursor-pointer font-semibold text-slate-900">
           Comment connecter un iSpindel ? (marche à suivre complète)
         </summary>
-        <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm text-stone-700">
+        <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm text-slate-700">
           <li>
             Ci-dessous, ajoutez un appareil de type <strong>iSpindel</strong> et donnez-lui un nom (ex : « iSpindel
             cuisine »).
@@ -96,7 +96,7 @@ export function DevicesList() {
             <strong>Suivi de fermentation</strong> du brassin.
           </li>
         </ol>
-        <p className="mt-3 text-xs text-stone-500">
+        <p className="mt-3 text-xs text-slate-500">
           Important : ceci ne fonctionne que si l'Edge Function Supabase <code>ispindel</code> a été déployée côté
           serveur (une seule fois, voir la documentation technique) — sans ça, l'URL ne répondra pas et aucune
           mesure ne sera enregistrée.
@@ -126,24 +126,24 @@ export function DevicesList() {
         </button>
       </form>
 
-      {isLoading && <p className="text-stone-500">Chargement…</p>}
+      {isLoading && <p className="text-slate-500">Chargement…</p>}
 
       <ul className="space-y-3">
         {devices?.map((device) => (
           <li key={device.id} className="card">
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
-                <h2 className="font-semibold text-amber-900">
+                <h2 className="font-semibold text-slate-900">
                   {device.name} <span className="badge ml-1">{device.type}</span>
                 </h2>
                 {device.type === 'ispindel' && (
-                  <div className="mt-2 space-y-1 text-xs text-stone-500">
+                  <div className="mt-2 space-y-1 text-xs text-slate-500">
                     <div className="flex items-center">
-                      <span className="font-medium text-stone-600">URL à configurer sur l'iSpindel</span>
+                      <span className="font-medium text-slate-600">URL à configurer sur l'iSpindel</span>
                       <InfoTooltip text="Dans la config Wi-Fi de l'iSpindel (portail au démarrage) : Service = HTTP, et collez cette URL complète dans le champ URL/Token. Le token identifie l'appareil, pas besoin d'en-tête d'authentification." />
                     </div>
                     <div className="flex items-center gap-2">
-                      <code className="block flex-1 overflow-x-auto rounded bg-stone-100 px-2 py-1">
+                      <code className="block flex-1 overflow-x-auto rounded bg-slate-100 px-2 py-1">
                         {SUPABASE_FUNCTIONS_URL}?token={device.apiToken}
                       </code>
                       <button
@@ -179,7 +179,7 @@ export function DevicesList() {
           </li>
         ))}
         {devices && devices.length === 0 && (
-          <p className="text-sm text-stone-500">Aucun appareil pour l'instant.</p>
+          <p className="text-sm text-slate-500">Aucun appareil pour l'instant.</p>
         )}
       </ul>
     </div>

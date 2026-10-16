@@ -37,17 +37,17 @@ export function RecipeImport() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div>
-        <h1 className="font-display text-3xl font-semibold text-stone-800">Importer un BeerXML</h1>
-        <p className="text-stone-600">
+        <h1 className="text-3xl font-bold tracking-tight text-slate-900">Importer un BeerXML</h1>
+        <p className="text-slate-600">
           Sélectionnez un fichier .xml exporté depuis Little Bock, BeerSmith, Brewfather, etc.
         </p>
       </div>
 
-      <label className="card flex cursor-pointer flex-col items-center justify-center gap-2 border-2 border-dashed border-amber-300 bg-amber-50/50 py-8 text-center transition hover:border-amber-400 hover:bg-amber-50">
+      <label className="card flex cursor-pointer flex-col items-center justify-center gap-2 border-2 border-dashed border-slate-300 bg-indigo-50/50 py-8 text-center transition hover:border-indigo-400 hover:bg-indigo-50">
         <span className="text-2xl">📄</span>
-        <span className="text-sm font-medium text-amber-900">Cliquez pour choisir un fichier .xml</span>
+        <span className="text-sm font-medium text-slate-900">Cliquez pour choisir un fichier .xml</span>
         <input type="file" accept=".xml" onChange={handleFileChange} className="hidden" />
       </label>
 
@@ -69,13 +69,13 @@ export function RecipeImport() {
             <li key={`${draft.name}-${index}`} className="card">
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <h2 className="font-semibold text-amber-900">{draft.name}</h2>
-                  <p className="text-sm text-stone-500">
+                  <h2 className="font-semibold text-slate-900">{draft.name}</h2>
+                  <p className="text-sm text-slate-500">
                     {draft.style?.name ?? 'Style non précisé'} · {draft.targetVolumeL} L · {draft.fermentables.length}{' '}
                     fermentescible(s), {draft.hops.length} houblon(s), {draft.yeasts.length} levure(s)
                   </p>
                   {draft.sourceEstimates.og && (
-                    <p className="text-xs text-stone-400">
+                    <p className="text-xs text-slate-400">
                       Annoncé par le fichier source : OG {draft.sourceEstimates.og.toFixed(3)}, IBU{' '}
                       {draft.sourceEstimates.ibu}, ABV {draft.sourceEstimates.abv}%
                     </p>

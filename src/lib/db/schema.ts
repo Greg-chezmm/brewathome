@@ -35,6 +35,9 @@ export const equipmentProfiles = pgTable('equipment_profiles', {
   grainAbsorptionLPerKg: numeric('grain_absorption_l_per_kg', { precision: 4, scale: 2 })
     .notNull()
     .default('1.0'),
+  waterToGrainRatioLPerKg: numeric('water_to_grain_ratio_l_per_kg', { precision: 4, scale: 2 })
+    .notNull()
+    .default('3'),
   hopAbsorptionL: numeric('hop_absorption_l', { precision: 4, scale: 2 }).notNull().default('1.5'),
   deadspaceL: numeric('deadspace_l', { precision: 4, scale: 2 }).notNull().default('1.0'),
   thermalShrinkagePercent: numeric('thermal_shrinkage_percent', { precision: 4, scale: 2 })

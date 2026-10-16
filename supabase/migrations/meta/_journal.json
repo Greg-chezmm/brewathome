@@ -36,6 +36,13 @@
       "when": 1792138012000,
       "tag": "0004_devices_active_batch",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1792138012001,
+      "tag": "0005_water_to_grain_ratio",
+      "breakpoints": true
     }
   ]
 }

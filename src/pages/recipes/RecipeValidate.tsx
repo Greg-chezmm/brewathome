@@ -36,32 +36,32 @@ export function RecipeValidate() {
     }
   }
 
-  if (!recipe) return <p className="text-stone-500">Chargement…</p>
+  if (!recipe) return <p className="text-slate-500">Chargement…</p>
 
   return (
-    <div className="max-w-md space-y-4">
-      <h1 className="text-2xl font-semibold text-stone-800">Valider « {recipe.name} » en brassin</h1>
-      <p className="text-stone-600">
+    <div className="max-w-md space-y-6">
+      <h1 className="text-2xl font-semibold text-slate-800">Valider « {recipe.name} » en brassin</h1>
+      <p className="text-slate-600">
         Une copie figée de la recette (ingrédients, stats estimées) sera enregistrée pour ce brassin. Les
         modifications ultérieures de la recette n'affecteront pas ce brassin.
       </p>
 
-      <div className="space-y-3 rounded-lg border border-amber-200 bg-white p-4">
+      <div className="space-y-3 rounded-lg border border-slate-200 bg-white p-4">
         <div>
-          <label className="mb-1 block text-sm font-medium text-stone-700">Nom du brassin</label>
+          <label className="mb-1 block text-sm font-medium text-slate-700">Nom du brassin</label>
           <input
             value={effectiveName}
             onChange={(e) => setName(e.target.value)}
-            className="w-full rounded border border-stone-300 px-3 py-1.5 text-sm"
+            className="w-full rounded border border-slate-300 px-3 py-1.5 text-sm"
           />
         </div>
         <div>
-          <label className="mb-1 block text-sm font-medium text-stone-700">Date de brassage</label>
+          <label className="mb-1 block text-sm font-medium text-slate-700">Date de brassage</label>
           <input
             type="date"
             value={brewDate}
             onChange={(e) => setBrewDate(e.target.value)}
-            className="w-full rounded border border-stone-300 px-3 py-1.5 text-sm"
+            className="w-full rounded border border-slate-300 px-3 py-1.5 text-sm"
           />
         </div>
         {error && <p className="text-sm text-red-600">{error}</p>}

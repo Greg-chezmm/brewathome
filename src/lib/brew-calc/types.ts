@@ -48,6 +48,8 @@ export interface EquipmentProfile {
   evaporationRatePercentPerHour: number
   /** Absorption d'eau par le grain, en litres par kg. */
   grainAbsorptionLPerKg: number
+  /** Ratio eau/grain visé pour l'empâtage, en litres par kg (le reste de l'eau totale va au rinçage). */
+  waterToGrainRatioLPerKg: number
   /** Pertes groupées houblon/trub en litres. */
   hopAbsorptionL: number
   /** Volume mort non soutirable de la cuve d'ébullition, en litres. */

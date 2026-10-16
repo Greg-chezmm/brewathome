@@ -62,9 +62,9 @@ export function BatchFermentation() {
   }))
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div className="flex items-center justify-between">
-        <h1 className="font-display text-2xl font-semibold text-stone-800">Suivi de fermentation</h1>
+        <h1 className="text-2xl font-bold tracking-tight text-slate-900">Suivi de fermentation</h1>
         <Link to="/devices" className="btn-secondary btn-sm">
           📡 Associer un iSpindel
         </Link>
@@ -72,40 +72,36 @@ export function BatchFermentation() {
 
       <form onSubmit={handleSubmit} className="card flex flex-wrap items-end gap-3">
         <div>
-          <label className="mb-1 block text-xs font-medium text-stone-700">Densité</label>
+          <label className="mb-1 block text-xs font-medium text-slate-700">Densité</label>
           <input
             type="number"
             step="0.001"
             placeholder="1.020"
             value={gravity}
             onChange={(e) => setGravity(e.target.value)}
-            className="w-28 rounded border border-stone-300 px-2 py-1 text-sm"
+            className="w-28 rounded border border-slate-300 px-2 py-1 text-sm"
           />
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-stone-700">Température (°C)</label>
+          <label className="mb-1 block text-xs font-medium text-slate-700">Température (°C)</label>
           <input
             type="number"
             step="0.1"
             placeholder="19.0"
             value={temperature}
             onChange={(e) => setTemperature(e.target.value)}
-            className="w-28 rounded border border-stone-300 px-2 py-1 text-sm"
+            className="w-28 rounded border border-slate-300 px-2 py-1 text-sm"
           />
         </div>
         <div className="flex-1">
-          <label className="mb-1 block text-xs font-medium text-stone-700">Commentaire</label>
+          <label className="mb-1 block text-xs font-medium text-slate-700">Commentaire</label>
           <input
             value={comment}
             onChange={(e) => setComment(e.target.value)}
-            className="w-full rounded border border-stone-300 px-2 py-1 text-sm"
+            className="w-full rounded border border-slate-300 px-2 py-1 text-sm"
           />
         </div>
-        <button
-          type="submit"
-          disabled={saving}
-          className="rounded bg-amber-800 px-3 py-1.5 text-sm font-medium text-amber-50 hover:bg-amber-900 disabled:opacity-50"
-        >
+        <button type="submit" disabled={saving} className="btn-primary">
           Ajouter
         </button>
       </form>
@@ -120,7 +116,7 @@ export function BatchFermentation() {
               <YAxis yAxisId="temperature" orientation="right" domain={['auto', 'auto']} tick={{ fontSize: 11 }} />
               <Tooltip />
               <Legend />
-              <Line yAxisId="gravity" type="monotone" dataKey="gravity" name="Densité" stroke="#92400e" dot={{ r: 2 }} connectNulls />
+              <Line yAxisId="gravity" type="monotone" dataKey="gravity" name="Densité" stroke="#4f46e5" dot={{ r: 2 }} connectNulls />
               <Line yAxisId="temperature" type="monotone" dataKey="temperature" name="Température (°C)" stroke="#2563eb" dot={{ r: 2 }} connectNulls />
             </LineChart>
           </ResponsiveContainer>
@@ -132,7 +128,7 @@ export function BatchFermentation() {
           ?.slice()
           .reverse()
           .map((r) => (
-            <li key={r.id} className="flex items-center justify-between rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm">
+            <li key={r.id} className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm">
               <span className="flex items-center gap-2">
                 {r.source === 'ispindel' && <span title="iSpindel">📡</span>}
                 {new Date(r.recordedAt).toLocaleString('fr-FR')} — {r.gravity && `SG ${r.gravity.toFixed(3)}`}{' '}

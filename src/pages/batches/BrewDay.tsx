@@ -6,6 +6,7 @@ import { StrikeWaterTool } from '@/components/brew-day/StrikeWaterTool'
 import { useAlertSound } from '@/hooks/useAlertSound'
 import { formatDuration, useNowTick } from '@/hooks/useBrewTimer'
 import { useWakeLock } from '@/hooks/useWakeLock'
+import { calculateVolumes } from '@/lib/brew-calc/volumes'
 import {
   getBatchSteps,
   getBatchWithDetails,
@@ -13,6 +14,7 @@ import {
   type BatchStep,
   type BatchStepType,
 } from '@/lib/db/queries/batches'
+import { getEquipmentProfile } from '@/lib/db/queries/equipmentProfiles'
 
 const STEP_ICONS: Record<BatchStepType, string> = {
   mash: '🌾',
@@ -43,6 +45,12 @@ export function BrewDay() {
     queryFn: () => getBatchSteps(batchId!),
     enabled: !!batchId,
     refetchInterval: 5000,
+  })
+  const equipmentProfileId = batch?.recipeSnapshot.equipmentProfileId
+  const { data: equipmentProfile } = useQuery({
+    queryKey: ['equipment-profile', equipmentProfileId],
+    queryFn: () => getEquipmentProfile(equipmentProfileId!),
+    enabled: !!equipmentProfileId,
   })
 
   const boilStep = steps?.find((s) => s.stepType === 'boil')
@@ -77,18 +85,21 @@ export function BrewDay() {
     queryClient.invalidateQueries({ queryKey: ['batch-steps', batchId] })
   }
 
-  if (!batch || !steps) return <p className="text-stone-500">Chargement…</p>
+  if (!batch || !steps) return <p className="text-slate-500">Chargement…</p>
 
   const totalGrainKg = batch.recipeSnapshot.fermentables
     .filter((f) => f.type === 'grain')
     .reduce((sum, f) => sum + f.amountKg, 0)
+  const mashWaterL = equipmentProfile
+    ? calculateVolumes(batch.recipeSnapshot.targetVolumeL, totalGrainKg, equipmentProfile).mashWaterL
+    : undefined
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="font-display text-2xl font-semibold text-stone-800">Brew Day</h1>
-          <p className="text-stone-500">{batch.name}</p>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Brew Day</h1>
+          <p className="text-slate-500">{batch.name}</p>
         </div>
         {!soundEnabled && (
           <button
@@ -124,22 +135,22 @@ export function BrewDay() {
               key={step.id}
               className={`rounded-2xl border-2 p-4 shadow-sm transition-colors sm:p-5 ${
                 step.status === 'done'
-                  ? 'border-stone-200 bg-stone-50 opacity-60'
+                  ? 'border-slate-200 bg-slate-50 opacity-60'
                   : isDue
                     ? 'border-red-400 bg-red-50'
                     : step.status === 'in-progress'
-                      ? 'border-amber-400 bg-amber-50'
-                      : 'border-amber-200/70 bg-white'
+                      ? 'border-indigo-400 bg-indigo-50'
+                      : 'border-slate-200 bg-white'
               }`}
             >
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-100 text-lg">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-indigo-50 text-lg">
                     {STEP_ICONS[step.stepType]}
                   </span>
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-stone-400">Étape {index + 1}</p>
-                    <p className="font-semibold text-stone-800">{step.label}</p>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Étape {index + 1}</p>
+                    <p className="font-semibold text-slate-800">{step.label}</p>
                   </div>
                 </div>
                 <div className="flex gap-2">
@@ -162,7 +173,7 @@ export function BrewDay() {
               {step.stepType === 'hop-addition' && triggerAtSeconds !== null && boilStep?.actualStartAt && (
                 <p
                   className={`mt-2 ${
-                    isDue ? 'font-mono text-2xl font-bold text-red-700' : 'text-sm text-stone-500'
+                    isDue ? 'font-mono text-2xl font-bold text-red-700' : 'text-sm text-slate-500'
                   }`}
                 >
                   {isDue ? '⚠ À ajouter maintenant !' : `Dans ${formatDuration(triggerAtSeconds - boilElapsedSeconds)}`}
@@ -170,8 +181,8 @@ export function BrewDay() {
               )}
 
               {step.stepType === 'mash' && (
-                <div className="mt-4 border-t border-amber-200/60 pt-4">
-                  <StrikeWaterTool defaultGrainWeightKg={totalGrainKg} embedded />
+                <div className="mt-4 border-t border-slate-200 pt-4">
+                  <StrikeWaterTool defaultGrainWeightKg={totalGrainKg} defaultWaterVolumeL={mashWaterL} embedded />
                 </div>
               )}
             </li>
@@ -191,7 +202,7 @@ function StepTimer({ step, now }: { step: BatchStep; now: number }) {
       0,
       Math.round((new Date(step.actualEndAt).getTime() - new Date(step.actualStartAt).getTime()) / 1000),
     )
-    return <p className="mt-2 text-sm text-stone-400">Durée réelle : {formatDuration(totalSec)}</p>
+    return <p className="mt-2 text-sm text-slate-400">Durée réelle : {formatDuration(totalSec)}</p>
   }
 
   if (step.status !== 'in-progress' || !step.actualStartAt) return null
@@ -204,20 +215,20 @@ function StepTimer({ step, now }: { step: BatchStep; now: number }) {
     return (
       <div className="mt-2 flex items-baseline gap-2">
         <span
-          className={`font-mono text-4xl font-bold tabular-nums ${overdue ? 'text-red-600' : 'text-amber-900'}`}
+          className={`font-mono text-4xl font-bold tabular-nums ${overdue ? 'text-red-600' : 'text-indigo-600'}`}
         >
           {overdue ? '+' : ''}
           {formatDuration(Math.abs(remainingSec))}
         </span>
-        <span className="text-sm text-stone-500">{overdue ? 'de dépassement' : 'restant'}</span>
+        <span className="text-sm text-slate-500">{overdue ? 'de dépassement' : 'restant'}</span>
       </div>
     )
   }
 
   return (
     <div className="mt-2 flex items-baseline gap-2">
-      <span className="font-mono text-4xl font-bold tabular-nums text-amber-900">{formatDuration(elapsedSec)}</span>
-      <span className="text-sm text-stone-500">écoulé</span>
+      <span className="font-mono text-4xl font-bold tabular-nums text-indigo-600">{formatDuration(elapsedSec)}</span>
+      <span className="text-sm text-slate-500">écoulé</span>
     </div>
   )
 }
@@ -256,13 +267,13 @@ function StepProgressBar({
   }
 
   return (
-    <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-stone-200">
+    <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-slate-200">
       {indeterminate ? (
-        <div className="h-full w-1/3 animate-pulse rounded-full bg-amber-400" />
+        <div className="h-full w-1/3 animate-pulse rounded-full bg-indigo-400" />
       ) : (
         <div
           className={`h-full rounded-full transition-all duration-1000 ${
-            done ? 'bg-stone-400' : overdue ? 'bg-red-500' : 'bg-amber-500'
+            done ? 'bg-slate-400' : overdue ? 'bg-red-500' : 'bg-indigo-500'
           }`}
           style={{ width: `${Math.min(100, Math.max(0, percent))}%` }}
         />

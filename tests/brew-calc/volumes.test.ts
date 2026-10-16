@@ -9,6 +9,7 @@ const profile: EquipmentProfile = {
   boilTimeMin: 60,
   evaporationRatePercentPerHour: 12,
   grainAbsorptionLPerKg: 1.0,
+  waterToGrainRatioLPerKg: 3,
   hopAbsorptionL: 1.5,
   deadspaceL: 1.5,
   thermalShrinkagePercent: 4,
@@ -41,6 +42,19 @@ describe('calculateVolumes', () => {
     const lightGrist = calculateVolumes(20, 3, profile)
     const heavyGrist = calculateVolumes(20, 8, profile)
     expect(heavyGrist.totalWaterNeededL).toBeGreaterThan(lightGrist.totalWaterNeededL)
+  })
+
+  it('splits total water into mash water (ratio x grain) and sparge water (the remainder)', () => {
+    const result = calculateVolumes(20, 5, profile)
+    expect(result.mashWaterL).toBeCloseTo(5 * profile.waterToGrainRatioLPerKg, 6)
+    expect(result.spargeWaterL).toBeCloseTo(result.totalWaterNeededL - result.mashWaterL, 6)
+    expect(result.mashWaterL + result.spargeWaterL).toBeCloseTo(result.totalWaterNeededL, 6)
+  })
+
+  it('caps mash water at total water needed when the ratio would exceed it (no negative sparge)', () => {
+    const result = calculateVolumes(20, 1, { ...profile, waterToGrainRatioLPerKg: 50 })
+    expect(result.mashWaterL).toBeCloseTo(result.totalWaterNeededL, 6)
+    expect(result.spargeWaterL).toBe(0)
   })
 })
 

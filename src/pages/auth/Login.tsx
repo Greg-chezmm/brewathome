@@ -35,13 +35,13 @@ export function Login() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-amber-100 via-[#fdf8f1] to-orange-100 px-4">
-      <div className="w-full max-w-sm rounded-2xl border border-amber-200 bg-white p-6 shadow-lg shadow-amber-900/10">
+    <div className="flex min-h-screen items-center justify-center bg-slate-950 px-4">
+      <div className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-8 shadow-xl shadow-slate-950/40">
         <div className="mb-1 flex items-center justify-center gap-2">
           <BrewLogo size={34} />
-          <h1 className="font-display text-2xl font-semibold text-amber-900">BrewAtHome</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900">BrewAtHome</h1>
         </div>
-        <p className="mb-6 text-center text-sm text-stone-500">
+        <p className="mb-6 text-center text-sm text-slate-500">
           {mode === 'signin' ? 'Connectez-vous à votre compte' : 'Créez votre compte'}
         </p>
 
@@ -89,7 +89,7 @@ export function Login() {
             setError(null)
             setInfo(null)
           }}
-          className="mt-4 w-full text-center text-sm text-amber-800 hover:underline"
+          className="mt-4 w-full text-center text-sm text-indigo-600 hover:underline"
         >
           {mode === 'signin' ? "Pas encore de compte ? S'inscrire" : 'Déjà un compte ? Se connecter'}
         </button>

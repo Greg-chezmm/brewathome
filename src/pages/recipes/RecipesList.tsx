@@ -7,9 +7,9 @@ export function RecipesList() {
   const { data: recipes, isLoading, error } = useQuery({ queryKey: ['recipes'], queryFn: listRecipes })
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="font-display text-3xl font-semibold text-stone-800">Mes recettes</h1>
+        <h1 className="text-3xl font-bold tracking-tight text-slate-900">Mes recettes</h1>
         <div className="flex gap-2">
           <Link to="/recipes/import" className="btn-secondary">
             Importer un BeerXML
@@ -20,9 +20,9 @@ export function RecipesList() {
         </div>
       </div>
 
-      {isLoading && <p className="text-stone-500">Chargement…</p>}
+      {isLoading && <p className="text-slate-500">Chargement…</p>}
       {error && <p className="text-red-600">{(error as Error).message}</p>}
-      {recipes && recipes.length === 0 && <p className="text-stone-500">Aucune recette pour l'instant.</p>}
+      {recipes && recipes.length === 0 && <p className="text-slate-500">Aucune recette pour l'instant.</p>}
 
       <ul className="grid gap-3 sm:grid-cols-2">
         {recipes?.map((r) => (
@@ -31,10 +31,10 @@ export function RecipesList() {
               <BeerGlass srm={r.estSrm} size={48} />
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
-                  <h2 className="truncate font-semibold text-amber-900">{r.name}</h2>
+                  <h2 className="truncate font-semibold text-slate-900">{r.name}</h2>
                   <span className="badge shrink-0">{r.status}</span>
                 </div>
-                <p className="text-sm text-stone-500">
+                <p className="text-sm text-slate-500">
                   {r.estOg && `OG ${r.estOg.toFixed(3)} · `}
                   {r.estFg && `FG ${r.estFg.toFixed(3)} · `}
                   {r.estIbu !== null && `${r.estIbu.toFixed(0)} IBU · `}

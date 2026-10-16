@@ -3,6 +3,10 @@ import type { EquipmentProfile } from './types'
 export interface VolumeBreakdown {
   /** Eau totale (empâtage + rinçage) à prévoir. */
   totalWaterNeededL: number
+  /** Part de l'eau totale versée directement sur le grain à l'empâtage. */
+  mashWaterL: number
+  /** Eau de rinçage (le reste de l'eau totale, après l'empâtage). */
+  spargeWaterL: number
   /** Volume collecté avant ébullition. */
   preBoilVolumeL: number
   /** Volume en fin d'ébullition, moût encore chaud. */
@@ -38,8 +42,19 @@ export function calculateVolumes(
 
   const totalWaterNeededL = preBoilVolumeL + grainWeightKg * profile.grainAbsorptionLPerKg
 
+  // Répartition empâtage / rinçage : l'eau d'empâtage vise le ratio eau/grain
+  // configuré, le reste de l'eau totale part au rinçage. Si le ratio visé
+  // dépasse l'eau totale disponible (grain très faible ou ratio très élevé),
+  // on plafonne l'empâtage à l'eau totale et le rinçage tombe à 0.
+  // Source : AlchemyOverlord / Brewfather — eau d'empâtage = kg × ratio,
+  // plafonnée ; le reste = eau de rinçage.
+  const mashWaterL = Math.min(grainWeightKg * profile.waterToGrainRatioLPerKg, totalWaterNeededL)
+  const spargeWaterL = totalWaterNeededL - mashWaterL
+
   return {
     totalWaterNeededL,
+    mashWaterL,
+    spargeWaterL,
     preBoilVolumeL,
     postBoilVolumeL,
     volumeIntoFermenterL: targetFinalVolumeL,
@@ -49,9 +64,21 @@ export function calculateVolumes(
 /**
  * Calcule le volume final attendu en fermenteur à partir d'un volume
  * pré-ébullition réellement mesuré (utile en plein brew day pour vérifier si
- * le volume collecté est cohérent avec la recette). Fonction inverse de
+ * le volume collecté est cohérent avec la recette, ou pour dimensionner une
+ * recette à partir d'une limite de cuve d'ébullition). Fonction inverse de
  * `calculateVolumes`.
  */
+export function estimateFinalVolumeFromPreBoil(
+  preBoilVolumeL: number,
+  profile: EquipmentProfile,
+): number {
+  const boilTimeHours = profile.boilTimeMin / 60
+  const evaporationLossFraction = (profile.evaporationRatePercentPerHour / 100) * boilTimeHours
+  const postBoilVolumeL = preBoilVolumeL * (1 - evaporationLossFraction)
+  const hotTransferVolumeL = postBoilVolumeL - profile.hopAbsorptionL - profile.deadspaceL
+  return hotTransferVolumeL * (1 - profile.thermalShrinkagePercent / 100)
+}
+
 /**
  * Température de l'eau d'empâtage à viser pour atteindre une température de
  * palier donnée, compte tenu de l'inertie thermique du grain (qui est plus
@@ -65,15 +92,4 @@ export function calculateStrikeWaterTempC(
   waterToGrainRatioLPerKg: number,
 ): number {
   return targetMashTempC + (0.4 * (targetMashTempC - grainTempC)) / waterToGrainRatioLPerKg
-}
-
-export function estimateFinalVolumeFromPreBoil(
-  preBoilVolumeL: number,
-  profile: EquipmentProfile,
-): number {
-  const boilTimeHours = profile.boilTimeMin / 60
-  const evaporationLossFraction = (profile.evaporationRatePercentPerHour / 100) * boilTimeHours
-  const postBoilVolumeL = preBoilVolumeL * (1 - evaporationLossFraction)
-  const hotTransferVolumeL = postBoilVolumeL - profile.hopAbsorptionL - profile.deadspaceL
-  return hotTransferVolumeL * (1 - profile.thermalShrinkagePercent / 100)
 }

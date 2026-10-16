@@ -26,8 +26,8 @@ export function RecipeNew() {
   }
 
   return (
-    <div className="space-y-4">
-      <h1 className="text-2xl font-semibold text-stone-800">Nouvelle recette</h1>
+    <div className="space-y-6">
+      <h1 className="text-2xl font-semibold text-slate-800">Nouvelle recette</h1>
       {error && <p className="text-sm text-red-600">{error}</p>}
       <RecipeForm value={value} onChange={setValue} onSubmit={handleSubmit} saving={saving} submitLabel="Créer la recette" />
     </div>

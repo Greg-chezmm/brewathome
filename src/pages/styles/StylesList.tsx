@@ -6,8 +6,8 @@ export function StylesList() {
   const filtered = bjcpStyles.filter((s) => s.name.toLowerCase().includes(query.toLowerCase()))
 
   return (
-    <div className="space-y-4">
-      <h1 className="font-display text-3xl font-semibold text-stone-800">Styles BJCP 2021</h1>
+    <div className="space-y-6">
+      <h1 className="text-3xl font-bold tracking-tight text-slate-900">Styles BJCP 2021</h1>
       <input
         placeholder="Rechercher un style…"
         value={query}
@@ -16,7 +16,7 @@ export function StylesList() {
       />
       <div className="card overflow-x-auto p-0">
         <table className="w-full text-sm">
-          <thead className="bg-amber-100 text-left text-amber-900">
+          <thead className="bg-slate-50 text-left text-slate-600">
             <tr>
               <th className="px-3 py-2">Style</th>
               <th className="px-3 py-2">OG</th>
@@ -28,24 +28,24 @@ export function StylesList() {
           </thead>
           <tbody>
             {filtered.map((s) => (
-              <tr key={s.id} className="border-t border-stone-100">
-                <td className="px-3 py-2 font-medium text-stone-800">
+              <tr key={s.id} className="border-t border-slate-100">
+                <td className="px-3 py-2 font-medium text-slate-800">
                   {s.categoryNumber}
                   {s.styleLetter ?? ''} · {s.name}
                 </td>
-                <td className="px-3 py-2 text-stone-600">
+                <td className="px-3 py-2 text-slate-600">
                   {s.ogMin}–{s.ogMax}
                 </td>
-                <td className="px-3 py-2 text-stone-600">
+                <td className="px-3 py-2 text-slate-600">
                   {s.fgMin}–{s.fgMax}
                 </td>
-                <td className="px-3 py-2 text-stone-600">
+                <td className="px-3 py-2 text-slate-600">
                   {s.ibuMin}–{s.ibuMax}
                 </td>
-                <td className="px-3 py-2 text-stone-600">
+                <td className="px-3 py-2 text-slate-600">
                   {s.srmMin}–{s.srmMax}
                 </td>
-                <td className="px-3 py-2 text-stone-600">
+                <td className="px-3 py-2 text-slate-600">
                   {s.abvMin}–{s.abvMax}%
                 </td>
               </tr>

@@ -18,7 +18,7 @@ export function InfoTooltip({ text }: { text: string }) {
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="ml-1.5 inline-flex h-4 w-4 items-center justify-center rounded-full bg-stone-200 text-[10px] font-bold leading-none text-stone-600 transition hover:bg-amber-300 hover:text-amber-950"
+        className="ml-1.5 inline-flex h-4 w-4 items-center justify-center rounded-full bg-slate-200 text-[10px] font-bold leading-none text-slate-600 transition hover:bg-indigo-100 hover:text-indigo-700"
         aria-label="Aide sur ce champ"
       >
         ?
@@ -26,7 +26,7 @@ export function InfoTooltip({ text }: { text: string }) {
       {open && (
         <div
           role="tooltip"
-          className="absolute left-1/2 top-full z-30 mt-2 w-64 -translate-x-1/2 rounded-lg border border-stone-700 bg-stone-900 p-3 text-xs font-normal normal-case leading-relaxed tracking-normal text-stone-100 shadow-xl"
+          className="absolute left-1/2 top-full z-30 mt-2 w-64 -translate-x-1/2 rounded-lg border border-slate-700 bg-slate-900 p-3 text-xs font-normal normal-case leading-relaxed tracking-normal text-slate-100 shadow-xl"
         >
           {text}
         </div>
@@ -37,7 +37,7 @@ export function InfoTooltip({ text }: { text: string }) {
 
 export function FieldLabel({ children, hint }: { children: ReactNode; hint?: string }) {
   return (
-    <span className="mb-1 flex items-center text-xs font-semibold uppercase tracking-wide text-stone-500">
+    <span className="mb-1 flex items-center text-xs font-semibold uppercase tracking-wide text-slate-500">
       {children}
       {hint && <InfoTooltip text={hint} />}
     </span>

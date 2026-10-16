@@ -24,7 +24,7 @@ export function BatchOverview() {
   const [og, setOg] = useState('')
   const [fg, setFg] = useState('')
 
-  if (!batch) return <p className="text-stone-500">Chargement…</p>
+  if (!batch) return <p className="text-slate-500">Chargement…</p>
 
   const recipe = batch.recipeSnapshot
   const actualAbv =
@@ -49,11 +49,11 @@ export function BatchOverview() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="font-display text-2xl font-semibold text-stone-800">{batch.name}</h1>
-          <p className="text-stone-500">{batch.brewDate ?? 'Date non définie'}</p>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900">{batch.name}</h1>
+          <p className="text-slate-500">{batch.brewDate ?? 'Date non définie'}</p>
         </div>
         <span className="badge">{STATUS_LABELS[batch.status]}</span>
       </div>
@@ -74,7 +74,7 @@ export function BatchOverview() {
 
       <section className="card">
         <h2 className="section-title mb-2">Recette (figée au moment de la validation)</h2>
-        <p className="text-sm text-stone-600">
+        <p className="text-sm text-slate-600">
           OG estimée {recipe.estOg?.toFixed(3)} · FG estimée {recipe.estFg?.toFixed(3)} · {recipe.estIbu?.toFixed(0)} IBU ·{' '}
           {recipe.estSrm?.toFixed(1)} SRM · {recipe.estAbv?.toFixed(1)}% ABV estimé
         </p>
@@ -107,7 +107,7 @@ export function BatchOverview() {
             Enregistrer
           </button>
         </div>
-        {actualAbv !== null && <p className="mt-2 text-sm font-medium text-amber-800">ABV réel calculé : {actualAbv.toFixed(2)}%</p>}
+        {actualAbv !== null && <p className="mt-2 text-sm font-medium text-indigo-600">ABV réel calculé : {actualAbv.toFixed(2)}%</p>}
       </section>
     </div>
   )
