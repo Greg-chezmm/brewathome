@@ -7,6 +7,7 @@ import { BatchFermentation } from '@/pages/batches/BatchFermentation'
 import { BatchOverview } from '@/pages/batches/BatchOverview'
 import { BrewDay } from '@/pages/batches/BrewDay'
 import { Dashboard } from '@/pages/Dashboard'
+import { DevicesList } from '@/pages/devices/DevicesList'
 import { EquipmentProfileDetail } from '@/pages/equipment-profiles/EquipmentProfileDetail'
 import { EquipmentProfilesList } from '@/pages/equipment-profiles/EquipmentProfilesList'
 import { RecipeDetail } from '@/pages/recipes/RecipeDetail'
@@ -37,6 +38,7 @@ export function App() {
           <Route path="/equipment-profiles" element={<EquipmentProfilesList />} />
           <Route path="/equipment-profiles/:profileId" element={<EquipmentProfileDetail />} />
           <Route path="/styles" element={<StylesList />} />
+          <Route path="/devices" element={<DevicesList />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Route>

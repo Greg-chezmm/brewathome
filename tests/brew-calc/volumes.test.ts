@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { calculateVolumes, estimateFinalVolumeFromPreBoil } from '@/lib/brew-calc/volumes'
+import { calculateStrikeWaterTempC, calculateVolumes, estimateFinalVolumeFromPreBoil } from '@/lib/brew-calc/volumes'
 import type { EquipmentProfile } from '@/lib/brew-calc/types'
 
 const profile: EquipmentProfile = {
@@ -41,5 +41,24 @@ describe('calculateVolumes', () => {
     const lightGrist = calculateVolumes(20, 3, profile)
     const heavyGrist = calculateVolumes(20, 8, profile)
     expect(heavyGrist.totalWaterNeededL).toBeGreaterThan(lightGrist.totalWaterNeededL)
+  })
+})
+
+describe('calculateStrikeWaterTempC', () => {
+  it('matches the hand-verified reference example (67°C target, 20°C grain, 2.66 L/kg)', () => {
+    const strikeTemp = calculateStrikeWaterTempC(67, 20, 15.17 / 5.71)
+    expect(strikeTemp).toBeCloseTo(74.1, 1)
+  })
+
+  it('requires hotter strike water for colder grain', () => {
+    const warmGrain = calculateStrikeWaterTempC(67, 20, 3)
+    const coldGrain = calculateStrikeWaterTempC(67, 5, 3)
+    expect(coldGrain).toBeGreaterThan(warmGrain)
+  })
+
+  it('needs less temperature overshoot with a higher water-to-grain ratio', () => {
+    const thinMash = calculateStrikeWaterTempC(67, 20, 4)
+    const thickMash = calculateStrikeWaterTempC(67, 20, 2)
+    expect(thickMash).toBeGreaterThan(thinMash)
   })
 })

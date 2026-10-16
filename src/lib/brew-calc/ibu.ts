@@ -4,28 +4,57 @@ import { gToOz, litersToGallons } from './units'
 function contributingHops(hops: Hop[]): Hop[] {
   // Modèle classique (Tinseth/Rager/Garetz d'origine) : seuls les ajouts en
   // ébullition et "first wort" isomérisent de l'acide alpha de façon
-  // significative. Le whirlpool/dry-hop nécessitent des modèles "hop stand"
-  // dédiés, hors périmètre V1.
+  // significative. Le whirlpool est géré séparément par calculateIBU_Tinseth
+  // (facteur de température) ; dry-hop/empâtage n'isomérisent quasiment rien.
   return hops.filter((h) => h.use === 'boil' || h.use === 'first-wort')
+}
+
+/**
+ * Facteur d'utilisation de l'isomérisation à une température donnée (hopstand
+ * / whirlpool, en dessous du point d'ébullition), selon la loi d'Arrhenius.
+ * Source : Mark Malowicki, thèse sur la cinétique d'isomérisation des acides
+ * alpha ; formule reprise par Brewfather (vérifiée à ≈0,23 pour 80°C).
+ */
+export function hopstandUtilizationFactor(temperatureC: number): number {
+  const tempK = temperatureC + 273.15
+  const boilTempK = 100 + 273.15
+  return Math.exp(-9773 * (1 / tempK - 1 / boilTempK))
 }
 
 /**
  * IBU — formule de Tinseth.
  * Source : Glenn Tinseth, "Hop Utilization, the Boil, and Malt Vigor".
+ * Les ajouts whirlpool/hopstand sont inclus via le facteur de température de
+ * Malowicki (cf. hopstandUtilizationFactor) — approximation documentée, un
+ * écart résiduel avec Brewfather subsiste sur ce point précis (non élucidé).
  */
 export function calculateIBU_Tinseth(
   hops: Hop[],
   boilGravity: number,
   batchVolumeL: number,
+  hopstandTempC = 80,
 ): number {
-  return contributingHops(hops).reduce((total, hop) => {
-    const bignessFactor = 1.65 * 0.000125 ** (boilGravity - 1)
+  const bignessFactor = 1.65 * 0.000125 ** (boilGravity - 1)
+
+  const boilIbu = contributingHops(hops).reduce((total, hop) => {
     const boilTimeFactor = (1 - Math.exp(-0.04 * hop.timeMin)) / 4.15
     const utilization = bignessFactor * boilTimeFactor
     const aaDecimal = hop.alphaAcidPercent / 100
     const ibu = (hop.amountG * aaDecimal * utilization * 1000) / batchVolumeL
     return total + ibu
   }, 0)
+
+  const whirlpoolIbu = hops
+    .filter((h) => h.use === 'whirlpool')
+    .reduce((total, hop) => {
+      const boilTimeFactor = (1 - Math.exp(-0.04 * hop.timeMin)) / 4.15
+      const utilization = bignessFactor * boilTimeFactor * hopstandUtilizationFactor(hopstandTempC)
+      const aaDecimal = hop.alphaAcidPercent / 100
+      const ibu = (hop.amountG * aaDecimal * utilization * 1000) / batchVolumeL
+      return total + ibu
+    }, 0)
+
+  return boilIbu + whirlpoolIbu
 }
 
 /**

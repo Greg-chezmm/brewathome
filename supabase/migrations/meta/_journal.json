@@ -22,6 +22,20 @@
       "when": 1792138011998,
       "tag": "0002_seed_bjcp_styles",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1792138011999,
+      "tag": "0003_grants",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792138012000,
+      "tag": "0004_devices_active_batch",
+      "breakpoints": true
     }
   ]
 }

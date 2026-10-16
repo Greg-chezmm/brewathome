@@ -7,6 +7,7 @@ const navItems = [
   { to: '/recipes', label: 'Recettes' },
   { to: '/batches', label: 'Brassins' },
   { to: '/equipment-profiles', label: 'Équipement' },
+  { to: '/devices', label: 'Appareils' },
   { to: '/styles', label: 'Styles BJCP' },
 ]
 

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useParams } from 'react-router-dom'
 import { GravityCorrectionTool } from '@/components/brew-day/GravityCorrectionTool'
+import { StrikeWaterTool } from '@/components/brew-day/StrikeWaterTool'
 import { useAlertSound } from '@/hooks/useAlertSound'
 import { formatDuration, useElapsedSeconds } from '@/hooks/useBrewTimer'
 import { useWakeLock } from '@/hooks/useWakeLock'
@@ -143,6 +144,12 @@ export function BrewDay() {
           )
         })}
       </ul>
+
+      <StrikeWaterTool
+        defaultGrainWeightKg={batch.recipeSnapshot.fermentables
+          .filter((f) => f.type === 'grain')
+          .reduce((sum, f) => sum + f.amountKg, 0)}
+      />
 
       <GravityCorrectionTool targetGravity={batch.recipeSnapshot.estOg ?? undefined} />
     </div>

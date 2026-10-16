@@ -52,6 +52,21 @@ export function calculateVolumes(
  * le volume collecté est cohérent avec la recette). Fonction inverse de
  * `calculateVolumes`.
  */
+/**
+ * Température de l'eau d'empâtage à viser pour atteindre une température de
+ * palier donnée, compte tenu de l'inertie thermique du grain (qui est plus
+ * froid que l'eau et absorbe de la chaleur au contact).
+ * Source : formule de bilan thermique standard du brassage amateur (reprise
+ * par Brewfather et la plupart des calculateurs type BeerSmith/Bru'n Water).
+ */
+export function calculateStrikeWaterTempC(
+  targetMashTempC: number,
+  grainTempC: number,
+  waterToGrainRatioLPerKg: number,
+): number {
+  return targetMashTempC + (0.4 * (targetMashTempC - grainTempC)) / waterToGrainRatioLPerKg
+}
+
 export function estimateFinalVolumeFromPreBoil(
   preBoilVolumeL: number,
   profile: EquipmentProfile,

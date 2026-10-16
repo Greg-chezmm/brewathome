@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { useParams } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import {
   CartesianGrid,
   Legend,
@@ -63,9 +63,14 @@ export function BatchFermentation() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold text-stone-800">Suivi de fermentation</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="font-display text-2xl font-semibold text-stone-800">Suivi de fermentation</h1>
+        <Link to="/devices" className="btn-secondary btn-sm">
+          📡 Associer un iSpindel
+        </Link>
+      </div>
 
-      <form onSubmit={handleSubmit} className="flex flex-wrap items-end gap-3 rounded-lg border border-amber-200 bg-white p-4">
+      <form onSubmit={handleSubmit} className="card flex flex-wrap items-end gap-3">
         <div>
           <label className="mb-1 block text-xs font-medium text-stone-700">Densité</label>
           <input
@@ -106,7 +111,7 @@ export function BatchFermentation() {
       </form>
 
       {chartData.length > 1 && (
-        <div className="h-72 rounded-lg border border-amber-200 bg-white p-4">
+        <div className="card h-72">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={chartData}>
               <CartesianGrid strokeDasharray="3 3" />
@@ -127,8 +132,9 @@ export function BatchFermentation() {
           ?.slice()
           .reverse()
           .map((r) => (
-            <li key={r.id} className="flex items-center justify-between rounded border border-stone-200 bg-white px-3 py-2 text-sm">
-              <span>
+            <li key={r.id} className="flex items-center justify-between rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm">
+              <span className="flex items-center gap-2">
+                {r.source === 'ispindel' && <span title="iSpindel">📡</span>}
                 {new Date(r.recordedAt).toLocaleString('fr-FR')} — {r.gravity && `SG ${r.gravity.toFixed(3)}`}{' '}
                 {r.temperatureC && `· ${r.temperatureC}°C`} {r.comment && `· ${r.comment}`}
               </span>

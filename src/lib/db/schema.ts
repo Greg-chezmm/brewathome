@@ -223,5 +223,8 @@ export const devices = pgTable('devices', {
   apiToken: text('api_token').notNull().unique(),
   // Coefficients du polynôme de calibration angle -> densité spécifique propre au device.
   calibrationCoefficients: jsonb('calibration_coefficients'),
+  // Brassin actuellement suivi par ce device : l'Edge Function d'ingestion y
+  // rattache les lectures reçues. NULL = device inactif / non assigné.
+  activeBatchId: uuid('active_batch_id').references(() => batches.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })

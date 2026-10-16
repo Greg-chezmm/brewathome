@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { calculateIBU_Garetz, calculateIBU_Rager, calculateIBU_Tinseth } from '@/lib/brew-calc/ibu'
+import {
+  calculateIBU_Garetz,
+  calculateIBU_Rager,
+  calculateIBU_Tinseth,
+  hopstandUtilizationFactor,
+} from '@/lib/brew-calc/ibu'
 import type { Hop } from '@/lib/brew-calc/types'
 
 describe('calculateIBU_Tinseth', () => {
@@ -9,12 +14,25 @@ describe('calculateIBU_Tinseth', () => {
     expect(ibu).toBeCloseTo(32.3, 1)
   })
 
-  it('ignores whirlpool and dry-hop additions', () => {
-    const hops: Hop[] = [
-      { name: 'Dry Hop', amountG: 50, alphaAcidPercent: 5.5, timeMin: 7200, use: 'dry-hop' },
-      { name: 'Whirlpool', amountG: 20, alphaAcidPercent: 8, timeMin: 20, use: 'whirlpool' },
-    ]
+  it('ignores dry-hop additions entirely', () => {
+    const hops: Hop[] = [{ name: 'Dry Hop', amountG: 50, alphaAcidPercent: 5.5, timeMin: 7200, use: 'dry-hop' }]
     expect(calculateIBU_Tinseth(hops, 1.05, 20)).toBe(0)
+  })
+
+  it('applies a reduced, temperature-dependent utilization to whirlpool additions', () => {
+    const whirlpoolHop: Hop = { name: 'Whirlpool', amountG: 20, alphaAcidPercent: 8, timeMin: 20, use: 'whirlpool' }
+    const boilHop: Hop = { ...whirlpoolHop, use: 'boil' }
+    const whirlpoolIbu = calculateIBU_Tinseth([whirlpoolHop], 1.05, 20)
+    const boilIbu = calculateIBU_Tinseth([boilHop], 1.05, 20)
+    expect(whirlpoolIbu).toBeGreaterThan(0)
+    expect(whirlpoolIbu).toBeLessThan(boilIbu)
+  })
+
+  it('whirlpool contribution decreases at lower hopstand temperatures', () => {
+    const whirlpoolHop: Hop = { name: 'Whirlpool', amountG: 20, alphaAcidPercent: 8, timeMin: 20, use: 'whirlpool' }
+    const hot = calculateIBU_Tinseth([whirlpoolHop], 1.05, 20, 90)
+    const cool = calculateIBU_Tinseth([whirlpoolHop], 1.05, 20, 65)
+    expect(hot).toBeGreaterThan(cool)
   })
 
   it('utilization increases with boil time and decreases with higher gravity', () => {
@@ -51,6 +69,17 @@ describe('calculateIBU_Rager', () => {
     const atThreshold = calculateIBU_Rager(hops, 1.05, 20)
     const aboveThreshold = calculateIBU_Rager(hops, 1.09, 20)
     expect(aboveThreshold).toBeLessThan(atThreshold)
+  })
+})
+
+describe('hopstandUtilizationFactor', () => {
+  it('matches the ~0.23 reference value documented for 80°C', () => {
+    expect(hopstandUtilizationFactor(80)).toBeCloseTo(0.23, 2)
+  })
+
+  it('reaches 1 at the boiling point and decreases below it', () => {
+    expect(hopstandUtilizationFactor(100)).toBeCloseTo(1, 6)
+    expect(hopstandUtilizationFactor(60)).toBeLessThan(hopstandUtilizationFactor(80))
   })
 })
 
