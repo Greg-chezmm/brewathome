@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { useParams } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import { GravityCorrectionTool } from '@/components/brew-day/GravityCorrectionTool'
 import { StrikeWaterTool } from '@/components/brew-day/StrikeWaterTool'
 import { useAlertSound } from '@/hooks/useAlertSound'
@@ -35,6 +35,17 @@ const STEP_ICONS: Record<BatchStepType, string> = {
 
 /** Étapes dont le déclenchement se calcule par rapport au compte à rebours d'ébullition. */
 const BOIL_TRIGGERED_STEP_TYPES: BatchStepType[] = ['hop-addition', 'other-addition']
+
+/** Regroupement des étapes en 3 phases principales du brassage, chacune avec ses sous-étapes. */
+const STEP_GROUPS: { key: string; label: string; icon: string; types: BatchStepType[] }[] = [
+  { key: 'mash', label: 'Empâtage', icon: '🌾', types: ['strike-water', 'mash', 'mash-step', 'sparge-water', 'sparge'] },
+  { key: 'boil', label: 'Ébullition', icon: '🔥', types: ['heat-to-boil', 'boil', 'hop-addition', 'other-addition', 'whirlpool', 'cooling'] },
+  { key: 'dry-hop', label: 'Houblonnage hors flamme', icon: '🧊', types: ['dry-hop-addition'] },
+]
+
+function groupKeyForStepType(stepType: BatchStepType): string {
+  return STEP_GROUPS.find((g) => g.types.includes(stepType))?.key ?? 'other'
+}
 
 export function BrewDay() {
   const { batchId } = useParams<{ batchId: string }>()
@@ -120,6 +131,19 @@ export function BrewDay() {
     : undefined
   const activeStep = activeIndex !== null ? steps[activeIndex] : undefined
 
+  const groupedSteps = STEP_GROUPS.map((g) => ({
+    ...g,
+    steps: steps.map((step, index) => ({ step, index })).filter(({ step }) => g.types.includes(step.stepType)),
+  })).filter((g) => g.steps.length > 0)
+  const activeGroupKey = activeStep ? groupKeyForStepType(activeStep.stepType) : groupedSteps[0]?.key
+
+  function selectGroup(groupKey: string) {
+    const group = groupedSteps.find((g) => g.key === groupKey)
+    if (!group) return
+    const firstNotDone = group.steps.find(({ step }) => step.status !== 'done')
+    setActiveIndex((firstNotDone ?? group.steps[group.steps.length - 1]).index)
+  }
+
   return (
     <div className="space-y-8">
       <div className="flex items-center justify-between">
@@ -142,41 +166,84 @@ export function BrewDay() {
         {soundEnabled && <span className="badge-ok">🔊 Alertes sonores activées</span>}
       </div>
 
-      <div className="flex gap-2 overflow-x-auto pb-1">
-        {steps.map((step, index) => {
-          const boilRemainingPlanned = boilStep?.plannedDurationMin ?? 0
-          const triggerAtSeconds =
-            BOIL_TRIGGERED_STEP_TYPES.includes(step.stepType) && step.triggerTimeMin !== null
-              ? (boilRemainingPlanned - step.triggerTimeMin) * 60
-              : null
-          const isDue =
-            BOIL_TRIGGERED_STEP_TYPES.includes(step.stepType) &&
-            step.status === 'todo' &&
-            boilStep?.actualStartAt &&
-            triggerAtSeconds !== null &&
-            boilElapsedSeconds >= triggerAtSeconds
-          const active = index === activeIndex
+      <div className="space-y-3">
+        <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">1 · Brassage</p>
+        <div className="flex gap-2 overflow-x-auto pb-1">
+          {groupedSteps.map((group, groupIndex) => {
+            const allDone = group.steps.every(({ step }) => step.status === 'done')
+            const isActiveGroup = group.key === activeGroupKey
+            const groupDue = group.steps.some(({ step }) => {
+              const boilRemainingPlanned = boilStep?.plannedDurationMin ?? 0
+              if (!BOIL_TRIGGERED_STEP_TYPES.includes(step.stepType) || step.status !== 'todo' || step.triggerTimeMin === null)
+                return false
+              const triggerAtSeconds = (boilRemainingPlanned - step.triggerTimeMin) * 60
+              return !!boilStep?.actualStartAt && boilElapsedSeconds >= triggerAtSeconds
+            })
 
-          return (
-            <button
-              key={step.id}
-              onClick={() => setActiveIndex(index)}
-              className={`flex shrink-0 items-center gap-1.5 rounded-full border-2 px-3 py-1.5 text-sm font-medium transition-colors ${
-                active
-                  ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
-                  : step.status === 'done'
-                    ? 'border-green-200 bg-green-50 text-green-700'
-                    : isDue
-                      ? 'border-red-400 bg-red-50 text-red-700'
-                      : 'border-slate-200 bg-white text-slate-500'
-              }`}
-            >
-              <span>{STEP_ICONS[step.stepType]}</span>
-              {step.status === 'done' && <span>✓</span>}
-              <span className="whitespace-nowrap">{step.label}</span>
-            </button>
-          )
-        })}
+            return (
+              <button
+                key={group.key}
+                onClick={() => selectGroup(group.key)}
+                className={`flex shrink-0 items-center gap-1.5 rounded-full border-2 px-3 py-1.5 text-sm font-medium transition-colors ${
+                  isActiveGroup
+                    ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
+                    : allDone
+                      ? 'border-green-200 bg-green-50 text-green-700'
+                      : groupDue
+                        ? 'border-red-400 bg-red-50 text-red-700'
+                        : 'border-slate-200 bg-white text-slate-500'
+                }`}
+              >
+                <span>{group.icon}</span>
+                {allDone && <span>✓</span>}
+                <span className="whitespace-nowrap">
+                  1.{groupIndex + 1} {group.label}
+                </span>
+              </button>
+            )
+          })}
+        </div>
+
+        {groupedSteps
+          .filter((g) => g.key === activeGroupKey)
+          .map((group) => (
+            <div key={group.key} className="flex gap-2 overflow-x-auto pb-1 pl-2">
+              {group.steps.map(({ step, index }) => {
+                const boilRemainingPlanned = boilStep?.plannedDurationMin ?? 0
+                const triggerAtSeconds =
+                  BOIL_TRIGGERED_STEP_TYPES.includes(step.stepType) && step.triggerTimeMin !== null
+                    ? (boilRemainingPlanned - step.triggerTimeMin) * 60
+                    : null
+                const isDue =
+                  BOIL_TRIGGERED_STEP_TYPES.includes(step.stepType) &&
+                  step.status === 'todo' &&
+                  boilStep?.actualStartAt &&
+                  triggerAtSeconds !== null &&
+                  boilElapsedSeconds >= triggerAtSeconds
+                const active = index === activeIndex
+
+                return (
+                  <button
+                    key={step.id}
+                    onClick={() => setActiveIndex(index)}
+                    className={`flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors ${
+                      active
+                        ? 'border-indigo-400 bg-indigo-100 text-indigo-700'
+                        : step.status === 'done'
+                          ? 'border-green-200 bg-green-50 text-green-700'
+                          : isDue
+                            ? 'border-red-400 bg-red-50 text-red-700'
+                            : 'border-slate-200 bg-white text-slate-500'
+                    }`}
+                  >
+                    <span>{STEP_ICONS[step.stepType]}</span>
+                    {step.status === 'done' && <span>✓</span>}
+                    <span className="whitespace-nowrap">{step.label}</span>
+                  </button>
+                )
+              })}
+            </div>
+          ))}
       </div>
 
       {activeStep && (
@@ -213,6 +280,18 @@ export function BrewDay() {
       </div>
 
       <GravityCorrectionTool targetGravity={batch.recipeSnapshot.estOg ?? undefined} />
+
+      {steps.every((s) => s.status === 'done') && (
+        <div className="card-tinted flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">2 · Fermentation</p>
+            <p className="font-semibold text-slate-800">Brassage terminé — place au suivi de fermentation.</p>
+          </div>
+          <Link to={`/batches/${batchId}/fermentation`} className="btn-primary">
+            Suivi de fermentation →
+          </Link>
+        </div>
+      )}
     </div>
   )
 }
