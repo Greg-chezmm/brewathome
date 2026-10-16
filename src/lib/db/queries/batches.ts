@@ -1,9 +1,16 @@
-import type { RecipeDetails } from './recipes'
+import { calculateABV } from '@/lib/brew-calc/abv'
+import { calculateSRM } from '@/lib/brew-calc/color'
+import { calculateFG, calculateOG } from '@/lib/brew-calc/gravity'
+import { calculateIBU_Rager, calculateIBU_Tinseth } from '@/lib/brew-calc/ibu'
+import { calculateVolumes, SPARGE_WATER_TEMP_C } from '@/lib/brew-calc/volumes'
+import type { EquipmentProfile } from '@/lib/brew-calc/types'
+import type { RecipeDetails, RecipeInput } from './recipes'
+import { getEquipmentProfile } from './equipmentProfiles'
 import { getRecipeWithDetails, updateRecipeStatus } from './recipes'
 import { supabase } from '@/lib/supabase/client'
 
 export type BatchStatus = 'planned' | 'brew_day' | 'fermentation' | 'conditioning' | 'completed'
-export type BatchStepType = 'mash' | 'mash-step' | 'boil' | 'hop-addition' | 'whirlpool' | 'cooling'
+export type BatchStepType = 'mash' | 'mash-step' | 'sparge' | 'boil' | 'hop-addition' | 'whirlpool' | 'cooling'
 export type BatchStepStatus = 'todo' | 'in-progress' | 'done'
 
 export interface BatchStep {
@@ -35,7 +42,7 @@ export interface BatchDetails extends BatchSummary {
   notes: string | null
 }
 
-function buildBatchSteps(recipe: RecipeDetails): Omit<BatchStep, 'id'>[] {
+function buildBatchSteps(recipe: RecipeDetails, equipmentProfile: EquipmentProfile | null): Omit<BatchStep, 'id'>[] {
   const steps: Omit<BatchStep, 'id'>[] = []
   let order = 0
 
@@ -49,6 +56,23 @@ function buildBatchSteps(recipe: RecipeDetails): Omit<BatchStep, 'id'>[] {
     actualStartAt: null,
     actualEndAt: null,
   })
+
+  if (equipmentProfile) {
+    const totalGrainKg = recipe.fermentables.filter((f) => f.type === 'grain').reduce((sum, f) => sum + f.amountKg, 0)
+    const spargeWaterL = calculateVolumes(recipe.targetVolumeL, totalGrainKg, equipmentProfile).spargeWaterL
+    if (spargeWaterL > 0) {
+      steps.push({
+        stepType: 'sparge',
+        label: `Rinçage : ${spargeWaterL.toFixed(1)} L d'eau @ ${SPARGE_WATER_TEMP_C} °C`,
+        orderIndex: order++,
+        plannedDurationMin: null,
+        triggerTimeMin: null,
+        status: 'todo',
+        actualStartAt: null,
+        actualEndAt: null,
+      })
+    }
+  }
 
   steps.push({
     stepType: 'boil',
@@ -129,7 +153,8 @@ export async function createBatchFromRecipe(
 
   const batchId = batch.id as string
 
-  const steps = buildBatchSteps(recipe)
+  const equipmentProfile = recipe.equipmentProfileId ? await getEquipmentProfile(recipe.equipmentProfileId) : null
+  const steps = buildBatchSteps(recipe, equipmentProfile)
   const { error: stepsError } = await supabase.from('batch_steps').insert(
     steps.map((s) => ({
       batch_id: batchId,
@@ -213,8 +238,66 @@ export async function updateBatchStepStatus(
   if (error) throw error
 }
 
+/** Arrête et remet une étape à zéro (statut 'todo', horodatages effacés) — pour relancer son minuteur depuis le début. */
+export async function resetBatchStep(stepId: string): Promise<void> {
+  const { error } = await supabase
+    .from('batch_steps')
+    .update({ status: 'todo', actual_start_at: null, actual_end_at: null })
+    .eq('id', stepId)
+  if (error) throw error
+}
+
 export async function updateBatchStatus(batchId: string, status: BatchStatus): Promise<void> {
   const { error } = await supabase.from('batches').update({ status }).eq('id', batchId)
+  if (error) throw error
+}
+
+/**
+ * Met à jour la recette figée d'un brassin, sans toucher à la recette d'origine
+ * (si elle existe encore) : chaque brassin a sa propre copie modifiable.
+ */
+export async function updateBatchRecipeSnapshot(
+  batchId: string,
+  currentSnapshot: RecipeDetails,
+  patch: RecipeInput,
+): Promise<void> {
+  const og = calculateOG(patch.fermentables, patch.targetVolumeL, patch.mashEfficiencyPercent)
+  const attenuation = patch.yeasts[0]?.attenuationPercent ?? 75
+  const fg = calculateFG(og, attenuation)
+  const ibu =
+    patch.ibuFormula === 'rager'
+      ? calculateIBU_Rager(patch.hops, og, patch.targetVolumeL)
+      : calculateIBU_Tinseth(patch.hops, og, patch.targetVolumeL)
+  const srm = calculateSRM(patch.fermentables, patch.targetVolumeL)
+  const abv = calculateABV(og, fg)
+
+  const snapshot: RecipeDetails = {
+    ...currentSnapshot,
+    name: patch.name,
+    styleId: patch.styleId,
+    type: patch.type,
+    targetVolumeL: patch.targetVolumeL,
+    boilTimeMin: patch.boilTimeMin,
+    mashEfficiencyPercent: patch.mashEfficiencyPercent,
+    ibuFormula: patch.ibuFormula,
+    equipmentProfileId: patch.equipmentProfileId,
+    notes: patch.notes,
+    fermentables: patch.fermentables,
+    hops: patch.hops,
+    yeasts: patch.yeasts,
+    estOg: og,
+    estFg: fg,
+    estIbu: ibu,
+    estSrm: srm,
+    estAbv: abv,
+  }
+
+  const { error } = await supabase.from('batches').update({ recipe_snapshot: snapshot }).eq('id', batchId)
+  if (error) throw error
+}
+
+export async function deleteBatch(batchId: string): Promise<void> {
+  const { error } = await supabase.from('batches').delete().eq('id', batchId)
   if (error) throw error
 }
 

@@ -7,7 +7,7 @@ import {
   calculateDryYeastGrams,
   calculateLiquidPacksNeeded,
 } from '@/lib/brew-calc/yeast'
-import { calculateVolumes } from '@/lib/brew-calc/volumes'
+import { calculateVolumes, SPARGE_WATER_TEMP_C } from '@/lib/brew-calc/volumes'
 import { deleteRecipe, getRecipeWithDetails } from '@/lib/db/queries/recipes'
 import { getEquipmentProfile } from '@/lib/db/queries/equipmentProfiles'
 import { BeerGlass } from '@/components/BeerGlass'
@@ -50,7 +50,12 @@ export function RecipeDetail() {
 
   const totalGrainKg = recipe.fermentables.filter((f) => f.type === 'grain').reduce((sum, f) => sum + f.amountKg, 0)
   const volumes = equipmentProfile ? calculateVolumes(recipe.targetVolumeL, totalGrainKg, equipmentProfile) : null
-  const kettleOverflow = equipmentProfile && volumes ? volumes.preBoilVolumeL > equipmentProfile.boilKettleVolumeL : false
+  const kettleOverflow =
+    equipmentProfile && volumes ? volumes.preBoilVolumeL > equipmentProfile.boilKettleVolumeL + 0.05 : false
+  const mashTunOverflow =
+    equipmentProfile && volumes && equipmentProfile.method === 'biab'
+      ? volumes.mashTunFillVolumeL > equipmentProfile.boilKettleVolumeL + 0.05
+      : false
 
   const primaryYeast = recipe.yeasts[0]
   const yeastRecommendation =
@@ -180,14 +185,14 @@ export function RecipeDetail() {
       </section>
 
       {volumes && (
-        <section className={`card ${kettleOverflow ? 'border-red-300 bg-red-50' : ''}`}>
+        <section className={`card ${kettleOverflow || mashTunOverflow ? 'border-red-300 bg-red-50' : ''}`}>
           <div className="mb-2 flex items-center gap-1.5">
             <h2 className="section-title">Volumes (profil « {equipmentProfile?.name} »)</h2>
             <InfoTooltip text="Calculé à partir du profil d'équipement : évaporation, absorption du grain, pertes de cuve et contraction thermique." />
           </div>
           <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-3">
             <VolumeStat label="Eau d'empâtage" value={volumes.mashWaterL} />
-            <VolumeStat label="Eau de rinçage" value={volumes.spargeWaterL} />
+            <VolumeStat label={`Eau de rinçage @ ${SPARGE_WATER_TEMP_C} °C`} value={volumes.spargeWaterL} />
             <VolumeStat label="Eau totale nécessaire" value={volumes.totalWaterNeededL} />
           </div>
           <div className="mt-3 grid grid-cols-2 gap-3 text-sm sm:grid-cols-3">
@@ -195,18 +200,33 @@ export function RecipeDetail() {
             <VolumeStat label="Volume post-ébullition" value={volumes.postBoilVolumeL} />
             <VolumeStat label="Volume final en fermenteur" value={volumes.volumeIntoFermenterL} />
           </div>
+          {equipmentProfile?.method === 'biab' && (
+            <div className="mt-3 grid grid-cols-2 gap-3 text-sm sm:grid-cols-3">
+              <VolumeStat
+                label="Volume dans la cuve à l'empâtage (eau + grain)"
+                value={volumes.mashTunFillVolumeL}
+                warn={mashTunOverflow}
+              />
+            </div>
+          )}
           {kettleOverflow && equipmentProfile && (
             <p className="mt-2 text-sm font-semibold text-red-700">
               ⚠ Le volume pré-ébullition dépasse la capacité de la cuve « {equipmentProfile.name} » (
               {equipmentProfile.boilKettleVolumeL} L).
             </p>
           )}
+          {mashTunOverflow && equipmentProfile && (
+            <p className="mt-2 text-sm font-semibold text-red-700">
+              ⚠ En BIAB, l'eau d'empâtage + le grain dépassent la capacité de la cuve « {equipmentProfile.name} » (
+              {equipmentProfile.boilKettleVolumeL} L) — ça débordera avant même d'ajouter l'eau de rinçage.
+            </p>
+          )}
         </section>
       )}
 
-      {recipe.status === 'draft' && (
+      {recipe.status !== 'archived' && (
         <Link to={`/recipes/${recipeId}/validate`} className="btn-primary">
-          Valider en brassin →
+          {recipe.status === 'draft' ? 'Valider en brassin →' : 'Rebrasser cette recette →'}
         </Link>
       )}
     </div>

@@ -6,7 +6,7 @@ import { calculateSRM } from '@/lib/brew-calc/color'
 import { calculateFG, calculateOG } from '@/lib/brew-calc/gravity'
 import { calculateIBU_Rager, calculateIBU_Tinseth } from '@/lib/brew-calc/ibu'
 import { matchStyle } from '@/lib/brew-calc/style-matching'
-import { calculateVolumes, estimateFinalVolumeFromPreBoil } from '@/lib/brew-calc/volumes'
+import { calculateVolumes, estimateFinalVolumeFromPreBoil, SPARGE_WATER_TEMP_C } from '@/lib/brew-calc/volumes'
 import type { Fermentable, Hop, HopUse, IBUFormulaName, Yeast } from '@/lib/brew-calc/types'
 import { listEquipmentProfiles } from '@/lib/db/queries/equipmentProfiles'
 import type { RecipeInput } from '@/lib/db/queries/recipes'
@@ -106,7 +106,15 @@ export function RecipeForm({
   const selectedEquipment = equipmentProfiles?.find((p) => p.id === value.equipmentProfileId) ?? null
   const totalGrainKg = value.fermentables.filter((f) => f.type === 'grain').reduce((sum, f) => sum + f.amountKg, 0)
   const volumes = selectedEquipment ? calculateVolumes(value.targetVolumeL, totalGrainKg, selectedEquipment) : null
-  const kettleOverflow = selectedEquipment && volumes ? volumes.preBoilVolumeL > selectedEquipment.boilKettleVolumeL : false
+  const kettleOverflow =
+    selectedEquipment && volumes ? volumes.preBoilVolumeL > selectedEquipment.boilKettleVolumeL + 0.05 : false
+  // En BIAB, la cuve d'empâtage est la même que la cuve d'ébullition : le
+  // premier point de débordement possible n'est pas le volume pré-ébullition
+  // mais l'eau d'empâtage + le volume physique déplacé par le grain.
+  const mashTunOverflow =
+    selectedEquipment && volumes && selectedEquipment.method === 'biab'
+      ? volumes.mashTunFillVolumeL > selectedEquipment.boilKettleVolumeL + 0.05
+      : false
 
   // Permet d'ancrer la recette sur le volume pré-ébullition (limite de cuve)
   // plutôt que sur le volume final : le volume final est alors dérivé et
@@ -126,9 +134,12 @@ export function RecipeForm({
   }, [volumeAnchor, preBoilTargetL, selectedEquipment])
 
   function switchVolumeAnchor(anchor: 'final' | 'preboil') {
-    if (anchor === 'preboil' && selectedEquipment) {
-      const currentPreBoil = calculateVolumes(value.targetVolumeL, totalGrainKg, selectedEquipment).preBoilVolumeL
-      setPreBoilTargetL(String(Math.round(currentPreBoil * 10) / 10))
+    if (anchor === 'preboil' && volumeAnchor !== 'preboil' && selectedEquipment) {
+      // On propose directement la capacité de la cuve comme limite, plutôt que
+      // de recopier le volume pré-ébullition actuel (qui peut déjà déborder) :
+      // ça redimensionne la recette pour qu'elle tienne dans le matériel dès le
+      // basculement, au lieu de nécessiter une saisie manuelle en plus.
+      setPreBoilTargetL(String(selectedEquipment.boilKettleVolumeL))
     }
     setVolumeAnchor(anchor)
   }
@@ -370,14 +381,14 @@ export function RecipeForm({
 
       {/* Volumes d'eau */}
       {selectedEquipment && volumes && (
-        <div className={`card ${kettleOverflow ? 'border-red-300 bg-red-50' : ''}`}>
+        <div className={`card ${kettleOverflow || mashTunOverflow ? 'border-red-300 bg-red-50' : ''}`}>
           <div className="mb-2 flex items-center gap-1.5">
             <h2 className="section-title">Eau &amp; volumes</h2>
             <InlineHint text="Calculé à partir du profil d'équipement sélectionné : évaporation, absorption du grain, pertes de cuve et contraction thermique. Permet de savoir combien d'eau prévoir et si votre cuve est assez grande." />
           </div>
           <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-3">
             <VolumeStat label="Eau d'empâtage" value={volumes.mashWaterL} />
-            <VolumeStat label="Eau de rinçage" value={volumes.spargeWaterL} />
+            <VolumeStat label={`Eau de rinçage @ ${SPARGE_WATER_TEMP_C} °C`} value={volumes.spargeWaterL} />
             <VolumeStat label="Eau totale à prévoir" value={volumes.totalWaterNeededL} />
           </div>
           <div className="mt-3 grid grid-cols-2 gap-3 text-sm sm:grid-cols-3">
@@ -385,6 +396,15 @@ export function RecipeForm({
             <VolumeStat label="Volume post-ébullition" value={volumes.postBoilVolumeL} />
             <VolumeStat label="Volume en fermenteur" value={volumes.volumeIntoFermenterL} />
           </div>
+          {selectedEquipment.method === 'biab' && (
+            <div className="mt-3 grid grid-cols-2 gap-3 text-sm sm:grid-cols-3">
+              <VolumeStat
+                label="Volume dans la cuve à l'empâtage (eau + grain)"
+                value={volumes.mashTunFillVolumeL}
+                warn={mashTunOverflow}
+              />
+            </div>
+          )}
           <p className="mt-2 text-xs text-slate-500">
             Cuve d'ébullition « {selectedEquipment.name} » : {selectedEquipment.boilKettleVolumeL} L de capacité.
           </p>
@@ -393,6 +413,13 @@ export function RecipeForm({
               ⚠ Le volume pré-ébullition ({volumes.preBoilVolumeL.toFixed(1)} L) dépasse la capacité de votre cuve (
               {selectedEquipment.boilKettleVolumeL} L). Réduisez le volume cible, le grain, ou choisissez un profil
               d'équipement avec une cuve plus grande.
+            </p>
+          )}
+          {mashTunOverflow && (
+            <p className="mt-2 text-sm font-semibold text-red-700">
+              ⚠ En BIAB, l'eau d'empâtage + le grain ({volumes.mashTunFillVolumeL.toFixed(1)} L au total) dépassent la
+              capacité de votre cuve ({selectedEquipment.boilKettleVolumeL} L) — ça débordera avant même d'avoir ajouté
+              l'eau de rinçage. Réduisez le volume cible, le grain, ou le ratio eau/grain.
             </p>
           )}
         </div>

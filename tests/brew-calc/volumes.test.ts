@@ -56,6 +56,12 @@ describe('calculateVolumes', () => {
     expect(result.mashWaterL).toBeCloseTo(result.totalWaterNeededL, 6)
     expect(result.spargeWaterL).toBe(0)
   })
+
+  it('includes grain displacement in the mash tun fill volume (17L water + 5kg grain is more than 17L in the tun)', () => {
+    const result = calculateVolumes(20, 5, profile)
+    expect(result.mashTunFillVolumeL).toBeGreaterThan(result.mashWaterL)
+    expect(result.mashTunFillVolumeL).toBeCloseTo(result.mashWaterL + 5 * 0.67, 6)
+  })
 })
 
 describe('calculateStrikeWaterTempC', () => {

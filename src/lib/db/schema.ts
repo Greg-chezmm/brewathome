@@ -186,7 +186,7 @@ export const batchSteps = pgTable('batch_steps', {
     .notNull()
     .references(() => batches.id, { onDelete: 'cascade' }),
   stepType: text('step_type', {
-    enum: ['mash', 'mash-step', 'boil', 'hop-addition', 'whirlpool', 'cooling'],
+    enum: ['mash', 'mash-step', 'sparge', 'boil', 'hop-addition', 'whirlpool', 'cooling'],
   }).notNull(),
   label: text('label').notNull(),
   orderIndex: integer('order_index').notNull().default(0),

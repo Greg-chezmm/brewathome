@@ -1,5 +1,20 @@
 import type { EquipmentProfile } from './types'
 
+/**
+ * Volume physique occupé par le grain gorgé d'eau, par kg, en plus de l'eau
+ * elle-même (le grain "pousse" le niveau du liquide). Valeur type reprise par
+ * Brewfather/BeerSmith : ~0,67 L/kg.
+ */
+const GRAIN_DISPLACEMENT_L_PER_KG = 0.67
+
+/**
+ * Température classique de l'eau de rinçage (sparge), en °C. Assez chaude
+ * pour garder le lit de grain fluide et stopper l'activité enzymatique, mais
+ * sous 80°C pour éviter l'extraction de tanins depuis les enveloppes de
+ * grain. Valeur standard reprise par Brewfather/BeerSmith/Bru'n Water.
+ */
+export const SPARGE_WATER_TEMP_C = 76
+
 export interface VolumeBreakdown {
   /** Eau totale (empâtage + rinçage) à prévoir. */
   totalWaterNeededL: number
@@ -13,6 +28,14 @@ export interface VolumeBreakdown {
   postBoilVolumeL: number
   /** Volume final transféré dans le fermenteur, moût refroidi. */
   volumeIntoFermenterL: number
+  /**
+   * Volume physiquement occupé dans la cuve d'empâtage au moment de
+   * l'empâtage : eau d'empâtage + volume déplacé par le grain. Pertinent
+   * surtout en BIAB, où c'est la même cuve que l'ébullition — c'est souvent
+   * le point le plus contraignant, avant même d'avoir ajouté l'eau de
+   * rinçage.
+   */
+  mashTunFillVolumeL: number
 }
 
 /**
@@ -58,6 +81,7 @@ export function calculateVolumes(
     preBoilVolumeL,
     postBoilVolumeL,
     volumeIntoFermenterL: targetFinalVolumeL,
+    mashTunFillVolumeL: mashWaterL + grainWeightKg * GRAIN_DISPLACEMENT_L_PER_KG,
   }
 }
 

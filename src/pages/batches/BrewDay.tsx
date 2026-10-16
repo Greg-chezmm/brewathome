@@ -10,6 +10,7 @@ import { calculateVolumes } from '@/lib/brew-calc/volumes'
 import {
   getBatchSteps,
   getBatchWithDetails,
+  resetBatchStep,
   updateBatchStepStatus,
   type BatchStep,
   type BatchStepType,
@@ -19,6 +20,7 @@ import { getEquipmentProfile } from '@/lib/db/queries/equipmentProfiles'
 const STEP_ICONS: Record<BatchStepType, string> = {
   mash: '🌾',
   'mash-step': '🌡️',
+  sparge: '💧',
   boil: '🔥',
   'hop-addition': '🌿',
   whirlpool: '🌀',
@@ -32,6 +34,7 @@ export function BrewDay() {
   const [soundEnabled, setSoundEnabled] = useState(false)
   const alertedStepIds = useRef(new Set<string>())
   const now = useNowTick()
+  const [activeIndex, setActiveIndex] = useState<number | null>(null)
 
   useWakeLock(true)
 
@@ -74,6 +77,12 @@ export function BrewDay() {
     }
   }, [boilElapsedSeconds, boilStep, steps, soundEnabled, play])
 
+  useEffect(() => {
+    if (activeIndex !== null || !steps || steps.length === 0) return
+    const firstNotDone = steps.findIndex((s) => s.status !== 'done')
+    setActiveIndex(firstNotDone === -1 ? steps.length - 1 : firstNotDone)
+  }, [steps, activeIndex])
+
   async function startStep(step: BatchStep) {
     await updateBatchStepStatus(step.id, 'in-progress', { actualStartAt: new Date().toISOString() })
     queryClient.invalidateQueries({ queryKey: ['batch-steps', batchId] })
@@ -81,6 +90,13 @@ export function BrewDay() {
 
   async function completeStep(step: BatchStep) {
     await updateBatchStepStatus(step.id, 'done', { actualEndAt: new Date().toISOString() })
+    document.title = 'BrewAtHome'
+    queryClient.invalidateQueries({ queryKey: ['batch-steps', batchId] })
+  }
+
+  async function resetStep(step: BatchStep) {
+    alertedStepIds.current.delete(step.id)
+    await resetBatchStep(step.id)
     document.title = 'BrewAtHome'
     queryClient.invalidateQueries({ queryKey: ['batch-steps', batchId] })
   }
@@ -93,6 +109,7 @@ export function BrewDay() {
   const mashWaterL = equipmentProfile
     ? calculateVolumes(batch.recipeSnapshot.targetVolumeL, totalGrainKg, equipmentProfile).mashWaterL
     : undefined
+  const activeStep = activeIndex !== null ? steps[activeIndex] : undefined
 
   return (
     <div className="space-y-8">
@@ -116,7 +133,7 @@ export function BrewDay() {
         {soundEnabled && <span className="badge-ok">🔊 Alertes sonores activées</span>}
       </div>
 
-      <ol className="space-y-3">
+      <div className="flex gap-2 overflow-x-auto pb-1">
         {steps.map((step, index) => {
           const boilRemainingPlanned = boilStep?.plannedDurationMin ?? 0
           const triggerAtSeconds =
@@ -129,68 +146,157 @@ export function BrewDay() {
             boilStep?.actualStartAt &&
             triggerAtSeconds !== null &&
             boilElapsedSeconds >= triggerAtSeconds
+          const active = index === activeIndex
 
           return (
-            <li
+            <button
               key={step.id}
-              className={`rounded-2xl border-2 p-4 shadow-sm transition-colors sm:p-5 ${
-                step.status === 'done'
-                  ? 'border-slate-200 bg-slate-50 opacity-60'
-                  : isDue
-                    ? 'border-red-400 bg-red-50'
-                    : step.status === 'in-progress'
-                      ? 'border-indigo-400 bg-indigo-50'
-                      : 'border-slate-200 bg-white'
+              onClick={() => setActiveIndex(index)}
+              className={`flex shrink-0 items-center gap-1.5 rounded-full border-2 px-3 py-1.5 text-sm font-medium transition-colors ${
+                active
+                  ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
+                  : step.status === 'done'
+                    ? 'border-green-200 bg-green-50 text-green-700'
+                    : isDue
+                      ? 'border-red-400 bg-red-50 text-red-700'
+                      : 'border-slate-200 bg-white text-slate-500'
               }`}
             >
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-indigo-50 text-lg">
-                    {STEP_ICONS[step.stepType]}
-                  </span>
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Étape {index + 1}</p>
-                    <p className="font-semibold text-slate-800">{step.label}</p>
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  {step.status === 'todo' && (
-                    <button onClick={() => startStep(step)} className="btn-secondary btn-sm">
-                      Démarrer
-                    </button>
-                  )}
-                  {step.status !== 'done' && (
-                    <button onClick={() => completeStep(step)} className="btn-primary btn-sm">
-                      Terminer
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              <StepTimer step={step} now={now} />
-              <StepProgressBar step={step} now={now} isDue={!!isDue} triggerAtSeconds={triggerAtSeconds} boilElapsedSeconds={boilElapsedSeconds} />
-
-              {step.stepType === 'hop-addition' && triggerAtSeconds !== null && boilStep?.actualStartAt && (
-                <p
-                  className={`mt-2 ${
-                    isDue ? 'font-mono text-2xl font-bold text-red-700' : 'text-sm text-slate-500'
-                  }`}
-                >
-                  {isDue ? '⚠ À ajouter maintenant !' : `Dans ${formatDuration(triggerAtSeconds - boilElapsedSeconds)}`}
-                </p>
-              )}
-
-              {step.stepType === 'mash' && (
-                <div className="mt-4 border-t border-slate-200 pt-4">
-                  <StrikeWaterTool defaultGrainWeightKg={totalGrainKg} defaultWaterVolumeL={mashWaterL} embedded />
-                </div>
-              )}
-            </li>
+              <span>{STEP_ICONS[step.stepType]}</span>
+              {step.status === 'done' && <span>✓</span>}
+              <span className="whitespace-nowrap">{step.label}</span>
+            </button>
           )
         })}
-      </ol>
+      </div>
+
+      {activeStep && (
+        <ActiveStepCard
+          key={activeStep.id}
+          step={activeStep}
+          now={now}
+          boilStep={boilStep}
+          boilElapsedSeconds={boilElapsedSeconds}
+          totalGrainKg={totalGrainKg}
+          mashWaterL={mashWaterL}
+          onStart={startStep}
+          onComplete={completeStep}
+          onReset={resetStep}
+        />
+      )}
+
+      <div className="flex justify-between">
+        <button
+          onClick={() => setActiveIndex((i) => Math.max(0, (i ?? 0) - 1))}
+          disabled={activeIndex === null || activeIndex === 0}
+          className="btn-secondary btn-sm disabled:opacity-40"
+        >
+          ← Étape précédente
+        </button>
+        <button
+          onClick={() => setActiveIndex((i) => Math.min(steps.length - 1, (i ?? 0) + 1))}
+          disabled={activeIndex === null || activeIndex === steps.length - 1}
+          className="btn-secondary btn-sm disabled:opacity-40"
+        >
+          Étape suivante →
+        </button>
+      </div>
 
       <GravityCorrectionTool targetGravity={batch.recipeSnapshot.estOg ?? undefined} />
+    </div>
+  )
+}
+
+function ActiveStepCard({
+  step,
+  now,
+  boilStep,
+  boilElapsedSeconds,
+  totalGrainKg,
+  mashWaterL,
+  onStart,
+  onComplete,
+  onReset,
+}: {
+  step: BatchStep
+  now: number
+  boilStep: BatchStep | undefined
+  boilElapsedSeconds: number
+  totalGrainKg: number
+  mashWaterL: number | undefined
+  onStart: (step: BatchStep) => void
+  onComplete: (step: BatchStep) => void
+  onReset: (step: BatchStep) => void
+}) {
+  const boilRemainingPlanned = boilStep?.plannedDurationMin ?? 0
+  const triggerAtSeconds =
+    step.stepType === 'hop-addition' && step.triggerTimeMin !== null
+      ? (boilRemainingPlanned - step.triggerTimeMin) * 60
+      : null
+  const isDue =
+    step.stepType === 'hop-addition' &&
+    step.status === 'todo' &&
+    !!boilStep?.actualStartAt &&
+    triggerAtSeconds !== null &&
+    boilElapsedSeconds >= triggerAtSeconds
+
+  return (
+    <div
+      className={`rounded-2xl border-2 p-4 shadow-sm transition-colors sm:p-5 ${
+        step.status === 'done'
+          ? 'border-slate-200 bg-slate-50'
+          : isDue
+            ? 'border-red-400 bg-red-50'
+            : step.status === 'in-progress'
+              ? 'border-indigo-400 bg-indigo-50'
+              : 'border-slate-200 bg-white'
+      }`}
+    >
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-indigo-50 text-lg">
+            {STEP_ICONS[step.stepType]}
+          </span>
+          <p className="font-semibold text-slate-800">{step.label}</p>
+        </div>
+        <div className="flex gap-2">
+          {step.status === 'todo' && (
+            <button onClick={() => onStart(step)} className="btn-secondary btn-sm">
+              Démarrer
+            </button>
+          )}
+          {step.status === 'in-progress' && (
+            <button onClick={() => onReset(step)} className="btn-secondary btn-sm">
+              Arrêter
+            </button>
+          )}
+          {step.status !== 'done' && (
+            <button onClick={() => onComplete(step)} className="btn-primary btn-sm">
+              Terminer
+            </button>
+          )}
+          {step.status === 'done' && (
+            <button onClick={() => onReset(step)} className="btn-secondary btn-sm">
+              Réinitialiser
+            </button>
+          )}
+        </div>
+      </div>
+
+      <StepTimer step={step} now={now} />
+      <StepProgressBar step={step} now={now} isDue={isDue} triggerAtSeconds={triggerAtSeconds} boilElapsedSeconds={boilElapsedSeconds} />
+
+      {step.stepType === 'hop-addition' && triggerAtSeconds !== null && boilStep?.actualStartAt && (
+        <p className={`mt-2 ${isDue ? 'font-mono text-2xl font-bold text-red-700' : 'text-sm text-slate-500'}`}>
+          {isDue ? '⚠ À ajouter maintenant !' : `Dans ${formatDuration(triggerAtSeconds - boilElapsedSeconds)}`}
+        </p>
+      )}
+
+      {step.stepType === 'mash' && (
+        <div className="mt-4 border-t border-slate-200 pt-4">
+          <StrikeWaterTool defaultGrainWeightKg={totalGrainKg} defaultWaterVolumeL={mashWaterL} embedded />
+        </div>
+      )}
     </div>
   )
 }

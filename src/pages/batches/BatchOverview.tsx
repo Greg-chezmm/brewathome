@@ -1,8 +1,14 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { calculateABV } from '@/lib/brew-calc/abv'
-import { getBatchWithDetails, updateBatchMeasurements, updateBatchStatus, type BatchStatus } from '@/lib/db/queries/batches'
+import {
+  deleteBatch,
+  getBatchWithDetails,
+  updateBatchMeasurements,
+  updateBatchStatus,
+  type BatchStatus,
+} from '@/lib/db/queries/batches'
 
 const STATUS_FLOW: BatchStatus[] = ['planned', 'brew_day', 'fermentation', 'conditioning', 'completed']
 const STATUS_LABELS: Record<BatchStatus, string> = {
@@ -15,6 +21,7 @@ const STATUS_LABELS: Record<BatchStatus, string> = {
 
 export function BatchOverview() {
   const { batchId } = useParams<{ batchId: string }>()
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { data: batch } = useQuery({
     queryKey: ['batch', batchId],
@@ -39,6 +46,14 @@ export function BatchOverview() {
     queryClient.invalidateQueries({ queryKey: ['batch', batchId] })
   }
 
+  async function handleDelete() {
+    if (!batchId) return
+    if (!confirm('Supprimer définitivement ce brassin (étapes et lectures de fermentation incluses) ?')) return
+    await deleteBatch(batchId)
+    queryClient.invalidateQueries({ queryKey: ['batches'] })
+    navigate('/batches')
+  }
+
   async function saveMeasurements() {
     if (!batchId) return
     await updateBatchMeasurements(batchId, {
@@ -55,7 +70,12 @@ export function BatchOverview() {
           <h1 className="text-2xl font-bold tracking-tight text-slate-900">{batch.name}</h1>
           <p className="text-slate-500">{batch.brewDate ?? 'Date non définie'}</p>
         </div>
-        <span className="badge">{STATUS_LABELS[batch.status]}</span>
+        <div className="flex items-center gap-2">
+          <span className="badge">{STATUS_LABELS[batch.status]}</span>
+          <button onClick={handleDelete} className="btn-danger">
+            Supprimer
+          </button>
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-2">
@@ -73,10 +93,18 @@ export function BatchOverview() {
       </div>
 
       <section className="card">
-        <h2 className="section-title mb-2">Recette (figée au moment de la validation)</h2>
+        <div className="mb-2 flex items-center justify-between">
+          <h2 className="section-title">Recette (propre à ce brassin)</h2>
+          <Link to={`/batches/${batchId}/edit-recipe`} className="btn-secondary btn-sm">
+            Modifier
+          </Link>
+        </div>
         <p className="text-sm text-slate-600">
           OG estimée {recipe.estOg?.toFixed(3)} · FG estimée {recipe.estFg?.toFixed(3)} · {recipe.estIbu?.toFixed(0)} IBU ·{' '}
           {recipe.estSrm?.toFixed(1)} SRM · {recipe.estAbv?.toFixed(1)}% ABV estimé
+        </p>
+        <p className="mt-1 text-xs text-slate-400">
+          Modifier ici n'affecte que ce brassin — la recette d'origine reste inchangée.
         </p>
       </section>
 
