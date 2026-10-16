@@ -21,6 +21,7 @@ export function DevicesList() {
   const [name, setName] = useState('')
   const [type, setType] = useState<DeviceType>('ispindel')
   const [creating, setCreating] = useState(false)
+  const [copiedId, setCopiedId] = useState<string | null>(null)
 
   const activeBatches = batches?.filter((b) => b.status !== 'completed') ?? []
 
@@ -48,6 +49,12 @@ export function DevicesList() {
     queryClient.invalidateQueries({ queryKey: ['devices'] })
   }
 
+  async function handleCopy(url: string, deviceId: string) {
+    await navigator.clipboard.writeText(url)
+    setCopiedId(deviceId)
+    setTimeout(() => setCopiedId(null), 2000)
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -57,6 +64,44 @@ export function DevicesList() {
           de fermentation.
         </p>
       </div>
+
+      <details className="card-tinted">
+        <summary className="cursor-pointer font-semibold text-amber-900">
+          Comment connecter un iSpindel ? (marche à suivre complète)
+        </summary>
+        <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm text-stone-700">
+          <li>
+            Ci-dessous, ajoutez un appareil de type <strong>iSpindel</strong> et donnez-lui un nom (ex : « iSpindel
+            cuisine »).
+          </li>
+          <li>
+            Une URL unique apparaît sous l'appareil, avec un token qui lui est propre — copiez-la en entier (bouton
+            « Copier »).
+          </li>
+          <li>
+            Sur l'iSpindel : maintenez le bouton reset pour le faire entrer en mode configuration Wi-Fi (il crée son
+            propre point d'accès, ex. <code>iSpindel-XXXX</code>), connectez-vous dessus avec votre téléphone/PC.
+          </li>
+          <li>
+            Dans le portail de configuration qui s'ouvre : choisissez votre réseau Wi-Fi habituel, puis dans la
+            section <strong>Service</strong>, sélectionnez <strong>HTTP</strong>. Collez l'URL copiée à l'étape 2
+            dans le champ URL (ou « Token » selon la version du firmware). Enregistrez — l'iSpindel redémarre.
+          </li>
+          <li>
+            Plongez l'iSpindel dans le fermenteur, puis sur la page Appareils ci-dessous, choisissez le{' '}
+            <strong>brassin à suivre</strong> dans le menu déroulant de l'appareil.
+          </li>
+          <li>
+            Les mesures arrivent automatiquement (toutes les ~15 min par défaut) dans le graphique de la page{' '}
+            <strong>Suivi de fermentation</strong> du brassin.
+          </li>
+        </ol>
+        <p className="mt-3 text-xs text-stone-500">
+          Important : ceci ne fonctionne que si l'Edge Function Supabase <code>ispindel</code> a été déployée côté
+          serveur (une seule fois, voir la documentation technique) — sans ça, l'URL ne répondra pas et aucune
+          mesure ne sera enregistrée.
+        </p>
+      </details>
 
       <form onSubmit={handleCreate} className="card flex flex-wrap items-end gap-3">
         <div>
@@ -97,9 +142,18 @@ export function DevicesList() {
                       <span className="font-medium text-stone-600">URL à configurer sur l'iSpindel</span>
                       <InfoTooltip text="Dans la config Wi-Fi de l'iSpindel (portail au démarrage) : Service = HTTP, et collez cette URL complète dans le champ URL/Token. Le token identifie l'appareil, pas besoin d'en-tête d'authentification." />
                     </div>
-                    <code className="block overflow-x-auto rounded bg-stone-100 px-2 py-1">
-                      {SUPABASE_FUNCTIONS_URL}?token={device.apiToken}
-                    </code>
+                    <div className="flex items-center gap-2">
+                      <code className="block flex-1 overflow-x-auto rounded bg-stone-100 px-2 py-1">
+                        {SUPABASE_FUNCTIONS_URL}?token={device.apiToken}
+                      </code>
+                      <button
+                        type="button"
+                        onClick={() => handleCopy(`${SUPABASE_FUNCTIONS_URL}?token=${device.apiToken}`, device.id)}
+                        className="btn-secondary btn-sm shrink-0"
+                      >
+                        {copiedId === device.id ? 'Copié ✓' : 'Copier'}
+                      </button>
+                    </div>
                   </div>
                 )}
                 <div className="mt-3 flex items-center gap-2">

@@ -25,6 +25,18 @@ export function useElapsedSeconds(startAtIso: string | null): number {
   return elapsed
 }
 
+/** "Horloge" partagée, rafraîchie chaque seconde, pour dériver l'état de
+ * plusieurs chronomètres (un par étape) sans empiler un hook par élément de
+ * liste (ce qui violerait les règles des hooks React dans un .map). */
+export function useNowTick(intervalMs = 1000): number {
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), intervalMs)
+    return () => clearInterval(id)
+  }, [intervalMs])
+  return now
+}
+
 export function formatDuration(totalSeconds: number): string {
   const sign = totalSeconds < 0 ? '-' : ''
   const abs = Math.abs(totalSeconds)

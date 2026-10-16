@@ -6,15 +6,24 @@ export function StrikeWaterTool({
   defaultTargetTempC = 67,
   defaultGrainWeightKg,
   defaultWaterVolumeL,
+  embedded = false,
 }: {
   defaultTargetTempC?: number
   defaultGrainWeightKg?: number
   defaultWaterVolumeL?: number
+  /** Rendu compact, sans carte englobante ni titre — pour intégration dans l'étape d'empâtage du Brew Day. */
+  embedded?: boolean
 }) {
   const [targetTemp, setTargetTemp] = useState(String(defaultTargetTempC))
   const [grainTemp, setGrainTemp] = useState('20')
   const [grainWeight, setGrainWeight] = useState(defaultGrainWeightKg ? String(defaultGrainWeightKg) : '')
-  const [waterVolume, setWaterVolume] = useState(defaultWaterVolumeL ? String(defaultWaterVolumeL) : '')
+  const [waterVolume, setWaterVolume] = useState(
+    defaultWaterVolumeL
+      ? String(defaultWaterVolumeL)
+      : defaultGrainWeightKg
+        ? String(Math.round(defaultGrainWeightKg * 3 * 10) / 10)
+        : '',
+  )
 
   const target = Number.parseFloat(targetTemp)
   const grain = Number.parseFloat(grainTemp)
@@ -25,13 +34,17 @@ export function StrikeWaterTool({
 
   const strikeTemp = valid ? calculateStrikeWaterTempC(target, grain, ratio) : null
 
-  return (
-    <div className="card">
-      <h2 className="section-title mb-1">Température d'eau d'empâtage</h2>
-      <p className="mb-3 text-sm text-stone-500">
-        Calcule la température à laquelle chauffer l'eau d'empâtage pour atteindre le palier visé, en tenant compte
-        de l'inertie thermique du grain (plus froid que l'eau).
-      </p>
+  const content = (
+    <>
+      {!embedded && (
+        <>
+          <h2 className="section-title mb-1">Température d'eau d'empâtage</h2>
+          <p className="mb-3 text-sm text-stone-500">
+            Calcule la température à laquelle chauffer l'eau d'empâtage pour atteindre le palier visé, en tenant
+            compte de l'inertie thermique du grain (plus froid que l'eau).
+          </p>
+        </>
+      )}
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         <div>
           <FieldLabel hint="La température de palier d'empâtage visée (ex : 67°C pour un empâtage standard).">
@@ -80,9 +93,13 @@ export function StrikeWaterTool({
       </div>
       {strikeTemp !== null && (
         <p className="mt-3 text-sm font-medium text-amber-800">
-          Chauffez l'eau à <strong>{strikeTemp.toFixed(1)} °C</strong> avant d'y verser le grain.
+          Chauffez l'eau à <strong>{strikeTemp.toFixed(1)} °C</strong> avant d'y verser le grain
+          {Number.isFinite(ratio) && <> (ratio {ratio.toFixed(1)} L/kg)</>}.
         </p>
       )}
-    </div>
+    </>
   )
+
+  if (embedded) return content
+  return <div className="card">{content}</div>
 }

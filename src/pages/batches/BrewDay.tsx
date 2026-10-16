@@ -4,14 +4,24 @@ import { useParams } from 'react-router-dom'
 import { GravityCorrectionTool } from '@/components/brew-day/GravityCorrectionTool'
 import { StrikeWaterTool } from '@/components/brew-day/StrikeWaterTool'
 import { useAlertSound } from '@/hooks/useAlertSound'
-import { formatDuration, useElapsedSeconds } from '@/hooks/useBrewTimer'
+import { formatDuration, useNowTick } from '@/hooks/useBrewTimer'
 import { useWakeLock } from '@/hooks/useWakeLock'
 import {
   getBatchSteps,
   getBatchWithDetails,
   updateBatchStepStatus,
   type BatchStep,
+  type BatchStepType,
 } from '@/lib/db/queries/batches'
+
+const STEP_ICONS: Record<BatchStepType, string> = {
+  mash: '🌾',
+  'mash-step': '🌡️',
+  boil: '🔥',
+  'hop-addition': '🌿',
+  whirlpool: '🌀',
+  cooling: '❄️',
+}
 
 export function BrewDay() {
   const { batchId } = useParams<{ batchId: string }>()
@@ -19,6 +29,7 @@ export function BrewDay() {
   const { unlock, play } = useAlertSound()
   const [soundEnabled, setSoundEnabled] = useState(false)
   const alertedStepIds = useRef(new Set<string>())
+  const now = useNowTick()
 
   useWakeLock(true)
 
@@ -35,7 +46,10 @@ export function BrewDay() {
   })
 
   const boilStep = steps?.find((s) => s.stepType === 'boil')
-  const boilElapsedSeconds = useElapsedSeconds(boilStep?.actualStartAt ?? null)
+  const boilElapsedSeconds =
+    boilStep?.actualStartAt !== undefined && boilStep?.actualStartAt !== null
+      ? Math.max(0, Math.floor((now - new Date(boilStep.actualStartAt).getTime()) / 1000))
+      : 0
 
   useEffect(() => {
     if (!soundEnabled || !boilStep || !steps) return
@@ -65,10 +79,17 @@ export function BrewDay() {
 
   if (!batch || !steps) return <p className="text-stone-500">Chargement…</p>
 
+  const totalGrainKg = batch.recipeSnapshot.fermentables
+    .filter((f) => f.type === 'grain')
+    .reduce((sum, f) => sum + f.amountKg, 0)
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="font-display text-2xl font-semibold text-stone-800">Brew Day — {batch.name}</h1>
+        <div>
+          <h1 className="font-display text-2xl font-semibold text-stone-800">Brew Day</h1>
+          <p className="text-stone-500">{batch.name}</p>
+        </div>
         {!soundEnabled && (
           <button
             onClick={() => {
@@ -84,8 +105,8 @@ export function BrewDay() {
         {soundEnabled && <span className="badge-ok">🔊 Alertes sonores activées</span>}
       </div>
 
-      <ul className="space-y-2">
-        {steps.map((step) => {
+      <ol className="space-y-3">
+        {steps.map((step, index) => {
           const boilRemainingPlanned = boilStep?.plannedDurationMin ?? 0
           const triggerAtSeconds =
             step.stepType === 'hop-addition' && step.triggerTimeMin !== null
@@ -101,7 +122,7 @@ export function BrewDay() {
           return (
             <li
               key={step.id}
-              className={`rounded-2xl border p-4 shadow-sm ${
+              className={`rounded-2xl border-2 p-4 shadow-sm transition-colors sm:p-5 ${
                 step.status === 'done'
                   ? 'border-stone-200 bg-stone-50 opacity-60'
                   : isDue
@@ -111,21 +132,15 @@ export function BrewDay() {
                       : 'border-amber-200/70 bg-white'
               }`}
             >
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium text-stone-800">{step.label}</p>
-                  {step.stepType === 'boil' && step.actualStartAt && (
-                    <p className="text-sm text-stone-500">
-                      Écoulé : {formatDuration(boilElapsedSeconds)} / {step.plannedDurationMin} min
-                    </p>
-                  )}
-                  {step.stepType === 'hop-addition' && triggerAtSeconds !== null && boilStep?.actualStartAt && (
-                    <p className={`text-sm ${isDue ? 'font-semibold text-red-700' : 'text-stone-500'}`}>
-                      {isDue
-                        ? 'À ajouter maintenant !'
-                        : `Dans ${formatDuration(triggerAtSeconds - boilElapsedSeconds)}`}
-                    </p>
-                  )}
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-100 text-lg">
+                    {STEP_ICONS[step.stepType]}
+                  </span>
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-stone-400">Étape {index + 1}</p>
+                    <p className="font-semibold text-stone-800">{step.label}</p>
+                  </div>
                 </div>
                 <div className="flex gap-2">
                   {step.status === 'todo' && (
@@ -140,18 +155,118 @@ export function BrewDay() {
                   )}
                 </div>
               </div>
+
+              <StepTimer step={step} now={now} />
+              <StepProgressBar step={step} now={now} isDue={!!isDue} triggerAtSeconds={triggerAtSeconds} boilElapsedSeconds={boilElapsedSeconds} />
+
+              {step.stepType === 'hop-addition' && triggerAtSeconds !== null && boilStep?.actualStartAt && (
+                <p
+                  className={`mt-2 ${
+                    isDue ? 'font-mono text-2xl font-bold text-red-700' : 'text-sm text-stone-500'
+                  }`}
+                >
+                  {isDue ? '⚠ À ajouter maintenant !' : `Dans ${formatDuration(triggerAtSeconds - boilElapsedSeconds)}`}
+                </p>
+              )}
+
+              {step.stepType === 'mash' && (
+                <div className="mt-4 border-t border-amber-200/60 pt-4">
+                  <StrikeWaterTool defaultGrainWeightKg={totalGrainKg} embedded />
+                </div>
+              )}
             </li>
           )
         })}
-      </ul>
-
-      <StrikeWaterTool
-        defaultGrainWeightKg={batch.recipeSnapshot.fermentables
-          .filter((f) => f.type === 'grain')
-          .reduce((sum, f) => sum + f.amountKg, 0)}
-      />
+      </ol>
 
       <GravityCorrectionTool targetGravity={batch.recipeSnapshot.estOg ?? undefined} />
+    </div>
+  )
+}
+
+function StepTimer({ step, now }: { step: BatchStep; now: number }) {
+  if (step.status === 'done') {
+    if (!step.actualStartAt || !step.actualEndAt) return null
+    const totalSec = Math.max(
+      0,
+      Math.round((new Date(step.actualEndAt).getTime() - new Date(step.actualStartAt).getTime()) / 1000),
+    )
+    return <p className="mt-2 text-sm text-stone-400">Durée réelle : {formatDuration(totalSec)}</p>
+  }
+
+  if (step.status !== 'in-progress' || !step.actualStartAt) return null
+
+  const elapsedSec = Math.max(0, Math.floor((now - new Date(step.actualStartAt).getTime()) / 1000))
+
+  if (step.plannedDurationMin) {
+    const remainingSec = step.plannedDurationMin * 60 - elapsedSec
+    const overdue = remainingSec < 0
+    return (
+      <div className="mt-2 flex items-baseline gap-2">
+        <span
+          className={`font-mono text-4xl font-bold tabular-nums ${overdue ? 'text-red-600' : 'text-amber-900'}`}
+        >
+          {overdue ? '+' : ''}
+          {formatDuration(Math.abs(remainingSec))}
+        </span>
+        <span className="text-sm text-stone-500">{overdue ? 'de dépassement' : 'restant'}</span>
+      </div>
+    )
+  }
+
+  return (
+    <div className="mt-2 flex items-baseline gap-2">
+      <span className="font-mono text-4xl font-bold tabular-nums text-amber-900">{formatDuration(elapsedSec)}</span>
+      <span className="text-sm text-stone-500">écoulé</span>
+    </div>
+  )
+}
+
+function StepProgressBar({
+  step,
+  now,
+  isDue,
+  triggerAtSeconds,
+  boilElapsedSeconds,
+}: {
+  step: BatchStep
+  now: number
+  isDue: boolean
+  triggerAtSeconds: number | null
+  boilElapsedSeconds: number
+}) {
+  let percent = 0
+  let overdue = false
+  let indeterminate = false
+  const done = step.status === 'done'
+
+  if (done) {
+    percent = 100
+  } else if (step.status === 'in-progress' && step.actualStartAt) {
+    const elapsedSec = Math.max(0, Math.floor((now - new Date(step.actualStartAt).getTime()) / 1000))
+    if (step.plannedDurationMin) {
+      percent = (elapsedSec / (step.plannedDurationMin * 60)) * 100
+      overdue = elapsedSec > step.plannedDurationMin * 60
+    } else {
+      indeterminate = true
+    }
+  } else if (step.stepType === 'hop-addition' && step.status === 'todo' && triggerAtSeconds !== null && triggerAtSeconds > 0) {
+    percent = (boilElapsedSeconds / triggerAtSeconds) * 100
+    overdue = isDue
+  }
+
+  return (
+    <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-stone-200">
+      {indeterminate ? (
+        <div className="h-full w-1/3 animate-pulse rounded-full bg-amber-400" />
+      ) : (
+        <div
+          className={`h-full rounded-full transition-all duration-1000 ${
+            done ? 'bg-stone-400' : overdue ? 'bg-red-500' : 'bg-amber-500'
+          }`}
+          style={{ width: `${Math.min(100, Math.max(0, percent))}%` }}
+        />
+      )}
     </div>
   )
 }
