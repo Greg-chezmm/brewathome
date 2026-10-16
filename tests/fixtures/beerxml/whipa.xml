@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<RECIPES>
+  <RECIPE>
+    <NAME>Whipa</NAME>
+    <TYPE>All Grain</TYPE>
+    <STYLE>
+      <NAME>White IPA</NAME>
+      <CATEGORY>IPA</CATEGORY>
+      <CATEGORY_NUMBER>21</CATEGORY_NUMBER>
+      <STYLE_LETTER>B</STYLE_LETTER>
+      <STYLE_GUIDE>BJCP 2015</STYLE_GUIDE>
+      <TYPE>Ale</TYPE>
+      <OG_MIN>1.056</OG_MIN>
+      <OG_MAX>1.065</OG_MAX>
+      <FG_MIN>1.01</FG_MIN>
+      <FG_MAX>1.016</FG_MAX>
+      <IBU_MIN>40</IBU_MIN>
+      <IBU_MAX>70</IBU_MAX>
+      <COLOR_MIN>9</COLOR_MIN>
+      <COLOR_MAX>15</COLOR_MAX>
+      <CARB_MIN>2.4</CARB_MIN>
+      <CARB_MAX>3.0</CARB_MAX>
+      <ABV_MIN>5.5</ABV_MIN>
+      <ABV_MAX>7.0</ABV_MAX>
+      <EXAMPLES>Blue Point White IPA, Deschutes Chainbreaker IPA, Harpoon The Long Thaw, New Belgium Accumulation</EXAMPLES>
+    </STYLE>
+    <VERSION>1</VERSION>
+    <BATCH_SIZE>13.0</BATCH_SIZE>
+    <BOIL_SIZE>18.8</BOIL_SIZE>
+    <BOIL_TIME>75</BOIL_TIME>
+    <EFFICIENCY>72.0</EFFICIENCY>
+    <EST_OG>1.061</EST_OG>
+    <EST_FG>1.01</EST_FG>
+    <EST_COLOR>10</EST_COLOR>
+    <IBU>42</IBU>
+    <EST_ABV>6.7</EST_ABV>
+    <NOTES></NOTES>
+    <FERMENTATION_STAGES>2</FERMENTATION_STAGES>
+    <PRIMARY_AGE>10</PRIMARY_AGE>
+    <PRIMARY_TEMP>18.0</PRIMARY_TEMP>
+    <SECONDARY_AGE>10</SECONDARY_AGE>
+    <SECONDARY_TEMP>5.0</SECONDARY_TEMP>
+    <AGE>15</AGE>
+    <AGE_TEMP>18.0</AGE_TEMP>
+    <CARBONATION>2.0</CARBONATION>
+    <CARBONATION_TEMP>18.0</CARBONATION_TEMP>
+    <PRIMING_SUGAR_NAME></PRIMING_SUGAR_NAME>
+    <FERMENTABLES>
+      <FERMENTABLE>
+        <DISPLAY_COLOR>6 EBC</DISPLAY_COLOR>
+        <NAME>Malt Pale Ale</NAME>
+        <SUPPLIER>Weyermann</SUPPLIER>
+        <TYPE>Grain</TYPE>
+        <AMOUNT>2.2</AMOUNT>
+        <COLOR>6</COLOR>
+        <YIELD>82.2</YIELD>
+      </FERMENTABLE>
+      <FERMENTABLE>
+        <DISPLAY_COLOR>4 EBC</DISPLAY_COLOR>
+        <NAME>Malt Froment Blanc</NAME>
+        <SUPPLIER>Malterie du Ch&#226;teau</SUPPLIER>
+        <TYPE>Grain</TYPE>
+        <AMOUNT>1.4</AMOUNT>
+        <COLOR>4</COLOR>
+        <YIELD>83.0</YIELD>
+      </FERMENTABLE>
+    </FERMENTABLES>
+    <HOPS>
+      <HOP>
+        <NAME>Cascade</NAME>
+        <AMOUNT>0.008</AMOUNT>
+        <ALPHA>5.5</ALPHA>
+        <USE>Boil</USE>
+        <TIME>60</TIME>
+        <FORM>Pellet</FORM>
+      </HOP>
+      <HOP>
+        <NAME>Magnum</NAME>
+        <AMOUNT>0.013</AMOUNT>
+        <ALPHA>12.4</ALPHA>
+        <USE>Boil</USE>
+        <TIME>60</TIME>
+        <FORM>Pellet</FORM>
+      </HOP>
+      <HOP>
+        <NAME>Cascade</NAME>
+        <AMOUNT>0.013</AMOUNT>
+        <ALPHA>5.5</ALPHA>
+        <USE>Aroma</USE>
+        <TIME>30</TIME>
+        <FORM>Pellet</FORM>
+      </HOP>
+      <HOP>
+        <NAME>Cascade</NAME>
+        <AMOUNT>0.052</AMOUNT>
+        <ALPHA>5.5</ALPHA>
+        <USE>Dry Hop</USE>
+        <TIME>7200</TIME>
+        <FORM>Pellet</FORM>
+      </HOP>
+    </HOPS>
+    <YEASTS>
+      <YEAST>
+        <NAME>Safbrew Wheat</NAME>
+        <AMOUNT>0.0065</AMOUNT>
+        <AMOUNT_IS_WEIGHT>TRUE</AMOUNT_IS_WEIGHT>
+        <FORM>Dry</FORM>
+        <PRODUCT_ID>WB-06</PRODUCT_ID>
+        <LABORATORY>DCL/Fermentis</LABORATORY>
+        <ATTENUATION>85.0</ATTENUATION>
+      </YEAST>
+    </YEASTS>
+    <MASH>
+      <NAME></NAME>
+      <NOTES></NOTES>
+      <PH>5.4</PH>
+      <SPARGE_TEMP>80.0</SPARGE_TEMP>
+      <MASH_STEPS>
+        <MASH_STEP>
+          <NAME>Saccharification</NAME>
+          <TYPE>Infusion</TYPE>
+          <INFUSE_AMOUNT>9.0</INFUSE_AMOUNT>
+          <INFUSE_TEMP>75.5</INFUSE_TEMP>
+          <STEP_TIME>60</STEP_TIME>
+          <STEP_TEMP>68</STEP_TEMP>
+          <WATER_GRAIN_RATIO></WATER_GRAIN_RATIO>
+        </MASH_STEP>
+        <MASH_STEP>
+          <NAME>D&#233;sactivation des enzymes</NAME>
+          <TYPE>Temperature</TYPE>
+          <STEP_TIME>10</STEP_TIME>
+          <STEP_TEMP>79</STEP_TEMP>
+          <WATER_GRAIN_RATIO></WATER_GRAIN_RATIO>
+        </MASH_STEP>
+      </MASH_STEPS>
+    </MASH>
+  </RECIPE>
+</RECIPES>

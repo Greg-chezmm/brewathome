@@ -1,0 +1,170 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<RECIPES>
+  <RECIPE>
+    <NAME>Rye irish red ale</NAME>
+    <TYPE>All Grain</TYPE>
+    <STYLE>
+      <NAME>Irish Red Ale</NAME>
+      <CATEGORY>Irish Beer</CATEGORY>
+      <CATEGORY_NUMBER>15</CATEGORY_NUMBER>
+      <STYLE_LETTER>A</STYLE_LETTER>
+      <STYLE_GUIDE>BJCP 2015</STYLE_GUIDE>
+      <TYPE>Ale</TYPE>
+      <OG_MIN>1.036</OG_MIN>
+      <OG_MAX>1.046</OG_MAX>
+      <FG_MIN>1.01</FG_MIN>
+      <FG_MAX>1.014</FG_MAX>
+      <IBU_MIN>18</IBU_MIN>
+      <IBU_MAX>28</IBU_MAX>
+      <COLOR_MIN>17</COLOR_MIN>
+      <COLOR_MAX>27</COLOR_MAX>
+      <CARB_MIN>2.4</CARB_MIN>
+      <CARB_MAX>2.8</CARB_MAX>
+      <ABV_MIN>3.8</ABV_MIN>
+      <ABV_MAX>5.0</ABV_MAX>
+      <EXAMPLES>Caffrey&#8217;s Irish Ale, Franciscan Well Rebel Red, Kilkenny Irish Beer, O&#8217;Hara&#8217;s Irish Red Ale, Porterhouse Red Ale, Samuel Adams Irish Red, Smithwick&#8217;s Irish Ale</EXAMPLES>
+    </STYLE>
+    <VERSION>1</VERSION>
+    <BATCH_SIZE>14.0</BATCH_SIZE>
+    <BOIL_SIZE>18.4</BOIL_SIZE>
+    <BOIL_TIME>60</BOIL_TIME>
+    <EFFICIENCY>72.0</EFFICIENCY>
+    <EST_OG>1.044</EST_OG>
+    <EST_FG>1.013</EST_FG>
+    <EST_COLOR>28</EST_COLOR>
+    <IBU>27</IBU>
+    <EST_ABV>4.1</EST_ABV>
+    <NOTES></NOTES>
+    <FERMENTATION_STAGES>3</FERMENTATION_STAGES>
+    <PRIMARY_AGE>4</PRIMARY_AGE>
+    <PRIMARY_TEMP>19.0</PRIMARY_TEMP>
+    <SECONDARY_AGE>2</SECONDARY_AGE>
+    <SECONDARY_TEMP>20.0</SECONDARY_TEMP>
+    <TERTIARY_AGE>2</TERTIARY_AGE>
+    <TERTIARY_TEMP>22.0</TERTIARY_TEMP>
+    <CARBONATION>2.4</CARBONATION>
+    <CARBONATION_TEMP>18.0</CARBONATION_TEMP>
+    <PRIMING_SUGAR_NAME></PRIMING_SUGAR_NAME>
+    <FERMENTABLES>
+      <FERMENTABLE>
+        <DISPLAY_COLOR>3 EBC</DISPLAY_COLOR>
+        <NAME>Malt Pilsen 2RP</NAME>
+        <SUPPLIER>Malterie du Ch&#226;teau</SUPPLIER>
+        <TYPE>Grain</TYPE>
+        <AMOUNT>2.32</AMOUNT>
+        <COLOR>3</COLOR>
+        <YIELD>81.0</YIELD>
+      </FERMENTABLE>
+      <FERMENTABLE>
+        <DISPLAY_COLOR>70 EBC</DISPLAY_COLOR>
+        <NAME>MALT CARA AMBRA&#174;</NAME>
+        <SUPPLIER>Malterie du Ch&#226;teau</SUPPLIER>
+        <TYPE>Grain</TYPE>
+        <AMOUNT>0.49</AMOUNT>
+        <COLOR>70</COLOR>
+        <YIELD>75.0</YIELD>
+      </FERMENTABLE>
+      <FERMENTABLE>
+        <DISPLAY_COLOR>5 EBC</DISPLAY_COLOR>
+        <NAME>Malt Rye</NAME>
+        <SUPPLIER>Malterie du Ch&#226;teau</SUPPLIER>
+        <TYPE>Grain</TYPE>
+        <AMOUNT>0.14</AMOUNT>
+        <COLOR>5</COLOR>
+        <YIELD>83.0</YIELD>
+      </FERMENTABLE>
+      <FERMENTABLE>
+        <DISPLAY_COLOR>1200 EBC</DISPLAY_COLOR>
+        <NAME>Malt Orge Torr&#233;fi&#233; (Roasted Barley)</NAME>
+        <SUPPLIER>Malterie du Ch&#226;teau</SUPPLIER>
+        <TYPE>Grain</TYPE>
+        <AMOUNT>0.04</AMOUNT>
+        <COLOR>1200</COLOR>
+        <YIELD>65.0</YIELD>
+      </FERMENTABLE>
+    </FERMENTABLES>
+    <HOPS>
+      <HOP>
+        <NAME>Fuggle</NAME>
+        <AMOUNT>0.0158</AMOUNT>
+        <ALPHA>5.6</ALPHA>
+        <USE>Boil</USE>
+        <TIME>60</TIME>
+        <FORM>Pellet</FORM>
+      </HOP>
+      <HOP>
+        <NAME>Golding</NAME>
+        <AMOUNT>0.008400000000000001</AMOUNT>
+        <ALPHA>4.3</ALPHA>
+        <USE>Boil</USE>
+        <TIME>30</TIME>
+        <FORM>Pellet</FORM>
+      </HOP>
+      <HOP>
+        <NAME>Golding</NAME>
+        <AMOUNT>0.008400000000000001</AMOUNT>
+        <ALPHA>4.3</ALPHA>
+        <USE>Boil</USE>
+        <TIME>15</TIME>
+        <FORM>Pellet</FORM>
+      </HOP>
+      <HOP>
+        <NAME>Citra 2019</NAME>
+        <AMOUNT>0.028</AMOUNT>
+        <ALPHA>12.5</ALPHA>
+        <USE>Dry Hop</USE>
+        <TIME>7200</TIME>
+        <FORM>Pellet</FORM>
+      </HOP>
+    </HOPS>
+    <MISCS>
+      <MISC>
+        <NAME>Irish Moss (Lichen carraghen)</NAME>
+        <TYPE>Fining</TYPE>
+        <USE>Boil</USE>
+        <AMOUNT>0.01167</AMOUNT>
+        <AMOUNT_IS_WEIGHT>TRUE</AMOUNT_IS_WEIGHT>
+        <TIME>10</TIME>
+        <NOTES></NOTES>
+      </MISC>
+    </MISCS>
+    <YEASTS>
+      <YEAST>
+        <NAME>SafAle English Ale</NAME>
+        <AMOUNT>0.001</AMOUNT>
+        <AMOUNT_IS_WEIGHT>TRUE</AMOUNT_IS_WEIGHT>
+        <FORM>Dry</FORM>
+        <PRODUCT_ID>S-04</PRODUCT_ID>
+        <LABORATORY>DCL/Fermentis</LABORATORY>
+        <ATTENUATION>73.0</ATTENUATION>
+      </YEAST>
+    </YEASTS>
+    <MASH>
+      <NAME></NAME>
+      <NOTES></NOTES>
+      <PH>5.4</PH>
+      <SPARGE_TEMP>75.0</SPARGE_TEMP>
+      <MASH_STEPS>
+        <MASH_STEP>
+          <NAME>Saccharification 2 Alpa</NAME>
+          <TYPE>Infusion</TYPE>
+          <INFUSE_AMOUNT>7.5</INFUSE_AMOUNT>
+          <INFUSE_TEMP>75.5</INFUSE_TEMP>
+          <STEP_TIME>60</STEP_TIME>
+          <STEP_TEMP>68</STEP_TEMP>
+          <WATER_GRAIN_RATIO></WATER_GRAIN_RATIO>
+        </MASH_STEP>
+        <MASH_STEP>
+          <NAME>D&#233;sactivation des enzymes</NAME>
+          <TYPE>Infusion</TYPE>
+          <INFUSE_AMOUNT>3.4</INFUSE_AMOUNT>
+          <INFUSE_TEMP>100.0</INFUSE_TEMP>
+          <STEP_TIME>10</STEP_TIME>
+          <STEP_TEMP>77</STEP_TEMP>
+          <WATER_GRAIN_RATIO></WATER_GRAIN_RATIO>
+        </MASH_STEP>
+      </MASH_STEPS>
+    </MASH>
+    <total_cost>12.5</total_cost>
+  </RECIPE>
+</RECIPES>

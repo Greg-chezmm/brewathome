@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <title>BrewAtHome</title>
+    <script>
+      // GitHub Pages ne sait servir que des fichiers statiques : il renvoie
+      // cette page 404 pour toute route profonde (ex: /recipes/123) lors d'un
+      // rafraîchissement direct. On encode l'URL demandée et on redirige vers
+      // index.html, qui la décodera pour restaurer la route côté client.
+      // Pattern standard : https://github.com/rafgraph/spa-github-pages
+      var segmentsToKeep = 1
+      var location = window.location
+      var l = location
+      l.replace(
+        l.protocol +
+          '//' +
+          l.hostname +
+          (l.port ? ':' + l.port : '') +
+          l.pathname
+            .split('/')
+            .slice(0, 1 + segmentsToKeep)
+            .join('/') +
+          '/?/' +
+          l.pathname.slice(1).split('/').slice(segmentsToKeep).join('/').replace(/&/g, '~and~') +
+          (l.search ? '&' + l.search.slice(1).replace(/&/g, '~and~') : '') +
+          l.hash,
+      )
+    </script>
+  </head>
+  <body></body>
+</html>

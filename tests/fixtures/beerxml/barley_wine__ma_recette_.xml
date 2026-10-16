@@ -1,0 +1,165 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<RECIPES>
+  <RECIPE>
+    <NAME>Barley wine ( Ma recette )</NAME>
+    <TYPE>All Grain</TYPE>
+    <STYLE>
+      <NAME>English Barleywine</NAME>
+      <CATEGORY>Strong British Ale</CATEGORY>
+      <CATEGORY_NUMBER>17</CATEGORY_NUMBER>
+      <STYLE_LETTER>D</STYLE_LETTER>
+      <STYLE_GUIDE>BJCP 2015</STYLE_GUIDE>
+      <TYPE>Ale</TYPE>
+      <OG_MIN>1.08</OG_MIN>
+      <OG_MAX>1.12</OG_MAX>
+      <FG_MIN>1.018</FG_MIN>
+      <FG_MAX>1.03</FG_MAX>
+      <IBU_MIN>35</IBU_MIN>
+      <IBU_MAX>70</IBU_MAX>
+      <COLOR_MIN>15</COLOR_MIN>
+      <COLOR_MAX>43</COLOR_MAX>
+      <CARB_MIN>1.6</CARB_MIN>
+      <CARB_MAX>2.6</CARB_MAX>
+      <ABV_MIN>8.0</ABV_MIN>
+      <ABV_MAX>12.0</ABV_MAX>
+      <EXAMPLES>Adnams Tally-Ho, Burton Bridge Thomas Sykes Old Ale, Coniston No. 9 Barley Wine, Fuller&#8217;s Golden Pride, J.W. Lee&#8217;s Vintage Harvest Ale, Robinson&#8217;s Old Tom</EXAMPLES>
+    </STYLE>
+    <VERSION>1</VERSION>
+    <BATCH_SIZE>12.0</BATCH_SIZE>
+    <BOIL_SIZE>19.3</BOIL_SIZE>
+    <BOIL_TIME>120</BOIL_TIME>
+    <EFFICIENCY>72.0</EFFICIENCY>
+    <EST_OG>1.1</EST_OG>
+    <EST_FG>1.025</EST_FG>
+    <EST_COLOR>36</EST_COLOR>
+    <IBU>67</IBU>
+    <EST_ABV>9.8</EST_ABV>
+    <NOTES></NOTES>
+    <FERMENTATION_STAGES>1</FERMENTATION_STAGES>
+    <PRIMARY_AGE>40</PRIMARY_AGE>
+    <PRIMARY_TEMP>19.0</PRIMARY_TEMP>
+    <CARBONATION>2.2</CARBONATION>
+    <CARBONATION_TEMP>18.0</CARBONATION_TEMP>
+    <PRIMING_SUGAR_NAME></PRIMING_SUGAR_NAME>
+    <FERMENTABLES>
+      <FERMENTABLE>
+        <DISPLAY_COLOR>6 EBC</DISPLAY_COLOR>
+        <NAME>Malt Finest Maris Otter</NAME>
+        <SUPPLIER>Muntons</SUPPLIER>
+        <TYPE>Grain</TYPE>
+        <AMOUNT>4.5</AMOUNT>
+        <COLOR>6</COLOR>
+        <YIELD>82.5</YIELD>
+      </FERMENTABLE>
+      <FERMENTABLE>
+        <DISPLAY_COLOR>45 EBC</DISPLAY_COLOR>
+        <NAME>Malt Abbaye</NAME>
+        <SUPPLIER>Malterie du Ch&#226;teau</SUPPLIER>
+        <TYPE>Grain</TYPE>
+        <AMOUNT>0.8</AMOUNT>
+        <COLOR>45</COLOR>
+        <YIELD>78.0</YIELD>
+      </FERMENTABLE>
+      <FERMENTABLE>
+        <DISPLAY_COLOR>70 EBC</DISPLAY_COLOR>
+        <NAME>MALT CARA AMBRA&#174;</NAME>
+        <SUPPLIER>Malterie du Ch&#226;teau</SUPPLIER>
+        <TYPE>Grain</TYPE>
+        <AMOUNT>0.5</AMOUNT>
+        <COLOR>70</COLOR>
+        <YIELD>75.0</YIELD>
+      </FERMENTABLE>
+      <FERMENTABLE>
+        <DISPLAY_COLOR>1200 EBC</DISPLAY_COLOR>
+        <NAME>Malt Orge Torr&#233;fi&#233; (Roasted Barley)</NAME>
+        <SUPPLIER>Malterie du Ch&#226;teau</SUPPLIER>
+        <TYPE>Grain</TYPE>
+        <AMOUNT>0.01</AMOUNT>
+        <COLOR>1200</COLOR>
+        <YIELD>65.0</YIELD>
+      </FERMENTABLE>
+    </FERMENTABLES>
+    <HOPS>
+      <HOP>
+        <NAME>Magnum 2020</NAME>
+        <AMOUNT>0.02</AMOUNT>
+        <ALPHA>12.3</ALPHA>
+        <USE>Boil</USE>
+        <TIME>120</TIME>
+        <FORM>Pellet</FORM>
+      </HOP>
+      <HOP>
+        <NAME>Golding</NAME>
+        <AMOUNT>0.004</AMOUNT>
+        <ALPHA>4.3</ALPHA>
+        <USE>Boil</USE>
+        <TIME>120</TIME>
+        <FORM>Pellet</FORM>
+      </HOP>
+      <HOP>
+        <NAME>Golding</NAME>
+        <AMOUNT>0.02</AMOUNT>
+        <ALPHA>4.3</ALPHA>
+        <USE>Boil</USE>
+        <TIME>20</TIME>
+        <FORM>Pellet</FORM>
+      </HOP>
+      <HOP>
+        <NAME>Golding</NAME>
+        <AMOUNT>0.041299999999999996</AMOUNT>
+        <ALPHA>4.3</ALPHA>
+        <USE>Aroma</USE>
+        <TIME>30</TIME>
+        <FORM>Pellet</FORM>
+      </HOP>
+      <HOP>
+        <NAME>Styrian Goldings Celeia</NAME>
+        <AMOUNT>0.0121</AMOUNT>
+        <ALPHA>4.5</ALPHA>
+        <USE>Aroma</USE>
+        <TIME>30</TIME>
+        <FORM>Pellet</FORM>
+      </HOP>
+    </HOPS>
+    <MISCS>
+      <MISC>
+        <NAME>Irish Moss (Lichen carraghen)</NAME>
+        <TYPE>Fining</TYPE>
+        <USE>Boil</USE>
+        <AMOUNT>0.005</AMOUNT>
+        <AMOUNT_IS_WEIGHT>TRUE</AMOUNT_IS_WEIGHT>
+        <TIME>10</TIME>
+        <NOTES></NOTES>
+      </MISC>
+    </MISCS>
+    <YEASTS>
+      <YEAST>
+        <NAME>SafAle English Ale</NAME>
+        <AMOUNT>0.002</AMOUNT>
+        <AMOUNT_IS_WEIGHT>TRUE</AMOUNT_IS_WEIGHT>
+        <FORM>Dry</FORM>
+        <PRODUCT_ID>S-04</PRODUCT_ID>
+        <LABORATORY>DCL/Fermentis</LABORATORY>
+        <ATTENUATION>73.0</ATTENUATION>
+      </YEAST>
+    </YEASTS>
+    <MASH>
+      <NAME></NAME>
+      <NOTES></NOTES>
+      <PH>5.4</PH>
+      <SPARGE_TEMP>77.0</SPARGE_TEMP>
+      <MASH_STEPS>
+        <MASH_STEP>
+          <NAME>Saccharification</NAME>
+          <TYPE>Infusion</TYPE>
+          <INFUSE_AMOUNT>14.5</INFUSE_AMOUNT>
+          <INFUSE_TEMP>73.2</INFUSE_TEMP>
+          <STEP_TIME>60</STEP_TIME>
+          <STEP_TEMP>66</STEP_TEMP>
+          <WATER_GRAIN_RATIO></WATER_GRAIN_RATIO>
+        </MASH_STEP>
+      </MASH_STEPS>
+    </MASH>
+    <total_cost>25.2</total_cost>
+  </RECIPE>
+</RECIPES>

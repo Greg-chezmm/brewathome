@@ -1,0 +1,176 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<RECIPES>
+  <RECIPE>
+    <NAME>Brune forte</NAME>
+    <TYPE>All Grain</TYPE>
+    <STYLE>
+      <NAME>Belgian Dark Strong Ale</NAME>
+      <CATEGORY>Trappist Ale</CATEGORY>
+      <CATEGORY_NUMBER>26</CATEGORY_NUMBER>
+      <STYLE_LETTER>D</STYLE_LETTER>
+      <STYLE_GUIDE>BJCP 2015</STYLE_GUIDE>
+      <TYPE>Ale</TYPE>
+      <OG_MIN>1.075</OG_MIN>
+      <OG_MAX>1.11</OG_MAX>
+      <FG_MIN>1.01</FG_MIN>
+      <FG_MAX>1.024</FG_MAX>
+      <IBU_MIN>20</IBU_MIN>
+      <IBU_MAX>35</IBU_MAX>
+      <COLOR_MIN>23</COLOR_MIN>
+      <COLOR_MAX>43</COLOR_MAX>
+      <CARB_MIN>2.5</CARB_MIN>
+      <CARB_MAX>3.2</CARB_MAX>
+      <ABV_MIN>8.0</ABV_MIN>
+      <ABV_MAX>12.0</ABV_MAX>
+      <EXAMPLES>Achel Extra Brune, Boulevard The Sixth Glass, Chimay Grande R&#233;serve, Gouden Carolus Grand Cru of the Emperor, Rochefort 8 &#38; 10, St. Bernardus Abt 12, Westvleteren 12</EXAMPLES>
+    </STYLE>
+    <VERSION>1</VERSION>
+    <BATCH_SIZE>12.0</BATCH_SIZE>
+    <BOIL_SIZE>15.9</BOIL_SIZE>
+    <BOIL_TIME>60</BOIL_TIME>
+    <EFFICIENCY>72.0</EFFICIENCY>
+    <EST_OG>1.086</EST_OG>
+    <EST_FG>1.016</EST_FG>
+    <EST_COLOR>47</EST_COLOR>
+    <IBU>33</IBU>
+    <EST_ABV>9.2</EST_ABV>
+    <NOTES></NOTES>
+    <FERMENTATION_STAGES>1</FERMENTATION_STAGES>
+    <PRIMARY_AGE>20</PRIMARY_AGE>
+    <PRIMARY_TEMP>19.0</PRIMARY_TEMP>
+    <AGE>90</AGE>
+    <CARBONATION>2.2</CARBONATION>
+    <CARBONATION_TEMP>18.0</CARBONATION_TEMP>
+    <PRIMING_SUGAR_NAME></PRIMING_SUGAR_NAME>
+    <FERMENTABLES>
+      <FERMENTABLE>
+        <DISPLAY_COLOR>6 EBC</DISPLAY_COLOR>
+        <NAME>Malt Maris Otter</NAME>
+        <SUPPLIER>Malterie du Ch&#226;teau</SUPPLIER>
+        <TYPE>Grain</TYPE>
+        <AMOUNT>3.6</AMOUNT>
+        <COLOR>6</COLOR>
+        <YIELD>82.5</YIELD>
+      </FERMENTABLE>
+      <FERMENTABLE>
+        <DISPLAY_COLOR>70 EBC</DISPLAY_COLOR>
+        <NAME>MALT CARA Honey&#174;</NAME>
+        <SUPPLIER>Malterie du Ch&#226;teau</SUPPLIER>
+        <TYPE>Grain</TYPE>
+        <AMOUNT>0.77</AMOUNT>
+        <COLOR>70</COLOR>
+        <YIELD>75.0</YIELD>
+      </FERMENTABLE>
+      <FERMENTABLE>
+        <DISPLAY_COLOR>0 EBC</DISPLAY_COLOR>
+        <NAME>Sucre Candi Blanc</NAME>
+        <SUPPLIER></SUPPLIER>
+        <TYPE>Sugar</TYPE>
+        <AMOUNT>0.43</AMOUNT>
+        <COLOR>0</COLOR>
+        <YIELD>78.3</YIELD>
+      </FERMENTABLE>
+      <FERMENTABLE>
+        <DISPLAY_COLOR>1200 EBC</DISPLAY_COLOR>
+        <NAME>Malt Orge Torr&#233;fi&#233; (Roasted Barley)</NAME>
+        <SUPPLIER>Malterie du Ch&#226;teau</SUPPLIER>
+        <TYPE>Grain</TYPE>
+        <AMOUNT>0.07</AMOUNT>
+        <COLOR>1200</COLOR>
+        <YIELD>65.0</YIELD>
+      </FERMENTABLE>
+    </FERMENTABLES>
+    <HOPS>
+      <HOP>
+        <NAME>Magnum 2020</NAME>
+        <AMOUNT>0.013</AMOUNT>
+        <ALPHA>12.3</ALPHA>
+        <USE>Boil</USE>
+        <TIME>60</TIME>
+        <FORM>Pellet</FORM>
+      </HOP>
+      <HOP>
+        <NAME>Styrian Goldings Celeia</NAME>
+        <AMOUNT>0.008</AMOUNT>
+        <ALPHA>4.5</ALPHA>
+        <USE>Boil</USE>
+        <TIME>10</TIME>
+        <FORM>Pellet</FORM>
+      </HOP>
+      <HOP>
+        <NAME>Styrian Goldings Celeia</NAME>
+        <AMOUNT>0.008</AMOUNT>
+        <ALPHA>4.5</ALPHA>
+        <USE>Boil</USE>
+        <TIME>5</TIME>
+        <FORM>Pellet</FORM>
+      </HOP>
+      <HOP>
+        <NAME>Styrian Goldings Celeia</NAME>
+        <AMOUNT>0.008</AMOUNT>
+        <ALPHA>4.5</ALPHA>
+        <USE>Aroma</USE>
+        <TIME>30</TIME>
+        <FORM>Pellet</FORM>
+      </HOP>
+    </HOPS>
+    <MISCS>
+      <MISC>
+        <NAME>Irish Moss (Lichen carraghen)</NAME>
+        <TYPE>Fining</TYPE>
+        <USE>Boil</USE>
+        <AMOUNT>0.00428</AMOUNT>
+        <AMOUNT_IS_WEIGHT>TRUE</AMOUNT_IS_WEIGHT>
+        <TIME>10</TIME>
+        <NOTES></NOTES>
+      </MISC>
+      <MISC>
+        <NAME>Graine de coriandre</NAME>
+        <TYPE>Spice</TYPE>
+        <USE>Boil</USE>
+        <AMOUNT>0.005</AMOUNT>
+        <AMOUNT_IS_WEIGHT>TRUE</AMOUNT_IS_WEIGHT>
+        <TIME>10</TIME>
+        <NOTES></NOTES>
+      </MISC>
+      <MISC>
+        <NAME>Clou de girofle</NAME>
+        <TYPE>Spice</TYPE>
+        <USE>Boil</USE>
+        <AMOUNT>0.0</AMOUNT>
+        <AMOUNT_IS_WEIGHT>TRUE</AMOUNT_IS_WEIGHT>
+        <TIME>10</TIME>
+        <NOTES></NOTES>
+      </MISC>
+    </MISCS>
+    <YEASTS>
+      <YEAST>
+        <NAME>Belgian Tripel</NAME>
+        <AMOUNT>0.002</AMOUNT>
+        <AMOUNT_IS_WEIGHT>TRUE</AMOUNT_IS_WEIGHT>
+        <FORM>Dry</FORM>
+        <PRODUCT_ID>M31</PRODUCT_ID>
+        <LABORATORY>Mangrove Jack&#039;s</LABORATORY>
+        <ATTENUATION>81.5</ATTENUATION>
+      </YEAST>
+    </YEASTS>
+    <MASH>
+      <NAME></NAME>
+      <NOTES></NOTES>
+      <PH>5.4</PH>
+      <SPARGE_TEMP>75.0</SPARGE_TEMP>
+      <MASH_STEPS>
+        <MASH_STEP>
+          <NAME>Saccharification</NAME>
+          <TYPE>Infusion</TYPE>
+          <INFUSE_AMOUNT>13.3</INFUSE_AMOUNT>
+          <INFUSE_TEMP>73.2</INFUSE_TEMP>
+          <STEP_TIME>70</STEP_TIME>
+          <STEP_TEMP>67</STEP_TEMP>
+          <WATER_GRAIN_RATIO></WATER_GRAIN_RATIO>
+        </MASH_STEP>
+      </MASH_STEPS>
+    </MASH>
+    <total_cost>21.82</total_cost>
+  </RECIPE>
+</RECIPES>
