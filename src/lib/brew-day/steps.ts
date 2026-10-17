@@ -18,6 +18,9 @@ export const GRAIN_TEMP_C = 20
 /** Température du mash-out : bloque les enzymes et fluidifie le moût avant filtration. */
 export const MASH_OUT_TEMP_C = 76
 
+/** Le serpentin plonge dans l'ébullition à 15 min de la fin : assez pour le désinfecter. */
+export const CHILLER_SANITIZE_MIN = 15
+
 /**
  * Génère les étapes du Brew Day d'une recette, dans l'ordre de la journée :
  * préparation → empâtage → filtration/rinçage → ébullition → refroidissement
@@ -85,6 +88,12 @@ export function buildBatchSteps(recipe: RecipeDetails, equipmentProfile: Equipme
       label: `Ajout : ${o.name} (${o.amount})`,
       timeMin: o.timeMin,
     })),
+    // Le serpentin se désinfecte dans le moût bouillant, juste avant la fin (après un ajout au même moment).
+    {
+      stepType: 'chiller-sanitize' as const,
+      label: 'Plonger le serpentin pour le désinfecter',
+      timeMin: Math.min(CHILLER_SANITIZE_MIN, recipe.boilTimeMin),
+    },
   ].sort((a, b) => b.timeMin - a.timeMin)
   for (const addition of boilAdditions) {
     add({ stepType: addition.stepType, label: addition.label, triggerTimeMin: addition.timeMin })
@@ -123,6 +132,7 @@ const SINGLE_STEP_TYPES: BatchStep['stepType'][] = [
   'sparge',
   'heat-to-boil',
   'boil',
+  'chiller-sanitize',
   'whirlpool',
   'cooling',
   'pitch',

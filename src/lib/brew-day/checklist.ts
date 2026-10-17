@@ -160,7 +160,6 @@ export function stepGuide(step: BatchStep, ctx: StepGuideContext): StepGuide {
       return {
         checklist: [
           { id: 'rolling', label: 'Ébullition franche (gros bouillons), couvercle ouvert' },
-          { id: 'chiller', label: 'À 15 min de la fin : plonger le serpentin pour le désinfecter' },
         ],
         tips: [
           `Couvercle ouvert : l'évaporation emporte le DMS (goût de maïs cuit). Prévu : ${recipe.boilTimeMin} min.`,
@@ -182,6 +181,15 @@ export function stepGuide(step: BatchStep, ctx: StepGuideContext): StepGuide {
               ? [hopTimingTip(step.triggerTimeMin)]
               : []
             : ['Whirlfloc / carraghénines : à 10–15 min de la fin, ils font précipiter les protéines (casse chaude) pour une bière plus claire.'],
+      }
+
+    case 'chiller-sanitize':
+      return {
+        checklist: [
+          { id: 'dip', label: 'Plonger le serpentin dans le moût (raccords et tuyaux hors de la cuve)' },
+          { id: 'boil-back', label: "Attendre la reprise de l'ébullition" },
+        ],
+        tips: ["Les dernières minutes d'ébullition suffisent à désinfecter le serpentin : pas besoin de produit."],
       }
 
     case 'whirlpool': {

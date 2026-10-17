@@ -69,7 +69,9 @@ export function StepCard({
             {!boilStarted
               ? `À ${step.triggerTimeMin} min de la fin de l'ébullition`
               : isDue
-                ? '⚠ À ajouter maintenant !'
+                ? step.stepType === 'chiller-sanitize'
+                  ? '⚠ À faire maintenant !'
+                  : '⚠ À ajouter maintenant !'
                 : `Dans ${formatDuration(triggerAtSeconds - boilElapsedSeconds)}`}
           </p>
         )}

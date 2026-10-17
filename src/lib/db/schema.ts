@@ -224,6 +224,7 @@ export const batchSteps = pgTable('batch_steps', {
       'boil',
       'hop-addition',
       'other-addition',
+      'chiller-sanitize',
       'whirlpool',
       'cooling',
       'pitch',

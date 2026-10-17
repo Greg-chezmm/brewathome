@@ -28,6 +28,7 @@ export type BatchStepType =
   | 'boil'
   | 'hop-addition'
   | 'other-addition'
+  | 'chiller-sanitize'
   | 'whirlpool'
   | 'cooling'
   | 'pitch'

@@ -12,6 +12,7 @@ export const STEP_ICONS: Record<BatchStepType, string> = {
   boil: '🔥',
   'hop-addition': '🌿',
   'other-addition': '➕',
+  'chiller-sanitize': '🧼',
   whirlpool: '🌀',
   cooling: '❄️',
   pitch: '🧫',
@@ -20,14 +21,14 @@ export const STEP_ICONS: Record<BatchStepType, string> = {
 }
 
 /** Étapes dont le déclenchement se calcule par rapport au compte à rebours d'ébullition. */
-export const BOIL_TRIGGERED_STEP_TYPES: BatchStepType[] = ['hop-addition', 'other-addition']
+export const BOIL_TRIGGERED_STEP_TYPES: BatchStepType[] = ['hop-addition', 'other-addition', 'chiller-sanitize']
 
 /** Regroupement des étapes en 3 phases principales du brassage, chacune avec ses sous-étapes. */
 export const STEP_GROUPS: { key: string; label: string; icon: string; types: BatchStepType[] }[] = [
   { key: 'prep', label: 'Préparation', icon: '🧽', types: ['preparation'] },
   { key: 'mash', label: 'Empâtage', icon: '🌾', types: ['strike-water', 'mash', 'mash-step', 'mash-out'] },
   { key: 'lauter', label: 'Filtration et rinçage', icon: '💧', types: ['sparge-water', 'sparge'] },
-  { key: 'boil', label: 'Ébullition', icon: '🔥', types: ['heat-to-boil', 'boil', 'hop-addition', 'other-addition', 'whirlpool'] },
+  { key: 'boil', label: 'Ébullition', icon: '🔥', types: ['heat-to-boil', 'boil', 'hop-addition', 'other-addition', 'chiller-sanitize', 'whirlpool'] },
   { key: 'chill', label: 'Refroidissement', icon: '❄️', types: ['cooling'] },
   { key: 'pitch', label: 'Ensemencement', icon: '🧫', types: ['pitch'] },
   { key: 'cleanup', label: 'Rangement', icon: '🧹', types: ['cleanup'] },

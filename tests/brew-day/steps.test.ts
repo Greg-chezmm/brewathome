@@ -49,10 +49,18 @@ describe('buildBatchSteps', () => {
       'heat-to-boil',
       'boil',
       'hop-addition',
+      'chiller-sanitize',
       'cooling',
       'pitch',
       'cleanup',
     ])
+  })
+
+  it('schedules the chiller sanitizing 15 min before the end of the boil, not at its start', () => {
+    const chiller = buildBatchSteps({ ...recipe, boilTimeMin: 120 }, null).find((s) => s.stepType === 'chiller-sanitize')!
+    expect(chiller.triggerTimeMin).toBe(15)
+    // Ébullition plus courte que 15 min : dès le début.
+    expect(buildBatchSteps({ ...recipe, boilTimeMin: 10 }, null).find((s) => s.stepType === 'chiller-sanitize')!.triggerTimeMin).toBe(10)
   })
 
   it('puts the mash temperature in the mash step', () => {
