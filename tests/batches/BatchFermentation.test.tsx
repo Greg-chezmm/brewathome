@@ -105,6 +105,15 @@ describe('Suivi de fermentation', () => {
     }
   })
 
+  it('montre l’alcool déjà produit, calculé depuis la DI', async () => {
+    renderPage()
+    // Derniers relevés autour de 1.041 : (1.105 − 1.041) × 131,25 ≈ 8,4 %.
+    expect(await screen.findByText('≈ 8,4 %')).toBeInTheDocument()
+    expect(screen.getByText('1.041')).toBeInTheDocument()
+    expect(screen.getByText('Vers la DF prévue (1.017)')).toBeInTheDocument()
+    expect(screen.getByText(/Calculé depuis la DI mesurée : 1.105/)).toBeInTheDocument()
+  })
+
   it('pas d’alerte de stabilité sur un brassin terminé', async () => {
     renderPage()
     await screen.findByText(/^120 relevés/)

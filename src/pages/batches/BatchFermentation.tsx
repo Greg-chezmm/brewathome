@@ -28,6 +28,7 @@ import {
 } from '@/lib/db/queries/fermentation'
 import { seriesWithGaps } from '@/lib/fermentation/chart'
 import { plannedMeasurements } from '@/lib/brew-day/measurements'
+import { currentGravity, fermentationProgress } from '@/lib/fermentation/progress'
 import { gravityStability } from '@/lib/fermentation/stability'
 
 /** Relevés affichés avant « Tout afficher » : un iSpindel en envoie ~100 par jour. */
@@ -39,6 +40,7 @@ const TEMPERATURE_COLOR = '#f97316'
 
 const formatDateTime = (t: number) =>
   new Date(t).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+const fmtPercent = (value: number, digits: number) => value.toLocaleString('fr-FR', { maximumFractionDigits: digits, minimumFractionDigits: digits })
 const formatDay = (t: number) => new Date(t).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })
 
 export function BatchFermentation() {
@@ -131,6 +133,12 @@ export function BatchFermentation() {
   const stability = batch?.status === 'fermentation' ? gravityStability(all.map((r, i) => ({ time: times[i], gravity: r.gravity }))) : null
   const apparentAttenuation =
     stability && batch?.ogMeasured ? ((batch.ogMeasured - stability.gravity) / (batch.ogMeasured - 1)) * 100 : null
+  // Alcool déjà produit : depuis la DI mesurée, à défaut celle prévue par la recette.
+  const og = batch?.measurements.og ?? batch?.recipeSnapshot.estOg ?? null
+  const ogIsMeasured = batch?.measurements.og != null
+  const gravityNow = currentGravity(all.map((r, i) => ({ time: times[i], gravity: r.gravity })))
+  const plannedFg = batch?.recipeSnapshot.estFg ?? null
+  const progress = og !== null && gravityNow !== null ? fermentationProgress(og, gravityNow, plannedFg) : null
   const dots = all.length <= CHART_DOTS_MAX ? { r: 2 } : false
   const newestFirst = all.slice().reverse()
   const listed = showAll ? newestFirst : newestFirst.slice(0, LIST_PREVIEW)
@@ -265,6 +273,43 @@ export function BatchFermentation() {
         </button>
       </form>
 
+      {progress && og !== null && gravityNow !== null && (
+        <div className="card">
+          <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div>
+              <dt className="text-xs text-slate-500">Densité actuelle</dt>
+              <dd className="text-xl font-bold" style={{ color: GRAVITY_COLOR }}>
+                {gravityNow.toFixed(3)}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-xs text-slate-500">Alcool actuel</dt>
+              <dd className="text-xl font-bold text-slate-900">≈ {fmtPercent(progress.abv, 1)} %</dd>
+            </div>
+            <div>
+              <dt className="text-xs text-slate-500">Atténuation</dt>
+              <dd className="text-xl font-bold text-slate-900">{fmtPercent(progress.attenuation, 0)} %</dd>
+            </div>
+            {progress.progressPercent !== null && plannedFg !== null && (
+              <div>
+                <dt className="text-xs text-slate-500">Vers la DF prévue ({plannedFg.toFixed(3)})</dt>
+                <dd className="text-xl font-bold text-slate-900">{fmtPercent(Math.min(progress.progressPercent, 100), 0)} %</dd>
+                <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-100">
+                  <div
+                    className="h-full rounded-full bg-indigo-500"
+                    style={{ width: `${Math.min(progress.progressPercent, 100)}%` }}
+                  />
+                </div>
+              </div>
+            )}
+          </dl>
+          <p className="mt-3 text-xs text-slate-500">
+            Calculé depuis la DI {ogIsMeasured ? 'mesurée' : 'prévue par la recette (pas encore saisie)'} : {og.toFixed(3)}
+            {progress.progressPercent !== null && progress.progressPercent > 100 && ' · plus sèche que prévu'}.
+          </p>
+        </div>
+      )}
+
       {all.length > 1 && (
         <div className="card h-72">
           <ResponsiveContainer width="100%" height="100%">
@@ -294,7 +339,7 @@ export function BatchFermentation() {
                 tick={{ fontSize: 11, fill: TEMPERATURE_COLOR }}
                 stroke={TEMPERATURE_COLOR}
               />
-              <Tooltip content={({ active, label }) => (active ? <ReadingTooltip reading={nearestReading(all, times, Number(label))} /> : null)} />
+              <Tooltip content={({ active, label }) => (active ? <ReadingTooltip reading={nearestReading(all, times, Number(label))} og={og} /> : null)} />
               <Legend />
               <Line yAxisId="gravity" type="monotone" data={gravitySeries} dataKey="value" name="Densité" stroke={GRAVITY_COLOR} strokeWidth={2} dot={dots} isAnimationActive={false} />
               <Line yAxisId="temperature" type="monotone" data={temperatureSeries} dataKey="value" name="Température" stroke={TEMPERATURE_COLOR} dot={dots} isAnimationActive={false} />
@@ -358,8 +403,9 @@ function nearestReading(readings: FermentationReading[], times: number[], time: 
   return lo > 0 && time - times[lo - 1] < times[lo] - time ? readings[lo - 1] : readings[lo]
 }
 
-function ReadingTooltip({ reading }: { reading: FermentationReading | undefined }) {
+function ReadingTooltip({ reading, og }: { reading: FermentationReading | undefined; og: number | null }) {
   if (!reading) return null
+  const abv = og !== null && reading.gravity !== null ? fermentationProgress(og, reading.gravity, null).abv : null
   return (
     <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs shadow-sm">
       <p className="font-medium text-slate-700">{formatDateTime(new Date(reading.recordedAt).getTime())}</p>
@@ -367,6 +413,7 @@ function ReadingTooltip({ reading }: { reading: FermentationReading | undefined 
       {reading.temperatureC !== null && (
         <p style={{ color: TEMPERATURE_COLOR }}>Température : {reading.temperatureC} °C</p>
       )}
+      {abv !== null && <p className="text-slate-700">Alcool : ≈ {fmtPercent(abv, 1)} %</p>}
     </div>
   )
 }
