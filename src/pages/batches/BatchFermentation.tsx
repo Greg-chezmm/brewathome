@@ -133,6 +133,16 @@ export function BatchFermentation() {
                 {r.source === 'ispindel' && <span title="iSpindel">📡</span>}
                 {new Date(r.recordedAt).toLocaleString('fr-FR')} — {r.gravity && `SG ${r.gravity.toFixed(3)}`}{' '}
                 {r.temperatureC && `· ${r.temperatureC}°C`} {r.comment && `· ${r.comment}`}
+                {r.rawAngle !== null && (
+                  <span className="text-slate-500" title="Angle d'inclinaison de l'iSpindel (≈ 23° dans l'eau pure avec la calibration actuelle)">
+                    · {r.rawAngle.toFixed(1).replace('.', ',')}°
+                  </span>
+                )}
+                {r.battery !== null && (
+                  <span className={r.battery < 3.5 ? 'font-medium text-red-600' : 'text-slate-500'} title="Tension de la batterie (pleine ≈ 4,1 V, à recharger sous 3,5 V)">
+                    · 🔋 {r.battery.toFixed(2).replace('.', ',')} V
+                  </span>
+                )}
               </span>
               <button onClick={() => handleDelete(r.id)} className="text-xs text-red-600 hover:underline">
                 Supprimer
