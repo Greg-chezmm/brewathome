@@ -55,7 +55,7 @@ Application personnelle de brassage de bière maison (type Brewfather/Little Boc
 - Outils intégrés : calcul d'eau de trempe (strike water), correction de densité (dilution/ajout de fermentescible).
 
 ### Outils (`/tools`)
-- Page de calculatrices (menu « Outils ») : **quantité de levure** (cellules Mr Malty, sachets secs de 11,5 g ou sachets liquides selon leur âge, starter conseillé au-delà de deux), **sels minéraux** (profil d'eau après gypse, CaCl2, Epsom, sel, bicarbonate ; repères par ion, rapport sulfates/chlorures ; eau de départ mémorisée dans le navigateur), eau d'empâtage, correction de densité, **resucrage** (CO2 résiduel selon la température, préréglages par style, saccharose/dextrose/extrait sec, grammes par bouteille).
+- Page de calculatrices (menu « Outils ») : **quantité de levure** (cellules Mr Malty, sachets secs de 11,5 g ou sachets liquides selon leur âge, starter conseillé au-delà de deux), **sels minéraux** (profil d'eau après gypse, CaCl2, Epsom, sel, bicarbonate ; repères par ion, rapport sulfates/chlorures, alcalinité résiduelle ; **profil visé** (légère, équilibrée, houblonnée sèche/ronde, maltée) avec gypse + CaCl2 proposés par moindres carrés, ions déjà en excès signalés (coupe à l'eau déminéralisée, acide lactique) ; eau de départ mémorisée dans le navigateur), eau d'empâtage, correction de densité, **resucrage** (CO2 résiduel selon la température, préréglages par style, saccharose/dextrose/extrait sec, grammes par bouteille).
 - Depuis un brassin, bouton « Outils » qui pré-remplit volume, DI et levure (`?volume=&og=&yeast=&form=`).
 
 ### Navigation
@@ -84,7 +84,7 @@ Application personnelle de brassage de bière maison (type Brewfather/Little Boc
 - Calculateur de starter de levure — repoussé (petits volumes, pas de starter pour l'instant).
 - Historique/statistiques multi-brassins, export PDF de fiche de recette.
 - Usage des fermentescibles (empâtage/ébullition/fermentation) à exposer en base et dans le formulaire.
-- Sels minéraux : proposer les dosages pour viser un profil cible (aujourd'hui on saisit les grammes et on lit le résultat), et pH d'empâtage.
+- Sels minéraux : estimer le pH d'empâtage à partir des malts de la recette (aujourd'hui seulement l'alcalinité résiduelle de l'eau) ; dose d'acide lactique.
 - Brewfather : utiliser l'atténuation réelle par levure et le rendement mesuré pour ajuster les recettes. Écarts restants connus : IBU des bières fortes (Brewfather prend la densité pré-ébullition, nous la moyenne des specs) et DF (Brewfather ajuste l'atténuation selon l'empâtage et le sucre).
 - IBU Garetz (troisième formule, actuellement non implémentée malgré le type `IBUFormulaName` qui la prévoit).
 - Gestion de stock d'ingrédients (si besoin confirmé un jour).

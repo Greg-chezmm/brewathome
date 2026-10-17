@@ -53,4 +53,19 @@ describe('Outils', () => {
     expect(screen.getByText(/Rapport sulfates\/chlorures : 2,89 \(amertume mise en avant/)).toBeInTheDocument()
     expect(JSON.parse(localStorage.getItem('brewathome.tools.source-water')!).calcium).toBe('40')
   })
+
+  it('sels : propose gypse et chlorure de calcium pour un profil visé, signale les bicarbonates en trop', () => {
+    renderTools()
+    fireEvent.change(screen.getByLabelText('Profil visé'), { target: { value: 'hoppy' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Proposer les sels' }))
+    const gypsum = Number.parseFloat((screen.getByLabelText('Gypse (CaSO4·2H2O) (g)') as HTMLInputElement).value)
+    expect(gypsum).toBeGreaterThan(0)
+    expect((screen.getByLabelText("Sel d'Epsom (MgSO4·7H2O) (g)") as HTMLInputElement).value).toBe('')
+    const sulfateRow = screen.getByText('Sulfates (SO4)', { selector: 'td' }).closest('tr')!
+    expect(sulfateRow).toHaveTextContent(/250$/)
+    expect(screen.getByText(/Alcalinité résiduelle/)).toBeInTheDocument()
+
+    fireEvent.change(screen.getByLabelText('Bicarbonates (HCO3)'), { target: { value: '300' } })
+    expect(screen.getByText(/neutralise les bicarbonates avec un peu d'acide lactique/)).toBeInTheDocument()
+  })
 })

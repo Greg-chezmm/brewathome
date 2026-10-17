@@ -1,7 +1,11 @@
 import { useState } from 'react'
 import {
   BREWING_SALT_LABELS,
+  WATER_TARGETS,
   applySalts,
+  ionsAboveTarget,
+  residualAlkalinity,
+  suggestSalts,
   sulfateToChlorideRatio,
   type BrewingSalt,
   type WaterProfile,
@@ -18,6 +22,9 @@ const IONS: { key: keyof WaterProfile; label: string; range: [number, number] }[
 ]
 
 const SALTS = Object.keys(BREWING_SALT_LABELS) as BrewingSalt[]
+
+/** Les deux sels qui suffisent presque toujours : calcium + sulfates (gypse) ou + chlorures (CaCl2). */
+const SUGGESTED_SALTS: BrewingSalt[] = ['gypsum', 'calciumChloride']
 
 /** L'analyse de l'eau du robinet ne change pas d'un brassin à l'autre : on la garde dans le navigateur. */
 const STORAGE_KEY = 'brewathome.tools.source-water'
@@ -39,12 +46,24 @@ function ratioVerdict(ratio: number): string {
   return 'équilibré'
 }
 
+const lowerFirst = (text: string) => text.charAt(0).toLowerCase() + text.slice(1)
+
+/** Alcalinité résiduelle : plus elle est haute, plus le pH d'empâtage monte (compensé par les malts sombres, acides). */
+function alkalinityVerdict(ra: number): string {
+  if (ra < 0) return 'pH d’empâtage bas : idéal pour les bières claires'
+  if (ra < 50) return 'convient aux blondes et ambrées'
+  if (ra < 120) return 'convient aux ambrées foncées et brunes'
+  return 'réservée aux bières très sombres, sinon acide lactique'
+}
+
 export function WaterSaltsTool({ defaultVolumeL }: { defaultVolumeL?: number }) {
   const [source, setSource] = useState(loadSourceWater)
   const [volume, setVolume] = useState(defaultVolumeL ? String(defaultVolumeL) : '25')
   const [salts, setSalts] = useState<Record<BrewingSalt, string>>(
     () => Object.fromEntries(SALTS.map((salt) => [salt, ''])) as Record<BrewingSalt, string>,
   )
+  const [targetId, setTargetId] = useState('')
+  const target = WATER_TARGETS.find((t) => t.id === targetId) ?? null
 
   function updateSource(key: keyof WaterProfile, value: string) {
     const next = { ...source, [key]: value }
@@ -65,6 +84,13 @@ export function WaterSaltsTool({ defaultVolumeL }: { defaultVolumeL?: number }) 
   const volumeL = Number.parseFloat(volume)
   const result = volumeL > 0 ? applySalts(sourceProfile, saltGrams, volumeL) : null
   const ratio = result ? sulfateToChlorideRatio(result) : null
+  const excess = target ? ionsAboveTarget(sourceProfile, target.profile) : []
+
+  function proposeSalts() {
+    if (!target || !(volumeL > 0)) return
+    const grams = suggestSalts(sourceProfile, target.profile, volumeL, SUGGESTED_SALTS)
+    setSalts(Object.fromEntries(SALTS.map((salt) => [salt, grams[salt] ? String(grams[salt]) : ''])) as Record<BrewingSalt, string>)
+  }
 
   return (
     <div className="card">
@@ -93,6 +119,43 @@ export function WaterSaltsTool({ defaultVolumeL }: { defaultVolumeL?: number }) 
           </div>
         ))}
       </div>
+
+      <h3 className="mb-1 mt-4 text-sm font-semibold text-slate-700">Profil visé</h3>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+        <div className="min-w-0 sm:w-96">
+          <label className="sr-only" htmlFor="water-target">
+            Profil visé
+          </label>
+          <select id="water-target" value={targetId} onChange={(e) => setTargetId(e.target.value)} className="field-input">
+            <option value="">Aucun (dosage libre)</option>
+            {WATER_TARGETS.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.label} — {t.examples}
+              </option>
+            ))}
+          </select>
+        </div>
+        {target && (
+          <button type="button" onClick={proposeSalts} className="btn-primary">
+            Proposer les sels
+          </button>
+        )}
+      </div>
+      {target && (
+        <p className="mt-1 text-xs text-slate-500">
+          Gypse et chlorure de calcium suffisent presque toujours ; les quantités restent modifiables ci-dessous. Une balance
+          au 0,1 g est utile pour les petits volumes.
+        </p>
+      )}
+      {excess.length > 0 && (
+        <p className="mt-2 rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          Ton eau apporte déjà trop de {excess.map((ion) => lowerFirst(IONS.find((i) => i.key === ion)!.label)).join(', ')} pour ce
+          profil : les sels ne peuvent qu'ajouter.{' '}
+          {excess.includes('bicarbonate')
+            ? "Coupe-la avec de l'eau déminéralisée, ou neutralise les bicarbonates avec un peu d'acide lactique."
+            : "Coupe-la avec de l'eau déminéralisée (ou une eau en bouteille peu minéralisée)."}
+        </p>
+      )}
 
       <h3 className="mb-1 mt-4 text-sm font-semibold text-slate-700">Ajouts</h3>
       <div className="grid grid-cols-2 items-end gap-2 sm:grid-cols-3">
@@ -128,13 +191,16 @@ export function WaterSaltsTool({ defaultVolumeL }: { defaultVolumeL?: number }) 
                 <th className="py-1 font-medium">Ion</th>
                 <th className="py-1 text-right font-medium">Départ</th>
                 <th className="py-1 text-right font-medium">Après sels</th>
-                <th className="py-1 pl-3 font-medium">Repère</th>
+                <th className="py-1 pl-3 font-medium">{target ? 'Cible' : 'Repère'}</th>
               </tr>
             </thead>
             <tbody>
               {IONS.map(({ key, label, range }) => {
                 const value = result[key]
-                const outside = value < range[0] || value > range[1]
+                // Avec un profil visé : à plus de 20 % (et 10 ppm) de la cible ; sinon hors de la plage usuelle.
+                const outside = target
+                  ? Math.abs(value - target.profile[key]) > Math.max(10, target.profile[key] * 0.2)
+                  : value < range[0] || value > range[1]
                 return (
                   <tr key={key} className="border-t border-slate-100">
                     <td className="py-1 text-slate-700">{label}</td>
@@ -143,7 +209,7 @@ export function WaterSaltsTool({ defaultVolumeL }: { defaultVolumeL?: number }) 
                       {Math.round(value)}
                     </td>
                     <td className="py-1 pl-3 text-xs text-slate-500">
-                      {range[0]}–{range[1]}
+                      {target ? target.profile[key] : `${range[0]}–${range[1]}`}
                     </td>
                   </tr>
                 )
@@ -156,6 +222,10 @@ export function WaterSaltsTool({ defaultVolumeL }: { defaultVolumeL?: number }) 
               {Number.isFinite(ratio!) ? ratio!.toLocaleString('fr-FR', { maximumFractionDigits: 2 }) : '—'} ({ratioVerdict(ratio!)})
             </p>
           )}
+          <p className="mt-1 text-sm text-slate-600">
+            Alcalinité résiduelle : {Math.round(residualAlkalinity(result))} ppm CaCO3{' '}
+            <span className="text-slate-500">({alkalinityVerdict(residualAlkalinity(result))})</span>
+          </p>
         </div>
       )}
     </div>
