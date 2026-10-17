@@ -4,7 +4,13 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { ChevronDown, ChevronUp, CircleCheck, TriangleAlert } from 'lucide-react'
 import { useAuth } from '@/lib/auth/AuthProvider'
 import { listBrewfatherRecipes } from '@/lib/brewfather/client'
-import { compareWithBrewfather, type BrewfatherComparison } from '@/lib/brewfather/compare'
+import {
+  compareWithBrewfather,
+  GAP_EXPLANATIONS,
+  TOLERANCES,
+  type BrewfatherComparison,
+  type ComparisonRow,
+} from '@/lib/brewfather/compare'
 import type { BrewfatherCredentials } from '@/lib/brewfather/types'
 import { deleteBrewfatherAccount, getBrewfatherAccount, saveBrewfatherAccount } from '@/lib/db/queries/brewfather'
 import { findOrCreateEquipmentProfile } from '@/lib/db/queries/equipmentProfiles'
@@ -182,10 +188,13 @@ function RecipeList({ credentials, onDisconnect }: { credentials: BrewfatherCred
       {isLoading && <p className="text-slate-500">Récupération des recettes Brewfather…</p>}
       {error && <p className="text-red-600">{(error as Error).message}</p>}
       {recipes && (
-        <p className="text-sm text-slate-500">
-          {recipes.length} recette(s) ·{' '}
-          {mismatches === 0 ? 'tous nos calculs concordent' : `${mismatches} avec au moins un écart notable`}
-        </p>
+        <div className="space-y-1 text-sm text-slate-500">
+          <p>
+            {recipes.length} recette(s) ·{' '}
+            {mismatches === 0 ? 'tous nos calculs concordent' : `${mismatches} avec au moins un écart notable`}
+          </p>
+          <ComparisonLegend />
+        </div>
       )}
 
       <ul className="space-y-3">
@@ -206,7 +215,8 @@ function BrewfatherRecipeCard({ comparison }: { comparison: BrewfatherComparison
   const [importing, setImporting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const { draft, equipment, calc, rows } = comparison
-  const allOk = rows.every((r) => r.ok)
+  const gaps = rows.filter((r) => !r.ok)
+  const allOk = gaps.length === 0
 
   async function handleImport() {
     if (!user) return
@@ -241,9 +251,13 @@ function BrewfatherRecipeCard({ comparison }: { comparison: BrewfatherComparison
         </div>
         {rows.length > 0 &&
           (allOk ? (
-            <CircleCheck className="h-5 w-5 shrink-0 text-green-600" aria-label="Calculs concordants" />
+            <span title="Nos calculs donnent les mêmes valeurs que Brewfather" className="shrink-0">
+              <CircleCheck className="h-5 w-5 text-green-600" aria-label="Calculs concordants" />
+            </span>
           ) : (
-            <TriangleAlert className="h-5 w-5 shrink-0 text-orange-500" aria-label="Écart avec Brewfather" />
+            <span title={`Écart avec Brewfather : ${gaps.map((r) => r.label).join(', ')}`} className="shrink-0">
+              <TriangleAlert className="h-5 w-5 text-orange-500" aria-label="Écart avec Brewfather" />
+            </span>
           ))}
         {open ? <ChevronUp className="h-5 w-5 shrink-0 text-slate-400" /> : <ChevronDown className="h-5 w-5 shrink-0 text-slate-400" />}
       </button>
@@ -277,6 +291,7 @@ function BrewfatherRecipeCard({ comparison }: { comparison: BrewfatherComparison
           ) : (
             <p className="text-sm text-slate-500">Brewfather n’a pas renvoyé de valeurs calculées pour cette recette.</p>
           )}
+          {gaps.length > 0 && <GapExplanation gaps={gaps} />}
           <p className="text-xs text-slate-500">
             Recalculé avec le profil d’équipement de la recette Brewfather
             {equipment ? '' : ' (absent : calcul sur le volume du fermenteur, sans pertes)'} ; DF sans ajustement par la
@@ -296,6 +311,64 @@ function BrewfatherRecipeCard({ comparison }: { comparison: BrewfatherComparison
         </div>
       )}
     </li>
+  )
+}
+
+const TOLERANCE_LABELS = [
+  `DI ±${TOLERANCES.og}`,
+  `DF ±${TOLERANCES.fg}`,
+  `alcool ±${TOLERANCES.abv} %`,
+  `IBU ±${TOLERANCES.ibu}`,
+  `couleur ±${TOLERANCES.srm} SRM`,
+  `volume pré-ébullition ±${TOLERANCES.preBoilVolume} L`,
+].map((label) => label.replace('.', ','))
+
+/** Ce que veulent dire la coche verte et le triangle orange des cartes. */
+function ComparisonLegend() {
+  return (
+    <div className="space-y-1 rounded-lg bg-slate-50 p-3 text-xs text-slate-600">
+      <p>
+        Chaque recette est recalculée par BrewAtHome puis comparée aux valeurs annoncées par Brewfather.
+      </p>
+      <p className="flex items-start gap-1.5">
+        <CircleCheck className="mt-px h-4 w-4 shrink-0 text-green-600" aria-hidden />
+        <span>mêmes valeurs, aux arrondis près.</span>
+      </p>
+      <p className="flex items-start gap-1.5">
+        <TriangleAlert className="mt-px h-4 w-4 shrink-0 text-orange-500" aria-hidden />
+        <span>
+          au moins une valeur diffère au-delà de la tolérance — ouvrez la recette pour voir laquelle et pourquoi.
+          Ce n’est pas une erreur dans la recette : l’import reste possible, nos chiffres prendront simplement le relais.
+        </span>
+      </p>
+      <p className="text-slate-500">
+        Tolérances : {TOLERANCE_LABELS.join(' · ')}.
+      </p>
+    </div>
+  )
+}
+
+function GapExplanation({ gaps }: { gaps: ComparisonRow[] }) {
+  // L'écart d'alcool découle de celui de DI/DF : inutile de le répéter quand ceux-ci sont déjà listés.
+  const shown = gaps.filter((row) => row.key !== 'abv' || !gaps.some((r) => r.key === 'og' || r.key === 'fg'))
+  return (
+    <div className="flex items-start gap-2 rounded-lg bg-orange-50 p-3 text-sm text-orange-900">
+      <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-orange-500" aria-hidden />
+      <div className="space-y-1">
+        <p className="font-medium">Écart notable avec Brewfather</p>
+        <ul className="space-y-1">
+          {shown.map((row) => (
+            <li key={row.key}>
+              <span className="font-medium">{row.label}</span> : {GAP_EXPLANATIONS[row.key]}
+            </li>
+          ))}
+        </ul>
+        <p className="text-xs text-orange-800">
+          Une recette ancienne peut aussi garder des valeurs que Brewfather n’a pas recalculées depuis. L’import reste
+          possible : la recette sera recalculée par BrewAtHome.
+        </p>
+      </div>
+    </div>
   )
 }
 

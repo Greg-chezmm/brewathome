@@ -28,13 +28,23 @@ export interface BrewfatherComparison {
 }
 
 /** Écarts tolérés : de l'ordre de l'arrondi affiché par les deux logiciels. */
-const TOLERANCES: Record<ComparisonKey, number> = {
+export const TOLERANCES: Record<ComparisonKey, number> = {
   og: 0.002,
   fg: 0.002,
   ibu: 2,
   srm: 1,
   abv: 0.2,
   preBoilVolume: 0.5,
+}
+
+/** Cause la plus probable d'un écart au-delà de la tolérance, affichée sous le tableau. */
+export const GAP_EXPLANATIONS: Record<ComparisonKey, string> = {
+  og: 'souvent un rendement ou un profil d’équipement modifié dans Brewfather sans que la recette ait été recalculée depuis.',
+  fg: 'Brewfather corrige sa DF estimée avec son propre modèle (température d’empâtage, part de sucre et de malts caramel) ; nous partons de l’atténuation de la levure.',
+  abv: 'découle directement de l’écart sur la DI ou la DF.',
+  ibu: 'sur les bières fortes, Brewfather calcule l’utilisation du houblon sur la densité pré-ébullition, nous sur la moyenne entre pré-ébullition et DI (plus haute, donc un peu moins d’IBU).',
+  srm: 'couleur d’un malt ou volume de calcul légèrement différents.',
+  preBoilVolume: 'pertes ou évaporation du profil d’équipement comptées différemment.',
 }
 
 /**
