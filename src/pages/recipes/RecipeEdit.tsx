@@ -24,6 +24,8 @@ export function RecipeEdit() {
           mashEfficiencyPercent: r.mashEfficiencyPercent,
           mashTempC: r.mashTempC,
           mashSteps: r.mashSteps,
+          fermentationSteps: r.fermentationSteps ?? [],
+          carbonationVols: r.carbonationVols ?? null,
           ibuFormula: r.ibuFormula,
           equipmentProfileId: r.equipmentProfileId,
           notes: r.notes ?? '',

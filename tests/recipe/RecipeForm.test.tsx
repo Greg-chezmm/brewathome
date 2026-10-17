@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { useState } from 'react'
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { MemoryRouter } from 'react-router-dom'
 import { EMPTY_RECIPE_FORM, RecipeForm, type RecipeFormValue } from '@/components/recipe/RecipeForm'
 
 vi.mock('@/lib/db/queries/equipmentProfiles', () => ({ listEquipmentProfiles: async () => [] }))
@@ -20,16 +21,21 @@ const recipe: RecipeFormValue = {
     { name: 'Pale Ale', type: 'grain', amountKg: 4.5, colorLovibond: 3, yieldPercent: 80 },
     { name: 'Crystal 60', type: 'grain', amountKg: 0.5, colorLovibond: 60, yieldPercent: 74 },
   ],
-  hops: [{ name: 'Cascade', amountG: 30, alphaAcidPercent: 6.5, timeMin: 60, use: 'boil', form: 'pellet' }],
+  hops: [
+    { name: 'Cascade', amountG: 30, alphaAcidPercent: 6.5, timeMin: 60, use: 'boil', form: 'pellet' },
+    { name: 'Citra', amountG: 50, alphaAcidPercent: 12, timeMin: 0, use: 'dry-hop', form: 'pellet', dryHopDays: 4 },
+  ],
   yeasts: [{ name: 'SafAle US-05', type: 'dry', style: 'ale', attenuationPercent: 81 }],
 }
 
 function Harness() {
   const [value, setValue] = useState(recipe)
   return (
-    <QueryClientProvider client={new QueryClient()}>
-      <RecipeForm value={value} onChange={setValue} onSubmit={() => undefined} saving={false} submitLabel="Enregistrer" />
-    </QueryClientProvider>
+    <MemoryRouter>
+      <QueryClientProvider client={new QueryClient()}>
+        <RecipeForm value={value} onChange={setValue} onSubmit={() => undefined} saving={false} submitLabel="Enregistrer" />
+      </QueryClientProvider>
+    </MemoryRouter>
   )
 }
 
@@ -91,8 +97,8 @@ describe('RecipeForm', () => {
     expect(within(firstCard).getByLabelText('Monter')).toBeDisabled()
     fireEvent.click(within(firstCard).getByLabelText('Descendre'))
     expect(names().slice(0, 2)).toEqual(['Crystal 60', 'Pale Ale'])
-    // Un seul houblon : pas de flèches.
-    expect(within(screen.getByDisplayValue('Cascade').closest('li')!).queryByLabelText('Monter')).toBeNull()
+    // Une seule levure : pas de flèches.
+    expect(within(screen.getByDisplayValue('SafAle US-05').closest('li')!).queryByLabelText('Monter')).toBeNull()
   })
 
   it('ajuste le grain pour viser une DI, en gardant les proportions', () => {
@@ -139,6 +145,45 @@ describe('RecipeForm', () => {
     fireEvent.click(within(section).getAllByLabelText('Retirer')[1])
     expect(within(section).getAllByLabelText('Nom')).toHaveLength(1)
     expect(within(section).queryByLabelText('Retirer')).toBeNull()
+  })
+
+  it('profil de fermentation : étapes, jours cumulés et dry hop placé dans le calendrier', () => {
+    render(<Harness />)
+    const section = screen.getByRole('heading', { name: /^Fermentation/ }).closest('section')!
+    expect(within(section).getByText(/1 étape · 14 jours/)).toBeInTheDocument()
+    // Dry hop sans jour fixé : il finit avec la primaire (14 − 4 = jour 10).
+    expect(within(section).getByText(/Dry hop jour 10 : Citra \(50 g\)/)).toBeInTheDocument()
+
+    fireEvent.click(within(section).getByText('Ajouter une étape'))
+    expect(within(section).getByDisplayValue('Cold crash')).toBeInTheDocument()
+    expect(within(section).getByText(/2 étapes · 17 jours/)).toBeInTheDocument()
+    expect(within(section).getByText('Jour 14 → 17')).toBeInTheDocument()
+
+    // Jour fixé sur la carte du houblon.
+    const citra = screen.getByDisplayValue('Citra').closest('li')!
+    fireEvent.change(within(citra).getByPlaceholderText('10'), { target: { value: '6' } })
+    expect(within(section).getByText(/Dry hop jour 6/)).toBeInTheDocument()
+    expect(within(section).getByText(/Carbonatation/)).toBeInTheDocument()
+    expect(within(section).getByDisplayValue('2.4')).toBeInTheDocument()
+  })
+
+  it('moment d’ajout d’un fermentescible et quantité de levure', () => {
+    render(<Harness />)
+    const crystal = screen.getByDisplayValue('Crystal 60').closest('li')!
+    fireEvent.change(within(crystal).getByDisplayValue('Empâtage'), { target: { value: 'fermentation' } })
+    expect(within(crystal).getByText('Hors DI mesurée')).toBeInTheDocument()
+
+    const yeast = screen.getByDisplayValue('SafAle US-05').closest('li')!
+    fireEvent.change(within(yeast).getByPlaceholderText('1'), { target: { value: '2' } })
+    fireEvent.change(within(yeast).getByLabelText('Unité de levure'), { target: { value: 'g' } })
+    expect(within(yeast).getByDisplayValue('2')).toBeInTheDocument()
+    expect(within(yeast).getByLabelText('Unité de levure')).toHaveValue('g')
+  })
+
+  it('lien vers la fiche du guide sous un ingrédient connu', () => {
+    render(<Harness />)
+    const cascade = screen.getByDisplayValue('Cascade').closest('li')!
+    expect(within(cascade).getByRole('link', { name: /Fiche et remplaçants/ })).toHaveAttribute('href', '/ingredients?tab=hops&q=Cascade')
   })
 
   it('un champ vidé pendant la saisie ne fait pas planter le calcul', () => {

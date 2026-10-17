@@ -1,5 +1,6 @@
 import { defaultMashSteps, effectiveMashSteps, mainMashTempC, type MashStep } from '@/lib/brew-calc/mash'
 import { estimateRecipeStats, REFERENCE_MASH_TEMP_C } from '@/lib/brew-calc/recipe-stats'
+import type { FermentationStep } from '@/lib/brew-calc/fermentation-profile'
 import type { Fermentable, Hop, OtherIngredient, Yeast } from '@/lib/brew-calc/types'
 import { resolveBjcpStyleId } from '@/lib/beerxml/mapping'
 import type { ParsedRecipeDraft } from '@/lib/beerxml/types'
@@ -28,6 +29,10 @@ export interface RecipeDetails extends RecipeSummary {
   mashTempC: number
   /** Paliers d'empâtage, dans l'ordre (jamais vide : déroulé par défaut pour les anciennes recettes). */
   mashSteps: MashStep[]
+  /** Profil de fermentation (vide : non renseigné). */
+  fermentationSteps: FermentationStep[]
+  /** Carbonatation visée, en volumes de CO₂ (null : non renseignée). */
+  carbonationVols: number | null
   ibuFormula: 'tinseth' | 'rager' | 'garetz'
   equipmentProfileId: string | null
   notes: string | null
@@ -94,6 +99,8 @@ export async function getRecipeWithDetails(recipeId: string): Promise<RecipeDeta
       mashSteps: recipe.mash_steps as MashStep[] | null,
       mashTempC: Number(recipe.mash_temp_c ?? REFERENCE_MASH_TEMP_C),
     }),
+    fermentationSteps: (recipe.fermentation_steps as FermentationStep[] | null) ?? [],
+    carbonationVols: recipe.carbonation_vols !== null && recipe.carbonation_vols !== undefined ? Number(recipe.carbonation_vols) : null,
     ibuFormula: recipe.ibu_formula,
     equipmentProfileId: recipe.equipment_profile_id,
     notes: recipe.notes,
@@ -109,6 +116,7 @@ export async function getRecipeWithDetails(recipeId: string): Promise<RecipeDeta
       amountKg: Number(f.amount_kg),
       colorLovibond: Number(f.color_lovibond),
       yieldPercent: Number(f.yield_percent),
+      use: f.use ?? undefined,
     })),
     hops: (hops ?? []).map((h) => ({
       name: h.name,
@@ -120,12 +128,15 @@ export async function getRecipeWithDetails(recipeId: string): Promise<RecipeDeta
       dryHopDays: h.dry_hop_days ?? undefined,
       temperatureC: h.temperature_c !== null && h.temperature_c !== undefined ? Number(h.temperature_c) : undefined,
       dryHopTempC: h.dry_hop_temp_c !== null && h.dry_hop_temp_c !== undefined ? Number(h.dry_hop_temp_c) : undefined,
+      dryHopDay: h.dry_hop_day ?? undefined,
     })),
     yeasts: (yeasts ?? []).map((y) => ({
       name: y.name,
       type: y.type,
       style: y.style,
       attenuationPercent: Number(y.attenuation_percent),
+      amount: y.amount !== null && y.amount !== undefined ? Number(y.amount) : undefined,
+      amountUnit: y.amount_unit ?? undefined,
     })),
     otherIngredients: (otherIngredients ?? []).map((o) => ({
       name: o.name,
@@ -145,6 +156,8 @@ export interface RecipeInput {
   /** Température du palier d'empâtage principal (°C) : recalculée depuis les paliers à l'enregistrement. */
   mashTempC: number
   mashSteps: MashStep[]
+  fermentationSteps: FermentationStep[]
+  carbonationVols: number | null
   ibuFormula: 'tinseth' | 'rager' | 'garetz'
   equipmentProfileId: string | null
   notes: string | null
@@ -171,6 +184,7 @@ async function replaceChildRows(recipeId: string, input: RecipeInput): Promise<v
         amount_kg: f.amountKg,
         color_lovibond: f.colorLovibond,
         yield_percent: f.yieldPercent,
+        use: f.use ?? null,
         sort_order: i,
       })),
     )
@@ -190,6 +204,7 @@ async function replaceChildRows(recipeId: string, input: RecipeInput): Promise<v
         dry_hop_days: h.dryHopDays ?? null,
         temperature_c: h.use === 'whirlpool' ? (h.temperatureC ?? null) : null,
         dry_hop_temp_c: h.dryHopTempC ?? null,
+        dry_hop_day: h.use === 'dry-hop' ? (h.dryHopDay ?? null) : null,
         sort_order: i,
       })),
     )
@@ -217,6 +232,8 @@ async function replaceChildRows(recipeId: string, input: RecipeInput): Promise<v
         type: y.type,
         style: y.style,
         attenuation_percent: y.attenuationPercent,
+        amount: y.amount !== undefined && Number.isFinite(y.amount) ? y.amount : null,
+        amount_unit: y.amount !== undefined && Number.isFinite(y.amount) ? (y.amountUnit ?? 'pkg') : null,
         sort_order: i,
       })),
     )
@@ -237,6 +254,8 @@ async function recipeStatsPayload(input: RecipeInput) {
     mash_efficiency_percent: input.mashEfficiencyPercent,
     mash_temp_c: mashTempC,
     mash_steps: input.mashSteps,
+    fermentation_steps: input.fermentationSteps,
+    carbonation_vols: input.carbonationVols !== null && Number.isFinite(input.carbonationVols) ? input.carbonationVols : null,
     ibu_formula: input.ibuFormula,
     equipment_profile_id: input.equipmentProfileId,
     notes: input.notes,
@@ -289,6 +308,8 @@ export function draftToRecipeInput(draft: ParsedRecipeDraft, equipmentProfileId:
     mashEfficiencyPercent: draft.mashEfficiencyPercent,
     mashTempC: draft.mashSteps?.length ? mainMashTempC(draft.mashSteps) : (draft.mashTempC ?? REFERENCE_MASH_TEMP_C),
     mashSteps: draft.mashSteps?.length ? draft.mashSteps : defaultMashSteps(draft.mashTempC ?? REFERENCE_MASH_TEMP_C),
+    fermentationSteps: draft.fermentationSteps ?? [],
+    carbonationVols: draft.carbonationVols ?? null,
     ibuFormula: 'tinseth',
     equipmentProfileId,
     notes: draft.notes ?? null,

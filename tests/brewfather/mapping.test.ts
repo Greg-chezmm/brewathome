@@ -84,6 +84,46 @@ describe('brewfatherRecipeToDraft', () => {
   })
 })
 
+describe('brewfatherRecipeToDraft — fermentation, levure, carbonatation', () => {
+  // Forme réelle de l'API v2 (recette anonymisée).
+  const draft = brewfatherRecipeToDraft({
+    ...paleAle,
+    carbonation: 2.4,
+    fermentation: {
+      name: 'Ale',
+      steps: [
+        { type: 'Primary', name: 'Fermentation', stepTemp: 18, stepTime: 14 },
+        { type: 'Conditioning', name: 'Cold crash', stepTemp: 2, stepTime: 3 },
+        { type: 'Conditioning', name: 'Garde', stepTemp: 12, stepTime: 46 },
+        { type: 'Secondary', stepTemp: 5, stepTime: 10 },
+      ],
+    },
+    hops: [{ name: 'Citra', amount: 40, alpha: 12, use: 'Dry Hop', time: 5, day: 9 }],
+    yeasts: [
+      { name: 'Wheat', form: 'Dry', amount: 11, unit: 'g' },
+      { name: 'M44', form: 'Dry', amount: 1.1, unit: 'pkg' },
+    ],
+  })
+
+  it('reprend le profil de fermentation (le nom précise le type)', () => {
+    expect(draft.fermentationSteps).toEqual([
+      { type: 'primary', tempC: 18, days: 14 },
+      { type: 'cold-crash', tempC: 2, days: 3 },
+      { type: 'conditioning', tempC: 12, days: 46 },
+      { type: 'secondary', tempC: 5, days: 10 },
+    ])
+    expect(draft.carbonationVols).toBe(2.4)
+  })
+
+  it('reprend le jour du dry hop et la quantité de levure', () => {
+    expect(draft.hops[0]).toMatchObject({ use: 'dry-hop', dryHopDays: 5, dryHopDay: 9 })
+    expect(draft.yeasts.map((y) => [y.amount, y.amountUnit])).toEqual([
+      [11, 'g'],
+      [1.1, 'pkg'],
+    ])
+  })
+})
+
 describe('brewfatherEquipmentToProfile', () => {
   it('accepte une contraction exprimée en fraction', () => {
     const profile = brewfatherEquipmentToProfile({ ...paleAle, equipment: { ...paleAle.equipment, coolingShrinkage: 0.04 } })

@@ -106,3 +106,33 @@ describe('planBatchStepsUpdate', () => {
     expect(allIndexes).toEqual(allIndexes.map((_, i) => i))
   })
 })
+
+describe('buildBatchSteps — moment d’ajout des fermentescibles', () => {
+  const withSugars: RecipeDetails = {
+    ...recipe,
+    fermentables: [
+      { name: 'Pale', type: 'grain', amountKg: 5, colorLovibond: 3, yieldPercent: 80 },
+      { name: 'Extrait clair', type: 'extract', amountKg: 0.5, colorLovibond: 3, yieldPercent: 80 },
+      { name: 'Sucre candi', type: 'sugar', amountKg: 0.3, colorLovibond: 1, yieldPercent: 100 },
+      { name: 'Dextrose', type: 'sugar', amountKg: 0.2, colorLovibond: 0, yieldPercent: 100, use: 'fermentation' },
+    ],
+    hops: [{ name: 'Citra', amountG: 50, alphaAcidPercent: 12, timeMin: 0, use: 'dry-hop', dryHopDays: 4, dryHopDay: 6 }],
+  }
+  const steps = buildBatchSteps(withSugars, null)
+
+  it('n’empâte que les fermentescibles d’empâtage', () => {
+    const mash = steps.find((s) => s.stepType === 'mash')!
+    expect(mash.label).toContain('5 kg Pale')
+    expect(mash.label).not.toContain('Sucre')
+  })
+
+  it('ajoute l’extrait au début de l’ébullition et le sucre 10 min avant la fin', () => {
+    expect(steps.find((s) => s.label.includes('Extrait clair'))).toMatchObject({ stepType: 'other-addition', triggerTimeMin: 60 })
+    expect(steps.find((s) => s.label.includes('Sucre candi'))).toMatchObject({ stepType: 'other-addition', triggerTimeMin: 10 })
+  })
+
+  it('prévoit le sucre de fermentation et le jour du dry hop', () => {
+    expect(steps.find((s) => s.stepType === 'fermentation-addition')?.label).toBe('Ajout en fermentation : Dextrose (200 g)')
+    expect(steps.find((s) => s.stepType === 'dry-hop-addition')?.label).toBe('Houblonnage à froid au jour 6 : Citra (50 g) — 4 j')
+  })
+})

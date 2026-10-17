@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import bjcpStyles from '@/data/bjcp-styles-2021.json'
 import { buGuRatio, fermentableContributions } from '@/lib/brew-calc/contributions'
+import { defaultFermentationSteps, type FermentationStep } from '@/lib/brew-calc/fermentation-profile'
 import { defaultMashSteps, mainMashTempC, type MashStep } from '@/lib/brew-calc/mash'
 import { computeRecipe, REFERENCE_MASH_TEMP_C } from '@/lib/brew-calc/recipe-stats'
 import { matchStyle } from '@/lib/brew-calc/style-matching'
@@ -12,7 +13,7 @@ import { listEquipmentProfiles } from '@/lib/db/queries/equipmentProfiles'
 import { getIngredientHistory } from '@/lib/db/queries/ingredientHistory'
 import type { RecipeInput } from '@/lib/db/queries/recipes'
 import { FieldLabel, InfoTooltip } from '@/components/InfoTooltip'
-import { FermentableCards, HopCards, MashStepCards, OtherIngredientCards, YeastCards } from './IngredientCards'
+import { FermentableCards, FermentationStepCards, HopCards, MashStepCards, OtherIngredientCards, YeastCards } from './IngredientCards'
 import { RecipeStatsBar, RecipeStatsPanel, type StyleRanges } from './RecipeLiveStats'
 import { TargetTool, type TargetFeedback } from './TargetTool'
 
@@ -26,6 +27,8 @@ export interface RecipeFormValue {
   /** Température du palier principal : toujours celle de `mashSteps` (synchronisée à chaque modification). */
   mashTempC: number
   mashSteps: MashStep[]
+  fermentationSteps: FermentationStep[]
+  carbonationVols: number | null
   ibuFormula: IBUFormulaName
   equipmentProfileId: string | null
   notes: string
@@ -44,6 +47,8 @@ export const EMPTY_RECIPE_FORM: RecipeFormValue = {
   mashEfficiencyPercent: 72,
   mashTempC: REFERENCE_MASH_TEMP_C,
   mashSteps: defaultMashSteps(),
+  fermentationSteps: defaultFermentationSteps(),
+  carbonationVols: 2.4,
   ibuFormula: 'tinseth',
   equipmentProfileId: null,
   notes: '',
@@ -375,6 +380,7 @@ export function RecipeForm({
         <HopCards
           hops={value.hops}
           ibuByHop={calc.ibuByHop}
+          fermentationSteps={value.fermentationSteps}
           history={ingredientHistory}
           tools={
             value.hops.length > 0 && (
@@ -408,6 +414,13 @@ export function RecipeForm({
         <MashStepCards
           steps={value.mashSteps}
           onChange={(mashSteps) => onChange({ ...value, mashSteps, mashTempC: mainMashTempC(mashSteps, value.mashTempC) })}
+        />
+        <FermentationStepCards
+          steps={value.fermentationSteps}
+          hops={value.hops}
+          carbonationVols={value.carbonationVols}
+          onChange={(fermentationSteps) => set('fermentationSteps', fermentationSteps)}
+          onCarbonationChange={(carbonationVols) => set('carbonationVols', carbonationVols)}
         />
 
         {/* Volumes d'eau */}

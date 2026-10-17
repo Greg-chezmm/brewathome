@@ -15,6 +15,11 @@ export const STARTER_RECIPE: RecipeInput = {
   mashEfficiencyPercent: 72,
   mashTempC: 67,
   mashSteps: defaultMashSteps(67),
+  fermentationSteps: [
+    { type: 'primary', tempC: 18, days: 12 },
+    { type: 'cold-crash', tempC: 2, days: 2 },
+  ],
+  carbonationVols: 2.4,
   ibuFormula: 'tinseth',
   equipmentProfileId: null,
   notes:
@@ -29,8 +34,8 @@ export const STARTER_RECIPE: RecipeInput = {
     { name: 'Magnum', amountG: 14, alphaAcidPercent: 13, timeMin: 60, use: 'boil', form: 'pellet' },
     { name: 'Cascade', amountG: 25, alphaAcidPercent: 6.5, timeMin: 10, use: 'boil', form: 'pellet' },
     { name: 'Citra', amountG: 30, alphaAcidPercent: 12.5, timeMin: 20, use: 'whirlpool', form: 'pellet', temperatureC: 80 },
-    { name: 'Cascade', amountG: 50, alphaAcidPercent: 6.5, timeMin: 0, use: 'dry-hop', form: 'pellet', dryHopDays: 4, dryHopTempC: 18 },
+    { name: 'Cascade', amountG: 50, alphaAcidPercent: 6.5, timeMin: 0, use: 'dry-hop', form: 'pellet', dryHopDays: 4, dryHopTempC: 18, dryHopDay: 8 },
   ],
-  yeasts: [{ name: 'SafAle US-05', type: 'dry', style: 'ale', attenuationPercent: 78 }],
+  yeasts: [{ name: 'SafAle US-05', type: 'dry', style: 'ale', attenuationPercent: 78, amount: 1, amountUnit: 'pkg' }],
   otherIngredients: [{ name: 'Whirlfloc', amount: '1 pastille', timeMin: 10 }],
 }

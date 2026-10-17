@@ -106,6 +106,10 @@ export const recipes = pgTable('recipes', {
   mashTempC: numeric('mash_temp_c', { precision: 4, scale: 1 }).notNull().default('67'),
   // Paliers d'empâtage [{ name, tempC, timeMin }] ; vide = déroulé par défaut (palier principal + mash-out).
   mashSteps: jsonb('mash_steps').notNull().default([]),
+  // Profil de fermentation [{ type, name, tempC, days }] (primaire, secondaire, garde, cold crash) ; vide = non renseigné.
+  fermentationSteps: jsonb('fermentation_steps').notNull().default([]),
+  // Carbonatation visée (volumes de CO₂), reprise par le calcul de resucrage.
+  carbonationVols: numeric('carbonation_vols', { precision: 3, scale: 2 }),
   estOg: numeric('est_og', { precision: 5, scale: 3 }),
   estFg: numeric('est_fg', { precision: 5, scale: 3 }),
   estIbu: numeric('est_ibu', { precision: 5, scale: 1 }),
@@ -128,6 +132,8 @@ export const recipeFermentables = pgTable('recipe_fermentables', {
   amountKg: numeric('amount_kg', { precision: 6, scale: 3 }).notNull(),
   colorLovibond: numeric('color_lovibond', { precision: 6, scale: 2 }).notNull().default('2'),
   yieldPercent: numeric('yield_percent', { precision: 5, scale: 2 }).notNull().default('75'),
+  // Moment d'ajout ; null = d'après le type (grain à l'empâtage, le reste à l'ébullition).
+  use: text('use', { enum: ['mash', 'boil', 'fermentation'] }),
   sortOrder: integer('sort_order').notNull().default(0),
 })
 
@@ -148,6 +154,8 @@ export const recipeHops = pgTable('recipe_hops', {
   temperatureC: numeric('temperature_c', { precision: 4, scale: 1 }),
   dryHopDays: integer('dry_hop_days'),
   dryHopTempC: numeric('dry_hop_temp_c', { precision: 4, scale: 1 }),
+  // Dry hop : jour d'ajout compté depuis le début de la fermentation.
+  dryHopDay: integer('dry_hop_day'),
   sortOrder: integer('sort_order').notNull().default(0),
 })
 
@@ -179,6 +187,9 @@ export const recipeYeasts = pgTable('recipe_yeasts', {
     .default('75'),
   laboratory: text('laboratory'),
   productId: text('product_id'),
+  // Quantité de levure : sachets, grammes ou millilitres.
+  amount: numeric('amount', { precision: 7, scale: 2 }),
+  amountUnit: text('amount_unit', { enum: ['pkg', 'g', 'ml'] }),
   sortOrder: integer('sort_order').notNull().default(0),
 })
 
@@ -242,6 +253,7 @@ export const batchSteps = pgTable('batch_steps', {
       'pitch',
       'cleanup',
       'dry-hop-addition',
+      'fermentation-addition',
     ],
   }).notNull(),
   label: text('label').notNull(),

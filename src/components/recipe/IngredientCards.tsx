@@ -1,5 +1,6 @@
 import { useId, useState, type ReactNode } from 'react'
-import { ArrowDown, ArrowUp, Plus, Trash2 } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { ArrowDown, ArrowUp, BookOpen, Plus, Trash2 } from 'lucide-react'
 import {
   FERMENTABLE_LIBRARY,
   findByName,
@@ -11,6 +12,18 @@ import {
 } from '@/data/ingredients'
 import type { FermentableContribution } from '@/lib/brew-calc/contributions'
 import {
+  dryHopEvents,
+  FERMENTATION_STEP_LABELS,
+  FERMENTATION_STEP_TIPS,
+  FERMENTATION_STEP_TYPES,
+  fermentationSchedule,
+  nextFermentationStep,
+  totalFermentationDays,
+  type FermentationStep,
+  type FermentationStepType,
+} from '@/lib/brew-calc/fermentation-profile'
+import { fermentableUse } from '@/lib/brew-calc/gravity'
+import {
   isMashOut,
   MASH_STEP_LIBRARY,
   MASH_STEP_ROLE_LABELS,
@@ -20,7 +33,7 @@ import {
   totalMashTimeMin,
   type MashStep,
 } from '@/lib/brew-calc/mash'
-import type { Fermentable, Hop, HopForm, HopUse, OtherIngredient, Yeast } from '@/lib/brew-calc/types'
+import type { Fermentable, FermentableUse, Hop, HopForm, HopUse, OtherIngredient, Yeast, YeastAmountUnit } from '@/lib/brew-calc/types'
 import type { IngredientHistory } from '@/lib/db/queries/ingredientHistory'
 import { InfoTooltip } from '@/components/InfoTooltip'
 import { formatWeightKg } from '@/lib/brew-calc/units'
@@ -33,6 +46,14 @@ const HOP_USE_LABELS: Record<HopUse, string> = {
   'dry-hop': 'Dry hop',
   mash: 'Empâtage',
 }
+
+const FERMENTABLE_USE_LABELS: Record<FermentableUse, string> = {
+  mash: 'Empâtage',
+  boil: 'Ébullition',
+  fermentation: 'Fermentation',
+}
+
+const YEAST_UNIT_LABELS: Record<YeastAmountUnit, string> = { pkg: 'sachet(s)', g: 'g', ml: 'ml' }
 
 const EMPTY_FERMENTABLE: Fermentable = { name: '', type: 'grain', amountKg: 1, colorLovibond: 3, yieldPercent: 80 }
 const EMPTY_HOP: Hop = { name: '', amountG: 10, alphaAcidPercent: 10, timeMin: 60, use: 'boil', form: 'pellet' }
@@ -264,9 +285,27 @@ function Chip({ children, tone = 'indigo' }: { children: ReactNode; tone?: 'indi
   return <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium tabular-nums ${tones[tone]}`}>{children}</span>
 }
 
-/** Fiche de la bibliothèque : ce qu'apporte l'ingrédient et comment le doser. */
-function LibraryNote({ note }: { note: string | undefined }) {
-  return note ? <p className="mt-2 text-xs leading-relaxed text-slate-500">{note}</p> : null
+/** Fiche de la bibliothèque : ce qu'apporte l'ingrédient et comment le doser, avec un lien vers le guide. */
+function LibraryNote({ note, guide }: { note: string | undefined; guide?: { tab: 'malts' | 'hops' | 'yeasts'; name: string } }) {
+  if (!note) return null
+  const params = new URLSearchParams(guide && guide.tab !== 'malts' ? { tab: guide.tab, q: guide.name } : guide ? { q: guide.name } : {})
+  return (
+    <p className="mt-2 text-xs leading-relaxed text-slate-500">
+      {note}
+      {guide && (
+        <>
+          {' '}
+          <Link
+            to={`/ingredients?${params}`}
+            className="inline-flex items-center gap-0.5 whitespace-nowrap font-medium text-indigo-600 hover:underline"
+          >
+            <BookOpen size={12} aria-hidden />
+            Fiche et remplaçants
+          </Link>
+        </>
+      )}
+    </p>
+  )
 }
 
 /** Vos ingrédients d'abord (avec vos valeurs), puis la bibliothèque. */
@@ -318,7 +357,7 @@ export function FermentableCards({
               onRemove={() => onChange(fermentables.filter((_, idx) => idx !== i))}
               {...reorder(fermentables, i, onChange)}
             />
-            <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-5">
               <Field label="Poids">
                 <WeightInput valueKg={f.amountKg} onChange={(amountKg) => update(i, { amountKg })} />
               </Field>
@@ -335,15 +374,34 @@ export function FermentableCards({
               <Field label="Rendement (%)" hint="Part du sucre extractible, relative au sucre pur (100 %). Typique : 80 % pour un malt de base, 55–75 % pour les malts spéciaux.">
                 <NumberInput value={f.yieldPercent} step="0.1" onChange={(yieldPercent) => update(i, { yieldPercent })} />
               </Field>
+              <Field
+                label="Ajout"
+                hint="Empâtage : le sucre est extrait par la maische (l'efficacité s'applique). Ébullition : dissous dans le moût (extrait, sucre candi). Fermentation : versé dans le fermenteur, il compte dans l'alcool mais pas dans la DI mesurée."
+                className="col-span-2 sm:col-span-1"
+              >
+                <select
+                  value={fermentableUse(f)}
+                  onChange={(e) => update(i, { use: e.target.value as FermentableUse })}
+                  className="field-input"
+                >
+                  {(Object.keys(FERMENTABLE_USE_LABELS) as FermentableUse[]).map((u) => (
+                    <option key={u} value={u}>
+                      {FERMENTABLE_USE_LABELS[u]}
+                    </option>
+                  ))}
+                </select>
+              </Field>
             </div>
             {c && (
               <Chips>
                 <Chip>{fmt(c.percentOfGrist)} % du grain</Chip>
                 <Chip>+{fmt(c.gravityPoints)} pts de densité</Chip>
                 {c.colorPercent >= 1 && <Chip tone="amber">{fmt(c.colorPercent)} % de la couleur</Chip>}
+                {fermentableUse(f) === 'fermentation' && <Chip tone="slate">Hors DI mesurée</Chip>}
+                {fermentableUse(f) === 'mash' && f.type !== 'grain' && <Chip tone="amber">Efficacité appliquée</Chip>}
               </Chips>
             )}
-            <LibraryNote note={findByName(FERMENTABLE_LIBRARY, f.name)?.note} />
+            <LibraryNote note={findByName(FERMENTABLE_LIBRARY, f.name)?.note} guide={{ tab: 'malts', name: f.name }} />
           </Card>
         )
       })}
@@ -356,6 +414,7 @@ export function FermentableCards({
 export function HopCards({
   hops,
   ibuByHop,
+  fermentationSteps,
   history,
   tools,
   onChange,
@@ -363,6 +422,8 @@ export function HopCards({
   hops: Hop[]
   /** IBU de chaque houblon (vide si la formule ne donne pas le détail). */
   ibuByHop: number[]
+  /** Profil de fermentation : jour proposé d'office pour les dry hops. */
+  fermentationSteps: FermentationStep[]
   history: IngredientHistory | undefined
   tools?: ReactNode
   onChange: (hops: Hop[]) => void
@@ -394,7 +455,7 @@ export function HopCards({
               onRemove={() => onChange(hops.filter((_, idx) => idx !== i))}
               {...reorder(hops, i, onChange)}
             />
-            <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-6">
+            <div className={`mt-3 grid grid-cols-2 gap-3 ${h.use === 'dry-hop' ? 'sm:grid-cols-4' : 'sm:grid-cols-6'}`}>
               <Field label="Poids (g)">
                 <NumberInput value={h.amountG} step="1" onChange={(amountG) => update(i, { amountG })} />
               </Field>
@@ -416,6 +477,15 @@ export function HopCards({
               </Field>
               {h.use === 'dry-hop' ? (
                 <>
+                  <Field label="Jour d'ajout" hint="Jour de fermentation où ajouter le houblon (jour 0 = ensemencement). Vide : pour finir avec la fermentation primaire.">
+                    <NumberInput
+                      value={h.dryHopDay}
+                      step="1"
+                      integer
+                      placeholder={String(dryHopEvents([{ ...h, dryHopDay: undefined }], fermentationSteps)[0]?.day ?? '')}
+                      onChange={(day) => update(i, { dryHopDay: Number.isFinite(day) ? day : undefined })}
+                    />
+                  </Field>
                   <Field label="Durée (jours)" hint="Temps de contact avec la bière : 3 à 5 jours suffisent en général.">
                     <NumberInput
                       value={h.dryHopDays}
@@ -471,9 +541,10 @@ export function HopCards({
               ) : (
                 <Chip>{fmt(ibu, 1)} IBU</Chip>
               ))}
+              {h.use === 'dry-hop' && h.dryHopDay !== undefined && Number.isFinite(h.dryHopDay) && <Chip tone="slate">Jour {h.dryHopDay}</Chip>}
               {h.use === 'dry-hop' && h.dryHopDays !== undefined && <Chip tone="slate">{h.dryHopDays} j en fermenteur</Chip>}
             </Chips>
-            <LibraryNote note={findByName(HOP_LIBRARY, h.name)?.note} />
+            <LibraryNote note={findByName(HOP_LIBRARY, h.name)?.note} guide={{ tab: 'hops', name: h.name }} />
           </Card>
         )
       })}
@@ -521,7 +592,33 @@ export function YeastCards({
             onRemove={() => onChange(yeasts.filter((_, idx) => idx !== i))}
             {...reorder(yeasts, i, onChange)}
           />
-          <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
+          <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <Field label="Quantité" hint="Sèche : 1 sachet de 11 g pour 20 L d'ale à moins de 1.060 ; 2 au-delà, ou pour une lager. Liquide : un sachet/tube (≈ 100 milliards de cellules) pour 20 L d'ale moyenne.">
+              <div className="flex gap-1">
+                <div className="min-w-0 flex-1">
+                  <NumberInput
+                    value={y.amount}
+                    step={y.amountUnit === 'pkg' || !y.amountUnit ? '0.5' : '1'}
+                    placeholder="1"
+                    onChange={(amount) =>
+                      update(i, { amount: Number.isFinite(amount) ? amount : undefined, amountUnit: y.amountUnit ?? 'pkg' })
+                    }
+                  />
+                </div>
+                <select
+                  aria-label="Unité de levure"
+                  value={y.amountUnit ?? 'pkg'}
+                  onChange={(e) => update(i, { amountUnit: e.target.value as YeastAmountUnit })}
+                  className="field-input w-auto shrink-0 px-2"
+                >
+                  {(Object.keys(YEAST_UNIT_LABELS) as YeastAmountUnit[]).map((u) => (
+                    <option key={u} value={u}>
+                      {YEAST_UNIT_LABELS[u]}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </Field>
             <Field label="Type">
               <select value={y.type} onChange={(e) => update(i, { type: e.target.value as Yeast['type'] })} className="field-input">
                 <option value="dry">Sèche</option>
@@ -552,7 +649,7 @@ export function YeastCards({
               <Chip tone="slate">Seule la première levure compte dans le calcul (↑ pour la choisir)</Chip>
             )}
           </Chips>
-          <LibraryNote note={findByName(YEAST_LIBRARY, y.name)?.note} />
+          <LibraryNote note={findByName(YEAST_LIBRARY, y.name)?.note} guide={{ tab: 'yeasts', name: y.name }} />
         </Card>
       ))}
     </IngredientSection>
@@ -612,6 +709,114 @@ export function MashStepCards({ steps, onChange }: { steps: MashStep[]; onChange
               </Chips>
             )}
             {known && <LibraryNote note={mashStepTip(s.tempC)} />}
+          </Card>
+        )
+      })}
+    </IngredientSection>
+  )
+}
+
+// ——— Fermentation ———
+
+/** Volumes de CO₂ usuels, pour choisir la carbonatation. */
+const CARBONATION_HINT =
+  'Volumes de CO₂ dissous dans la bière en bouteille. Ales anglaises et stouts : 1,8–2,2 ; pale ales et IPA : 2,2–2,6 ; lagers : 2,4–2,7 ; belges : 2,6–3,2 ; blanches et weizen : 3–4 (bouteilles épaisses). Repris par le calcul de resucrage.'
+
+export function FermentationStepCards({
+  steps,
+  hops,
+  carbonationVols,
+  onChange,
+  onCarbonationChange,
+}: {
+  steps: FermentationStep[]
+  hops: Hop[]
+  carbonationVols: number | null
+  onChange: (steps: FermentationStep[]) => void
+  onCarbonationChange: (vols: number | null) => void
+}) {
+  const update = (index: number, patch: Partial<FermentationStep>) => onChange(steps.map((s, i) => (i === index ? { ...s, ...patch } : s)))
+  const schedule = fermentationSchedule(steps)
+  const dryHops = dryHopEvents(hops, steps)
+  const total = totalFermentationDays(steps)
+
+  return (
+    <IngredientSection
+      title="Fermentation"
+      hint="Le profil de température après l'ensemencement : fermentation primaire, éventuellement secondaire, garde et cold crash. Il est repris dans le suivi de fermentation du brassin, avec les jours de dry hop."
+      summary={steps.length > 0 ? `${steps.length} étape${steps.length > 1 ? 's' : ''} · ${fmt(total)} jours avant l'embouteillage` : undefined}
+      addLabel="Ajouter une étape"
+      onAdd={() => onChange([...steps, nextFermentationStep(steps)])}
+      empty="Aucun profil : ajoutez au moins la fermentation primaire (18 °C pendant 14 jours pour une ale)."
+      tools={
+        <div className="max-w-56">
+          <Field label="Carbonatation (vol. CO₂)" hint={CARBONATION_HINT}>
+            <NumberInput
+              value={carbonationVols ?? undefined}
+              step="0.1"
+              placeholder="2,4"
+              onChange={(vols) => onCarbonationChange(Number.isFinite(vols) ? vols : null)}
+            />
+          </Field>
+        </div>
+      }
+    >
+      {steps.map((s, i) => {
+        const at = schedule[i]
+        const hopsHere = dryHops.filter((d) => d.day >= at.startDay && (d.day < at.endDay || (i === steps.length - 1 && d.day === at.endDay)))
+        return (
+          <Card key={i}>
+            <div className="flex items-center gap-2">
+              <select
+                value={s.type}
+                aria-label="Étape"
+                onChange={(e) => update(i, { type: e.target.value as FermentationStepType })}
+                className="field-input min-w-0 flex-1 font-semibold"
+              >
+                {FERMENTATION_STEP_TYPES.map((t) => (
+                  <option key={t} value={t}>
+                    {FERMENTATION_STEP_LABELS[t]}
+                  </option>
+                ))}
+              </select>
+              {steps.length > 1 && (
+                <div className="flex shrink-0">
+                  <MoveButton onClick={reorder(steps, i, onChange).onMoveUp} label="Monter">
+                    <ArrowUp size={16} />
+                  </MoveButton>
+                  <MoveButton onClick={reorder(steps, i, onChange).onMoveDown} label="Descendre">
+                    <ArrowDown size={16} />
+                  </MoveButton>
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={() => onChange(steps.filter((_, idx) => idx !== i))}
+                className="shrink-0 rounded-full p-2 text-slate-400 transition hover:bg-red-50 hover:text-red-600"
+                aria-label="Retirer"
+              >
+                <Trash2 size={18} />
+              </button>
+            </div>
+            <div className="mt-3 grid grid-cols-2 gap-3">
+              <Field label="Température (°C)">
+                <NumberInput value={s.tempC} step="0.5" onChange={(tempC) => update(i, { tempC })} />
+              </Field>
+              <Field label="Durée (jours)">
+                <NumberInput value={s.days} step="1" integer onChange={(days) => update(i, { days })} />
+              </Field>
+            </div>
+            <Chips>
+              <Chip tone="slate">
+                Jour {fmt(at.startDay)} → {fmt(at.endDay)}
+              </Chip>
+              {hopsHere.map((d, k) => (
+                <Chip key={k}>
+                  Dry hop jour {d.day} : {d.name || 'houblon'} ({fmt(d.amountG)} g)
+                </Chip>
+              ))}
+            </Chips>
+            <LibraryNote note={FERMENTATION_STEP_TIPS[s.type]} />
           </Card>
         )
       })}

@@ -66,7 +66,8 @@ function tabOf(name: string): Tab {
 export function IngredientsGuide() {
   const [params, setParams] = useSearchParams()
   const tab: Tab = (TABS.find((t) => t.id === params.get('tab'))?.id ?? 'malts') as Tab
-  const [query, setQuery] = useState('')
+  // ?q= : ouvert depuis la fiche d'un ingrédient de recette.
+  const [query, setQuery] = useState(() => params.get('q') ?? '')
 
   const counts = useMemo(
     () => ({

@@ -1,6 +1,7 @@
 export * from './abv'
 export * from './carbonation'
 export * from './color'
+export * from './fermentation-profile'
 export * from './gravity'
 export * from './gravity-correction'
 export * from './ibu'

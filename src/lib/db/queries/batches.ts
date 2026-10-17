@@ -51,6 +51,7 @@ export type BatchStepType =
   | 'pitch'
   | 'cleanup'
   | 'dry-hop-addition'
+  | 'fermentation-addition'
 export type BatchStepStatus = 'todo' | 'in-progress' | 'done' | 'skipped'
 
 /** Étape terminée ou volontairement passée : plus rien à faire dessus. */
@@ -218,7 +219,13 @@ export async function listBatches(): Promise<BatchSummary[]> {
  */
 function withMashDefaults(snapshot: RecipeDetails): RecipeDetails {
   const mashTempC = snapshot.mashTempC ?? REFERENCE_MASH_TEMP_C
-  return { ...snapshot, mashTempC, mashSteps: effectiveMashSteps({ mashSteps: snapshot.mashSteps, mashTempC }) }
+  return {
+    ...snapshot,
+    mashTempC,
+    mashSteps: effectiveMashSteps({ mashSteps: snapshot.mashSteps, mashTempC }),
+    fermentationSteps: snapshot.fermentationSteps ?? [],
+    carbonationVols: snapshot.carbonationVols ?? null,
+  }
 }
 
 export async function getBatchWithDetails(batchId: string): Promise<BatchDetails> {
@@ -323,6 +330,8 @@ export async function updateBatchRecipeSnapshot(
     mashEfficiencyPercent: patch.mashEfficiencyPercent,
     mashTempC: mainMashTempC(patch.mashSteps, patch.mashTempC),
     mashSteps: patch.mashSteps,
+    fermentationSteps: patch.fermentationSteps,
+    carbonationVols: patch.carbonationVols,
     ibuFormula: patch.ibuFormula,
     equipmentProfileId: patch.equipmentProfileId,
     notes: patch.notes,

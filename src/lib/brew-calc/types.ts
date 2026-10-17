@@ -39,6 +39,8 @@ export interface Hop {
   dryHopDays?: number
   /** Houblons 'dry-hop' uniquement : température visée pendant le contact, en °C. */
   dryHopTempC?: number
+  /** Houblons 'dry-hop' uniquement : jour d'ajout, compté depuis l'ensemencement. */
+  dryHopDay?: number
 }
 
 export interface OtherIngredient {
@@ -51,12 +53,16 @@ export interface OtherIngredient {
 
 export type YeastType = 'dry' | 'liquid'
 export type YeastStyle = 'ale' | 'lager'
+/** Unité de quantité de levure : sachet, grammes (sèche) ou millilitres (liquide, starter). */
+export type YeastAmountUnit = 'pkg' | 'g' | 'ml'
 
 export interface Yeast {
   name: string
   type: YeastType
   attenuationPercent: number
   style: YeastStyle
+  amount?: number
+  amountUnit?: YeastAmountUnit
 }
 
 export type BrewMethod = 'all-grain' | 'biab' | 'extract'

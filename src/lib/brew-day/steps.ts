@@ -1,5 +1,6 @@
 import { effectiveMashSteps, isMashOut, type MashStep } from '@/lib/brew-calc/mash'
 import { REFERENCE_MASH_TEMP_C } from '@/lib/brew-calc/recipe-stats'
+import { fermentableUse } from '@/lib/brew-calc/gravity'
 import { calculateStrikeWaterTempC, calculateVolumes, SPARGE_WATER_TEMP_C } from '@/lib/brew-calc/volumes'
 import type { EquipmentProfile } from '@/lib/brew-calc/types'
 import { formatWeightKg } from '@/lib/brew-calc/units'
@@ -29,6 +30,9 @@ export function firstMashTempC(recipe: Pick<RecipeDetails, 'mashSteps' | 'mashTe
   return effectiveMashSteps(recipe)[0]?.tempC ?? REFERENCE_MASH_TEMP_C
 }
 
+/** Sucres ajoutés à l'ébullition : 10 min avant la fin, juste de quoi les dissoudre et les stériliser. */
+export const BOIL_SUGAR_MIN = 10
+
 /** Le serpentin plonge dans l'ébullition à 15 min de la fin : assez pour le désinfecter. */
 export const CHILLER_SANITIZE_MIN = 15
 
@@ -50,9 +54,11 @@ export function buildBatchSteps(recipe: RecipeDetails, equipmentProfile: Equipme
       orderIndex: steps.length,
     })
 
-  const grainFermentables = recipe.fermentables.filter((f) => f.type === 'grain')
+  // Le grain ajouté ailleurs qu'à l'empâtage (rare) n'absorbe pas d'eau de maische : seul celui de l'empâtage compte.
+  const mashFermentables = recipe.fermentables.filter((f) => fermentableUse(f) === 'mash')
+  const grainFermentables = mashFermentables.filter((f) => f.type === 'grain')
   const totalGrainKg = grainFermentables.reduce((sum, f) => sum + f.amountKg, 0)
-  const grainList = grainFermentables.map((f) => `${formatWeightKg(f.amountKg)} ${f.name}`).join(', ')
+  const grainList = mashFermentables.map((f) => `${formatWeightKg(f.amountKg)} ${f.name}`).join(', ')
   const volumes = equipmentProfile ? calculateVolumes(recipe.targetVolumeL, totalGrainKg, recipe.boilTimeMin, equipmentProfile) : null
   const mashSteps = effectiveMashSteps(recipe)
   const strikeTempC = strikeWaterTempFor(firstMashTempC(recipe), totalGrainKg, volumes?.mashWaterL)
@@ -102,6 +108,14 @@ export function buildBatchSteps(recipe: RecipeDetails, equipmentProfile: Equipme
         label: `Ajout houblon : ${h.name} (${h.amountG} g)`,
         timeMin: h.timeMin,
       })),
+    // Extrait dès le début de l'ébullition ; sucres (candi, miel…) en fin d'ébullition, pour ne pas les caraméliser.
+    ...recipe.fermentables
+      .filter((f) => fermentableUse(f) === 'boil')
+      .map((f) => ({
+        stepType: 'other-addition' as const,
+        label: `Ajout : ${f.name} (${formatWeightKg(f.amountKg)})`,
+        timeMin: f.type === 'extract' ? recipe.boilTimeMin : Math.min(BOIL_SUGAR_MIN, recipe.boilTimeMin),
+      })),
     ...recipe.otherIngredients.map((o) => ({
       stepType: 'other-addition' as const,
       label: `Ajout : ${o.name} (${o.amount})`,
@@ -126,14 +140,20 @@ export function buildBatchSteps(recipe: RecipeDetails, equipmentProfile: Equipme
   add({ stepType: 'pitch', label: recipe.yeasts[0] ? `Ensemencement : ${recipe.yeasts[0].name}` : 'Ensemencement' })
   add({ stepType: 'cleanup', label: 'Rangement et nettoyage' })
 
+  for (const f of recipe.fermentables.filter((f) => fermentableUse(f) === 'fermentation')) {
+    add({ stepType: 'fermentation-addition', label: `Ajout en fermentation : ${f.name} (${formatWeightKg(f.amountKg)})` })
+  }
+
   for (const hop of recipe.hops.filter((h) => h.use === 'dry-hop')) {
     const days = hop.dryHopDays ?? 0
+    // Le jour n'apparaît que s'il est fixé dans la recette (les anciens libellés restent identiques).
+    const day = hop.dryHopDay != null ? ` au jour ${hop.dryHopDay}` : ''
     add({
       stepType: 'dry-hop-addition',
       label:
         hop.dryHopTempC != null
-          ? `Houblonnage à froid : ${hop.name} (${hop.amountG} g) — ${days} j @ ${hop.dryHopTempC} °C`
-          : `Houblonnage à froid : ${hop.name} (${hop.amountG} g) — ${days} j`,
+          ? `Houblonnage à froid${day} : ${hop.name} (${hop.amountG} g) — ${days} j @ ${hop.dryHopTempC} °C`
+          : `Houblonnage à froid${day} : ${hop.name} (${hop.amountG} g) — ${days} j`,
       plannedDurationMin: days * 24 * 60,
     })
   }

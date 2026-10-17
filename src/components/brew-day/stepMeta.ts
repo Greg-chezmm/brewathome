@@ -18,6 +18,7 @@ export const STEP_ICONS: Record<BatchStepType, string> = {
   pitch: '🧫',
   cleanup: '🧹',
   'dry-hop-addition': '🧊',
+  'fermentation-addition': '🍯',
 }
 
 /** Étapes dont le déclenchement se calcule par rapport au compte à rebours d'ébullition. */
@@ -32,7 +33,7 @@ export const STEP_GROUPS: { key: string; label: string; icon: string; types: Bat
   { key: 'chill', label: 'Refroidissement', icon: '❄️', types: ['cooling'] },
   { key: 'pitch', label: 'Ensemencement', icon: '🧫', types: ['pitch'] },
   { key: 'cleanup', label: 'Rangement', icon: '🧹', types: ['cleanup'] },
-  { key: 'dry-hop', label: 'Houblonnage à froid', icon: '🧊', types: ['dry-hop-addition'] },
+  { key: 'dry-hop', label: 'En fermentation', icon: '🧊', types: ['fermentation-addition', 'dry-hop-addition'] },
 ]
 
 export interface StepGroup {

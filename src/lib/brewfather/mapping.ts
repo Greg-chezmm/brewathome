@@ -8,6 +8,7 @@ import type {
   OtherIngredient,
   Yeast,
 } from '@/lib/brew-calc/types'
+import type { FermentationStep, FermentationStepType } from '@/lib/brew-calc/fermentation-profile'
 import { DEFAULT_WHIRLPOOL_TEMP_C } from '@/lib/brew-calc/ibu'
 import { mainMashTempC, type MashStep } from '@/lib/brew-calc/mash'
 import type { ParsedRecipeDraft } from '@/lib/beerxml/types'
@@ -96,6 +97,8 @@ function mapHop(h: BrewfatherHop, hopstandTempC: number): Hop {
   if (use === 'whirlpool') hop.temperatureC = h.temp ? num(h.temp) : hopstandTempC
   // En dry hop, Brewfather exprime la durée de contact en jours dans « time ».
   if (use === 'dry-hop' && h.time) hop.dryHopDays = num(h.time)
+  // « day » : jour d'ajout depuis le début de la fermentation.
+  if (use === 'dry-hop' && h.day !== undefined && h.day !== null) hop.dryHopDay = num(h.day)
   return hop
 }
 
@@ -105,7 +108,40 @@ function mapYeast(y: BrewfatherYeast): Yeast {
     type: lower(y.form) === 'dry' ? 'dry' : 'liquid',
     style: lower(y.type) === 'lager' ? 'lager' : 'ale',
     attenuationPercent: num(y.attenuation, 75),
+    ...mapYeastAmount(y),
   }
+}
+
+/** Quantité de levure : sachets, grammes ou millilitres (les litres sont convertis). */
+function mapYeastAmount(y: BrewfatherYeast): Pick<Yeast, 'amount' | 'amountUnit'> {
+  if (y.amount === undefined || y.amount === null || !Number.isFinite(y.amount)) return {}
+  const unit = lower(y.unit)
+  if (unit === 'g') return { amount: y.amount, amountUnit: 'g' }
+  if (unit === 'ml') return { amount: y.amount, amountUnit: 'ml' }
+  if (unit === 'l') return { amount: y.amount * 1000, amountUnit: 'ml' }
+  if (unit === 'kg') return { amount: y.amount * 1000, amountUnit: 'g' }
+  return { amount: y.amount, amountUnit: 'pkg' }
+}
+
+function mapFermentationStepType(type: unknown): FermentationStepType {
+  const t = lower(type)
+  if (t.includes('cold') || t.includes('crash')) return 'cold-crash'
+  if (t.includes('second') || t.includes('tert')) return 'secondary'
+  if (t.includes('condition') || t.includes('aging') || t.includes('garde') || t.includes('lager')) return 'conditioning'
+  return 'primary'
+}
+
+/** Profil de fermentation de la recette, dans l'ordre (étapes sans température ignorées). */
+function mapFermentationSteps(recipe: BrewfatherRecipe): FermentationStep[] {
+  return (recipe.fermentation?.steps ?? [])
+    .filter((s) => s.stepTemp !== undefined && s.stepTemp !== null)
+    .map((s) => {
+      const tempC = num(s.stepTemp)
+      // Le type est parfois générique : le nom (« Cold crash », « Garde ») précise l'étape.
+      const fromName = mapFermentationStepType(s.name)
+      const type = s.name && fromName !== 'primary' ? fromName : mapFermentationStepType(s.type)
+      return { type, tempC, days: num(s.stepTime) }
+    })
 }
 
 function mapBoilMisc(m: BrewfatherMisc): OtherIngredient {
@@ -165,6 +201,7 @@ export function brewfatherRecipeToDraft(recipe: BrewfatherRecipe): ParsedRecipeD
   const hopstandTempC = num(recipe.equipment?.hopstandTemperature, DEFAULT_WHIRLPOOL_TEMP_C)
   const categoryNumber = recipe.style?.categoryNumber
   const mashSteps = mapMashSteps(recipe)
+  const fermentationSteps = mapFermentationSteps(recipe)
   return {
     name: recipe.name?.trim() || 'Recette Brewfather',
     type: mapMethod(recipe.type),
@@ -174,6 +211,8 @@ export function brewfatherRecipeToDraft(recipe: BrewfatherRecipe): ParsedRecipeD
     mashEfficiencyPercent: num(recipe.mashEfficiency ?? recipe.efficiency, 72),
     mashSteps: mashSteps.length > 0 ? mashSteps : undefined,
     mashTempC: mashSteps.length > 0 ? mainMashTempC(mashSteps) : undefined,
+    fermentationSteps: fermentationSteps.length > 0 ? fermentationSteps : undefined,
+    carbonationVols: recipe.carbonation ? num(recipe.carbonation) : undefined,
     notes: recipe.notes?.trim() || undefined,
     style: recipe.style?.name
       ? {

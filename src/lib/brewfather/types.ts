@@ -37,6 +37,18 @@ export interface BrewfatherYeast {
   type?: string
   form?: string
   attenuation?: number
+  /** Quantité, dans l'unité `unit` (« pkg », « g », « ml »…). */
+  amount?: number
+  unit?: string
+}
+
+export interface BrewfatherFermentationStep {
+  /** Primary, Secondary, Conditioning, Cold Crash… */
+  type?: string | null
+  name?: string | null
+  stepTemp?: number
+  /** Durée en jours. */
+  stepTime?: number
 }
 
 export interface BrewfatherMisc {
@@ -110,6 +122,9 @@ export interface BrewfatherRecipe {
   yeasts?: BrewfatherYeast[]
   miscs?: BrewfatherMisc[]
   mash?: { steps?: BrewfatherMashStep[] } | null
+  fermentation?: { name?: string; steps?: BrewfatherFermentationStep[] } | null
+  /** Carbonatation visée, en volumes de CO₂. */
+  carbonation?: number
 }
 
 /** Relevé de fermentation d'un brassin Brewfather (`GET /batches/:id/readings`). */

@@ -302,6 +302,18 @@ export function stepGuide(step: BatchStep, ctx: StepGuideContext): StepGuide {
           'Au-delà de 4–5 jours, les arômes peuvent virer au végétal / herbacé.',
         ],
       }
+
+    case 'fermentation-addition':
+      return {
+        checklist: [
+          { id: 'dissolve', label: "Dissoudre le sucre dans un peu d'eau bouillie, puis laisser tiédir" },
+          { id: 'add', label: 'Verser dans le fermenteur en limitant l’entrée d’air' },
+        ],
+        tips: [
+          'Ajouté en pleine fermentation (jour 2–4), le sucre est consommé sans stresser la levure : la bière gagne en alcool et en sécheresse.',
+          "Ce sucre n'est pas dans la DI mesurée au Brew Day : l'app l'ajoute pour estimer l'alcool.",
+        ],
+      }
   }
 }
 

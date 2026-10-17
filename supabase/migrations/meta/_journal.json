@@ -113,6 +113,13 @@
       "when": 1792249296367,
       "tag": "0015_batch_measurements",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1792253422411,
+      "tag": "0016_recipe_details_fermentation",
+      "breakpoints": true
     }
   ]
 }

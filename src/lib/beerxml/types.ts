@@ -1,3 +1,4 @@
+import type { FermentationStep } from '@/lib/brew-calc/fermentation-profile'
 import type { MashStep } from '@/lib/brew-calc/mash'
 import type { Fermentable, Hop, OtherIngredient, Yeast } from '@/lib/brew-calc/types'
 
@@ -12,6 +13,10 @@ export interface ParsedRecipeDraft {
   mashTempC?: number
   /** Paliers d'empâtage, dans l'ordre, quand le fichier source les donne. */
   mashSteps?: MashStep[]
+  /** Profil de fermentation (primaire, secondaire, garde…), si la source le donne. */
+  fermentationSteps?: FermentationStep[]
+  /** Carbonatation visée (volumes de CO₂). */
+  carbonationVols?: number
   notes?: string
   style: {
     name: string
