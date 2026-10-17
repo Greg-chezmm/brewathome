@@ -1,12 +1,13 @@
+import type { FermentationStep } from '@/lib/brew-calc/fermentation-profile'
 import { mainMashTempC, type MashStep } from '@/lib/brew-calc/mash'
 import { XMLParser } from 'fast-xml-parser'
-import type { Fermentable, FermentableType, Hop, HopUse, Yeast, YeastType } from '@/lib/brew-calc/types'
+import type { Fermentable, FermentableType, Hop, HopUse, OtherIngredient, Yeast, YeastType } from '@/lib/brew-calc/types'
 import { ebcToSrm } from '@/lib/brew-calc/units'
 import type { BeerXMLImportResult, ParsedRecipeDraft } from './types'
 
 // Ces balises peuvent apparaître une seule fois dans un fichier BeerXML,
 // mais doivent toujours être traitées comme des listes.
-const ALWAYS_ARRAY_TAGS = new Set(['RECIPE', 'FERMENTABLE', 'HOP', 'YEAST'])
+const ALWAYS_ARRAY_TAGS = new Set(['RECIPE', 'FERMENTABLE', 'HOP', 'YEAST', 'MISC'])
 
 const parser = new XMLParser({
   ignoreAttributes: true,
@@ -83,18 +84,26 @@ function mapYeastStyle(rawType: unknown): Yeast['style'] {
   return String(rawType ?? '').toLowerCase() === 'lager' ? 'lager' : 'ale'
 }
 
+const isTrue = (value: unknown) => String(value ?? '').trim().toUpperCase() === 'TRUE'
+
 function mapFermentable(raw: Record<string, unknown>): Fermentable {
-  return {
+  const fermentable: Fermentable = {
     name: String(raw.NAME ?? 'Fermentescible'),
     type: mapFermentableType(raw.TYPE),
     amountKg: toNumber(raw.AMOUNT),
     colorLovibond: resolveColorLovibond(raw.COLOR, raw.DISPLAY_COLOR),
     yieldPercent: toNumber(raw.YIELD, 75),
   }
+  // ADD_AFTER_BOIL : ajouté après l'ébullition, c'est-à-dire dans le fermenteur.
+  if (isTrue(raw.ADD_AFTER_BOIL)) fermentable.use = 'fermentation'
+  return fermentable
 }
 
+/** Minutes par jour : en dry hop, BeerXML donne la durée de contact en minutes (7200 = 5 jours). */
+const MINUTES_PER_DAY = 1440
+
 function mapHop(raw: Record<string, unknown>): Hop {
-  return {
+  const hop: Hop = {
     name: String(raw.NAME ?? 'Houblon'),
     amountG: toNumber(raw.AMOUNT) * 1000,
     alphaAcidPercent: toNumber(raw.ALPHA),
@@ -102,6 +111,8 @@ function mapHop(raw: Record<string, unknown>): Hop {
     use: mapHopUse(raw.USE),
     form: (String(raw.FORM ?? 'pellet').toLowerCase() as Hop['form']) ?? 'pellet',
   }
+  if (hop.use === 'dry-hop' && hop.timeMin > 0) hop.dryHopDays = Math.round((hop.timeMin / MINUTES_PER_DAY) * 10) / 10
+  return hop
 }
 
 function mapYeast(raw: Record<string, unknown>): Yeast {
@@ -110,7 +121,52 @@ function mapYeast(raw: Record<string, unknown>): Yeast {
     type: mapYeastType(raw.FORM),
     style: mapYeastStyle(raw.TYPE),
     attenuationPercent: toNumber(raw.ATTENUATION, 75),
+    ...mapYeastAmount(raw),
   }
+}
+
+/**
+ * Quantité de levure : en sachets si DISPLAY_AMOUNT le dit (« 2 pkg », exporté par l'app),
+ * sinon AMOUNT en kg (AMOUNT_IS_WEIGHT) ou en litres, converti en g ou en mL.
+ */
+function mapYeastAmount(raw: Record<string, unknown>): Pick<Yeast, 'amount' | 'amountUnit'> {
+  const packages = /^\s*([\d.,]+)\s*(pkg|sachets?|packs?)\b/i.exec(String(raw.DISPLAY_AMOUNT ?? ''))
+  if (packages) return { amount: toNumber(packages[1].replace(',', '.')), amountUnit: 'pkg' }
+  const amount = toNumber(raw.AMOUNT)
+  if (amount <= 0) return {}
+  const rounded = Math.round(amount * 1000 * 10) / 10
+  return isTrue(raw.AMOUNT_IS_WEIGHT) ? { amount: rounded, amountUnit: 'g' } : { amount: rounded, amountUnit: 'ml' }
+}
+
+/** Profil de fermentation : primaire, secondaire, tertiaire puis garde (AGE), quand leur durée est donnée. */
+function mapFermentationSteps(raw: Record<string, unknown>): FermentationStep[] {
+  const stages: [FermentationStep['type'], unknown, unknown][] = [
+    ['primary', raw.PRIMARY_AGE, raw.PRIMARY_TEMP],
+    ['secondary', raw.SECONDARY_AGE, raw.SECONDARY_TEMP],
+    ['secondary', raw.TERTIARY_AGE, raw.TERTIARY_TEMP],
+    ['conditioning', raw.AGE, raw.AGE_TEMP],
+  ]
+  const declared = toNumber(raw.FERMENTATION_STAGES, 3)
+  return stages
+    .filter(([, age], i) => toNumber(age) > 0 && (i === 3 || i < declared))
+    .map(([type, age, temp]) => {
+      const tempC = toNumber(temp, 18)
+      // BeerXML n'a pas de cold crash : une secondaire courte vers 0–4 °C en est un.
+      const coldCrash = type === 'secondary' && tempC <= 4 && toNumber(age) <= 7
+      return { type: coldCrash ? 'cold-crash' : type, days: toNumber(age), tempC }
+    })
+}
+
+/** Divers ajoutés en ébullition (clarifiant, épices…) : quantité affichée telle quelle, à défaut AMOUNT. */
+function mapBoilMiscs(raw: Record<string, unknown>): OtherIngredient[] {
+  const container = raw.MISCS as { MISC?: Record<string, unknown>[] } | undefined
+  return (container?.MISC ?? [])
+    .filter((m) => String(m.USE ?? '').toLowerCase() === 'boil')
+    .map((m) => ({
+      name: String(m.NAME ?? 'Ajout'),
+      amount: String(m.DISPLAY_AMOUNT ?? '').trim() || (toNumber(m.AMOUNT) > 0 ? String(toNumber(m.AMOUNT)) : ''),
+      timeMin: toNumber(m.TIME),
+    }))
 }
 
 function mapStyle(raw: Record<string, unknown> | undefined): ParsedRecipeDraft['style'] {
@@ -146,6 +202,7 @@ function mapRecipe(raw: Record<string, unknown>): ParsedRecipeDraft {
   const hops = (hopsContainer?.HOP ?? []).map(mapHop)
   const yeasts = (yeastsContainer?.YEAST ?? []).map(mapYeast)
   const mashSteps = mapMashSteps(raw.MASH as Record<string, unknown> | undefined)
+  const fermentationSteps = mapFermentationSteps(raw)
 
   return {
     name: String(raw.NAME ?? 'Recette importée'),
@@ -156,11 +213,14 @@ function mapRecipe(raw: Record<string, unknown>): ParsedRecipeDraft {
     mashEfficiencyPercent: toNumber(raw.EFFICIENCY, 72),
     mashSteps: mashSteps.length > 0 ? mashSteps : undefined,
     mashTempC: mashSteps.length > 0 ? mainMashTempC(mashSteps) : undefined,
+    fermentationSteps: fermentationSteps.length > 0 ? fermentationSteps : undefined,
+    carbonationVols: toNumber(raw.CARBONATION) > 0 ? toNumber(raw.CARBONATION) : undefined,
     notes: raw.NOTES ? String(raw.NOTES) : undefined,
     style: mapStyle(raw.STYLE as Record<string, unknown> | undefined),
     fermentables,
     hops,
     yeasts,
+    otherIngredients: mapBoilMiscs(raw),
     sourceEstimates: {
       og: raw.EST_OG !== undefined ? toNumber(raw.EST_OG) : undefined,
       fg: raw.EST_FG !== undefined ? toNumber(raw.EST_FG) : undefined,

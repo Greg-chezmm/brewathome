@@ -1,5 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Download } from 'lucide-react'
+import { beerXMLFileName, recipesToBeerXML } from '@/lib/beerxml/export'
 import bjcpStyles from '@/data/bjcp-styles-2021.json'
 import { matchStyle } from '@/lib/brew-calc/style-matching'
 import {
@@ -86,6 +88,18 @@ export function RecipeDetail() {
           }
       : null
 
+  /** Télécharge la recette en BeerXML (Brewfather, BeerSmith, Little Bock…). */
+  function handleExport() {
+    if (!recipe) return
+    const xml = recipesToBeerXML([recipe], { boilVolumeL: volumes?.preBoilVolumeL ?? null })
+    const url = URL.createObjectURL(new Blob([xml], { type: 'application/xml' }))
+    const link = document.createElement('a')
+    link.href = url
+    link.download = beerXMLFileName(recipe.name)
+    link.click()
+    URL.revokeObjectURL(url)
+  }
+
   async function handleDelete() {
     if (!recipeId) return
     if (!confirm('Supprimer cette recette ?')) return
@@ -95,7 +109,7 @@ export function RecipeDetail() {
 
   return (
     <div className="space-y-8">
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
         <div className="flex items-start gap-4">
           <BeerGlass srm={calc.srm} size={56} />
           <div>
@@ -105,10 +119,13 @@ export function RecipeDetail() {
             </p>
           </div>
         </div>
-        <div className="flex shrink-0 gap-2">
+        <div className="flex shrink-0 flex-wrap gap-2">
           <Link to={`/recipes/${recipeId}/edit`} className="btn-secondary">
             Modifier
           </Link>
+          <button type="button" onClick={handleExport} className="btn-secondary" title="Télécharger au format BeerXML (Brewfather, BeerSmith, Little Bock…)">
+            <Download size={16} /> BeerXML
+          </button>
           <button onClick={handleDelete} className="btn-danger">
             Supprimer
           </button>
