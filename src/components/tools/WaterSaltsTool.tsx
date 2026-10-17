@@ -10,6 +10,7 @@ import {
   type BrewingSalt,
   type WaterProfile,
 } from '@/lib/brew-calc/water'
+import { SOURCE_WATER_STORAGE_KEY } from '@/lib/water-storage'
 import { FieldLabel } from '@/components/InfoTooltip'
 
 const IONS: { key: keyof WaterProfile; label: string; range: [number, number] }[] = [
@@ -26,8 +27,7 @@ const SALTS = Object.keys(BREWING_SALT_LABELS) as BrewingSalt[]
 /** Les deux sels qui suffisent presque toujours : calcium + sulfates (gypse) ou + chlorures (CaCl2). */
 const SUGGESTED_SALTS: BrewingSalt[] = ['gypsum', 'calciumChloride']
 
-/** L'analyse de l'eau du robinet ne change pas d'un brassin à l'autre : on la garde dans le navigateur. */
-const STORAGE_KEY = 'brewathome.tools.source-water'
+const STORAGE_KEY = SOURCE_WATER_STORAGE_KEY
 
 function loadSourceWater(): Record<keyof WaterProfile, string> {
   const empty = Object.fromEntries(IONS.map(({ key }) => [key, '0'])) as Record<keyof WaterProfile, string>

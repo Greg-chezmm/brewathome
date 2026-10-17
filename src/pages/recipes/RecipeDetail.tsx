@@ -22,6 +22,7 @@ import { deleteRecipe, getRecipeWithDetails } from '@/lib/db/queries/recipes'
 import { getEquipmentProfile } from '@/lib/db/queries/equipmentProfiles'
 import { BeerGlass } from '@/components/BeerGlass'
 import { InfoTooltip } from '@/components/InfoTooltip'
+import { MashPhCard } from '@/components/recipe/MashPhCard'
 
 const USE_LABELS = { boil: 'ajout à l’ébullition', fermentation: 'ajout en fermentation' } as const
 const YEAST_UNITS: Record<YeastAmountUnit, string> = { pkg: 'sachet(s)', g: 'g', ml: 'ml' }
@@ -215,6 +216,8 @@ export function RecipeDetail() {
           </p>
         )}
       </section>
+
+      {recipe.type !== 'extract' && <MashPhCard fermentables={recipe.fermentables} mashWaterL={volumes?.mashWaterL ?? null} />}
 
       {(recipe.fermentationSteps.length > 0 || recipe.carbonationVols !== null) && (
         <section className="card">
