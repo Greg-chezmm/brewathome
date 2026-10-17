@@ -89,7 +89,6 @@ Application personnelle de brassage de bière maison (type Brewfather/Little Boc
 
 - E-mails d'auth : configurer un SMTP personnalisé (expéditeur « BrewAtHome » au lieu de « Supabase Auth ») et coller les modèles de `supabase/templates/` dans Authentication → Emails. Écran Google : nom d'app « BrewAtHome » dans Google Cloud.
 - Profils d'équipement importés de Brewfather : la capacité de la cuve n'existe pas dans Brewfather ; elle est lue dans le nom (« Marmite 20L ») ou estimée à 1,2 × pré-ébullition et signalée à l'import — à vérifier dans le profil.
-- **Diviser une recette en 2 brassins pour un seul fermenteur** (demande utilisateur) : brasser la recette en deux sessions (ex. 2 × 10 L quand la cuve est trop petite) qui finissent dans le même fermenteur. À cadrer : quantités et volumes par session (moitié de la recette, profil d'équipement), deux Brew Days avec leurs mesures, puis une seule fermentation / un seul suivi iSpindel ; DI du fermenteur = moyenne pondérée des volumes.
 - Alcool mesuré : ne compte pas encore le sucre ajouté en fermentation (DI mesurée avant l'ajout) (en cours).
 - Support Tilt/TiltBridge au-delà de la saisie manuelle.
 - Calculateur de starter de levure — repoussé (petits volumes, pas de starter pour l'instant).
