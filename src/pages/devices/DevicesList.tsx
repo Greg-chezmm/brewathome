@@ -14,7 +14,7 @@ import {
 import { listBatches } from '@/lib/db/queries/batches'
 import { FieldLabel, InfoTooltip } from '@/components/InfoTooltip'
 
-// L'iSpindel (service « HTTPS Post », firmware 7.2+) demande l'adresse du serveur et le chemin dans deux champs.
+// L'iSpindel (service « HTTPS Post », firmware 6.6+) demande l'adresse du serveur et le chemin dans deux champs.
 const ISPINDEL_SERVER = import.meta.env.VITE_SUPABASE_URL as string
 const ISPINDEL_PATH = '/functions/v1/ispindel'
 const FIRMWARE_VERSION = '7.3.3'
@@ -87,7 +87,7 @@ export function DevicesList() {
             <code>192.168.4.1</code>.
           </li>
           <li>
-            Ouvrez la page <strong>Info</strong> et lisez la version du firmware. Il faut la <strong>7.2 ou plus</strong>{' '}
+            Ouvrez la page <strong>Info</strong> et lisez la version du firmware. Il faut la <strong>6.6 ou plus</strong>{' '}
             pour le service « HTTPS Post » : le serveur n'accepte que l'HTTPS, et en simple « HTTP » l'iSpindel ne suit
             pas la redirection, les mesures sont perdues.
           </li>
