@@ -6,20 +6,20 @@ Application personnelle de brassage de bière maison (type Brewfather/Little Boc
 
 ## Où on en est (résumé)
 
-**Dernières avancées**
-- Brewfather : explication du triangle d'écart directement sur la page de comparaison ; recette sans levure expliquée (fiche et import : atténuation par défaut de 75 %).
-- Formulaire de recette : réordonner les ingrédients, viser une DI (tout le grain à l'échelle) ou un IBU (dose du houblon amérisant).
-- **Empâtage à paliers** : la recette décrit tous ses paliers (repos protéinique, bêta, alpha, mash-out…), importés depuis Brewfather et BeerXML ; le palier principal règle l'atténuation, et chaque palier devient une étape minutée du Brew Day.
-- Brew Day : boutons Démarrer / Arrêter déplacés dans la carte de l'étape, à côté de la durée prévue puis sous le minuteur ; la barre du bas garde Terminer et la navigation.
-- Nouveau favicon et icônes PWA : cuve en cuivre fumante avec un cône de houblon.
+**Dernières avancées** (migration `0016` appliquée sur la base live le 2026-10-17)
+- **Profil de fermentation** (primaire, secondaire, garde, cold crash) et **jour du dry hop**, importés de Brewfather et BeerXML ; le suivi de fermentation montre le plan (jour X sur Y, étape en cours, écart de température, dry hops à venir) et pré-remplit le resucrage.
+- **Quantité de levure** (sachets, g, mL), **carbonatation visée**, **moment d'ajout des fermentescibles** (empâtage, ébullition, fermentation) jusque dans le Brew Day.
+- **pH d'empâtage estimé** sur la fiche recette, avec la dose d'acide lactique ; **export BeerXML** ; import BeerXML plus complet.
+- **Historique des brassins** (`/batches/history`) : prévu contre mesuré, moyennes, graphique des efficacités et conseils de réglage.
+- **Guide « Empâtage & eau »** (onglet du guide des ingrédients), lié depuis le formulaire, la carte pH et l'outil Sels minéraux.
+- Chargement plus rapide : pages découpées par route (fichier principal 1 340 → 58 kB).
+- Import Brewfather : les équipements « Imported » ne sont plus confondus entre recettes.
 
 **À faire juste après**
-- Appliquer la migration `0012` (colonne `recipes.mash_steps`) sur la base live **avant** de pousser le code, puis pousser (le push est bloqué tant que l'identifiant git enregistré est le jeton en lecture seule).
+- Pousser les commits locaux (déploiement).
+- Brune forte : sa recette pointe sur le profil « Imported » créé par le Barley wine (brassin #31 : 120 min, 3,14 L/h, cuve estimée à 24 L). La rattacher à un profil fidèle à Brewfather (12 L, 60 min, 2,879 L/h, pré-ébullition 15,9 L, cuve 20 L) — en attente de validation.
 
-**Prochaines étapes, par priorité** (d'après l'audit des 17 recettes Brewfather : paliers, profils de fermentation, dose de levure, jour du dry hop et carbonatation y sont tous renseignés)
-1. Profil de fermentation (primaire, secondaire, garde, cold crash : température et durée) et jour d'ajout du dry hop, importés depuis Brewfather et utilisés dans le suivi de fermentation.
-2. Quantité de levure (sachets / ml) et carbonatation visée (volumes de CO₂), avec l'écran de resucrage déjà calculé dans `carbonation.ts`.
-3. Base de connaissances, suite : empâtage et eau consultables hors formulaire (les ingrédients ont leur page `/ingredients`).
+**Prochaines étapes** : voir « Ce qu'il reste à faire ».
 
 ## Ce qui est fait
 
@@ -37,11 +37,19 @@ Application personnelle de brassage de bière maison (type Brewfather/Little Boc
 - **Recette offerte** aux nouveaux comptes : une American Pale Ale de 20 L dans toutes les plages du style (`src/data/starter-recipe.ts`), créée à la première connexion si le compte n'a aucune recette ; marqueur `starter_recipe` dans les métadonnées du compte pour ne pas la recréer.
 - **Formulaire de recette** : chiffres clés recalculés à chaque saisie, vert/rouge selon le style — sur écran large, colonne de droite collée en haut avec la position dans chaque plage du style et le BU:GU ; sinon barre fixée au-dessus des onglets (mobile) ou en haut (PC), qui se déplie pour montrer le style ; un ingrédient = une carte aux champs légendés (2 colonnes sur mobile), seuls les champs utiles selon l'usage du houblon (forme pellets/cônes comprise), effet de chaque ingrédient (% du grain, points de densité, part de la couleur ; IBU par houblon ; DF et atténuation retenue pour la levure, `brew-calc/contributions.ts`). Suggestions de noms : vos ingrédients déjà utilisés (avec vos valeurs) puis une bibliothèque d'ingrédients courants (`src/data/ingredients.ts`, valeurs typiques + note d'usage affichée sous la carte). Flèches ↑/↓ pour réordonner chaque liste (l'ordre est enregistré ; la première levure est celle du calcul). **Viser une DI** : tout le grain est mis à l'échelle en gardant les proportions ; **viser un IBU** : seule la dose du houblon amérisant (le plus long en ébullition, premier moût compris) change (`brew-calc/targets.ts`).
 
+- **Profil de fermentation** (`brew-calc/fermentation-profile.ts`, `recipes.fermentation_steps`, migration 0016) : étapes primaire / secondaire / garde / cold crash (température, durée), profil par défaut selon la levure, **carbonatation visée** (`recipes.carbonation_vols`). **Dry hop daté** (`recipe_hops.dry_hop_day`, jour par défaut calculé), **quantité de levure** (sachets, g, mL), **moment d'ajout des fermentescibles** (`recipe_fermentables.use` : empâtage, ébullition, fermentation — le sucre en fermentation devient une étape « En fermentation » du Brew Day). Importés de Brewfather et BeerXML.
+- **pH d'empâtage estimé** (`brew-calc/mash-ph.ts`, carte sur la fiche recette tout grain) : pH du grain en eau distillée selon les malts, effet de l'alcalinité résiduelle de l'eau saisie dans l'outil Sels minéraux, dose d'acide lactique 88 % ou de bicarbonate pour viser 5,4.
+- **Export BeerXML** (bouton sur la fiche recette, `src/lib/beerxml/export.ts`) : relu à l'identique par notre import (aller-retour testé), profil de fermentation et carbonatation compris.
+- Liens « Fiche et remplaçants » depuis les cartes d'ingrédients du formulaire vers le guide.
+
 ### Batches (brassins)
 - Validation d'une recette en brassin avec **snapshot figé** (une modification ultérieure de la recette source ne touche pas un brassin déjà lancé) ; la recette du brassin reste éditable indépendamment (`/batches/:id/edit-recipe`). Enregistrer la recette du brassin recalcule ses estimations (avec la formule IBU choisie) et régénère les étapes du Brew Day encore à faire ; les étapes commencées ou terminées gardent leurs minuteurs.
 - **Onglets du brassin** (`BatchLayout`, routes imbriquées sous `/batches/:id`) : Aperçu · Brew Day · Fermentation · Recette, sous un en-tête commun (nom, statut, date de brassage). Le Brew Day est un onglet comme les autres (même en-tête, mêmes onglets) ; sur mobile, sa barre d'actions remplace les onglets du bas de l'app.
 - Suivi de statut (planifié → brew day → fermentation → conditionnement → terminé).
 - **Mesures du brassin, comme Brewfather** (`src/lib/brew-day/measurements.ts`, migration `0015`) : pH d'empâtage, volume et densité pré-ébullition, volume et densité de fin d'ébullition (volumes à chaud), eau d'appoint, volume fermenteur, DI, DF, volume conditionné, température max de fermentation. DI et DF « à saisir », le reste facultatif. Chaque mesure est comparée à la recette dès son enregistrement (écart en points ou en litres, conseil quand une densité sort de ±2 points, plage de pH 5,2–5,6). Page du brassin : toutes les mesures + **résumé Recette / Brassin** (volumes, évaporation, pertes, densités, alcool, atténuation, efficacités d'empâtage et de brasserie, calculées comme Brewfather à ~0,5 point près). Reprises à l'import d'un brassin Brewfather.
+
+- **Historique** (`/batches/history`, `src/lib/batches/history.ts`) : pour chaque brassin, DI, DF, alcool, atténuation, efficacité d'empâtage, volume en fermenteur et pH face à la recette figée ; moyennes des écarts, graphique des efficacités, conseils (efficacité à régler dans le profil d'équipement, pertes de volume, atténuation).
+- **Plan de fermentation** sur l'onglet Fermentation : frise du profil avec le jour en cours, étape et jours restants, alerte d'écart de température, dry hops à venir/en contact/faits ; resucrage pré-rempli (volume, carbonatation, température max) en fermentation et conditionnement.
 
 ### Mode Brew Day
 - Interface façon app mobile : écran plein (une étape à la fois, barre d'actions en bas, vue d'ensemble en panneau) ; sur PC, vue d'ensemble permanente à gauche et étape en cours à droite.
@@ -56,6 +64,7 @@ Application personnelle de brassage de bière maison (type Brewfather/Little Boc
 
 ### Ingrédients (`/ingredients`)
 - Guide consultable (menu « Ingrédients ») tiré de `src/data/ingredients.ts` (aussi utilisé par les suggestions du formulaire de recette) : malts et céréales par catégorie (base, caramel, spéciaux, torréfiés, céréales non maltées — riz, maïs, blé cru, avoine, épeautre —, sucres, extraits) avec couleur °L/EBC et rendement ; houblons par rôle (amérisants, mixtes, aromatiques) avec origine et % alpha ; levures par type (américaine/IPA, NEIPA, anglaise, Kölsch/Alt, abbaye/trappiste, blé, saison, kveik, lager) avec références du commerce (Fermentis, Lallemand, Mangrove Jack's, Wyeast, White Labs), températures, **atténuation et DF attendue** pour une DI de 1.050. Conseils d'usage par famille, **remplaçants** cliquables pour chaque ingrédient, recherche sans accents avec compte par onglet, raccourcis vers chaque famille.
+- Onglet **Empâtage & eau** (`src/components/ingredients/MashWaterGuide.tsx`) : rôle de chaque température de palier, profils d'empâtage types, pratique (ratio, iode, rinçage, efficacité), pH d'empâtage, ions de l'eau et rapport sulfates/chlorures, chlore, profils d'eau cibles.
 
 ### Outils (`/tools`)
 - Page de calculatrices (menu « Outils ») : **quantité de levure** (cellules Mr Malty, sachets secs de 11,5 g ou sachets liquides selon leur âge, starter conseillé au-delà de deux), **sels minéraux** (profil d'eau après gypse, CaCl2, Epsom, sel, bicarbonate ; repères par ion, rapport sulfates/chlorures, alcalinité résiduelle ; **profil visé** (légère, équilibrée, houblonnée sèche/ronde, maltée) avec gypse + CaCl2 proposés par moindres carrés, ions déjà en excès signalés (coupe à l'eau déminéralisée, acide lactique) ; eau de départ mémorisée dans le navigateur), eau d'empâtage, correction de densité, **resucrage** (CO2 résiduel selon la température, préréglages par style, saccharose/dextrose/extrait sec, grammes par bouteille).
@@ -74,25 +83,21 @@ Application personnelle de brassage de bière maison (type Brewfather/Little Boc
 ### Infra
 - Auth Supabase (Google, lien par e-mail, e-mail + mot de passe). Inscription par mot de passe : le lien de confirmation ramène sur l'app, messages et erreurs en français, adresse déjà inscrite détectée ; lien ouvert dans un autre navigateur (PKCE impossible) ou expiré expliqué sur la page de connexion (`src/lib/auth/errors.ts`). Modèles d'e-mails en français dans `supabase/templates/` (à coller dans le tableau de bord Supabase).
 - RLS sur toutes les tables, déploiement GitHub Pages via GitHub Actions, PWA installable avec bouton « Installer l'application » (barre latérale sur PC, menu « Plus » sur mobile ; fenêtre d'installation du navigateur sur Android/Chrome/Edge, explication Partager → Sur l'écran d'accueil sur iPhone ; masqué une fois installée, `src/lib/pwa/install.ts`), raccourcis Brassins / Recettes / Outils sur l'icône, plein écran sur iPhone (icône d'accueil, barre d'état sombre) (icône : cuve fumante et cône de houblon, `public/favicon.svg` ; PNG 192/512 rendus depuis ce SVG).
+- Pages chargées à la demande (`React.lazy` dans `App.tsx`), React et Supabase dans leurs propres fichiers (`vite.config.ts`) : fichier principal de 58 kB, Recharts chargé seulement sur les pages à graphique ; le service worker précharge tout pour le hors-ligne.
 - Schéma modélisé avec Drizzle (génération de migrations SQL uniquement — aucune dépendance runtime à Drizzle, tout passe par `supabase-js`).
 
 ## Ce qu'il reste à faire
 
 - E-mails d'auth : configurer un SMTP personnalisé (expéditeur « BrewAtHome » au lieu de « Supabase Auth ») et coller les modèles de `supabase/templates/` dans Authentication → Emails. Écran Google : nom d'app « BrewAtHome » dans Google Cloud.
-- Formulaire de recette, suite : conseils d'empâtage et d'eau consultables hors formulaire ; lien depuis les cartes d'ingrédients du formulaire vers leur fiche du guide.
-- Brewfather, champs encore ignorés à l'import : profil de fermentation, jour du dry hop, quantité de levure, carbonatation (voir « Prochaines étapes »).
-
-- Export BeerXML (actuellement import seulement).
+- Profils d'équipement importés de Brewfather : la capacité de la cuve n'existe pas dans Brewfather ; elle est lue dans le nom (« Marmite 20L ») ou estimée à 1,2 × pré-ébullition et signalée à l'import — à vérifier dans le profil.
 - **Diviser une recette en 2 brassins pour un seul fermenteur** (demande utilisateur) : brasser la recette en deux sessions (ex. 2 × 10 L quand la cuve est trop petite) qui finissent dans le même fermenteur. À cadrer : quantités et volumes par session (moitié de la recette, profil d'équipement), deux Brew Days avec leurs mesures, puis une seule fermentation / un seul suivi iSpindel ; DI du fermenteur = moyenne pondérée des volumes.
+- Export PDF de fiche de recette (en cours).
+- Alcool mesuré : ne compte pas encore le sucre ajouté en fermentation (DI mesurée avant l'ajout) (en cours).
 - Support Tilt/TiltBridge au-delà de la saisie manuelle.
 - Calculateur de starter de levure — repoussé (petits volumes, pas de starter pour l'instant).
-- Historique/statistiques multi-brassins, export PDF de fiche de recette.
-- Usage des fermentescibles (empâtage/ébullition/fermentation) à exposer en base et dans le formulaire.
-- Sels minéraux : estimer le pH d'empâtage à partir des malts de la recette (aujourd'hui seulement l'alcalinité résiduelle de l'eau) ; dose d'acide lactique.
 - Brewfather : utiliser l'atténuation réelle par levure et le rendement mesuré pour ajuster les recettes. Écarts restants connus : IBU des bières fortes (Brewfather prend la densité pré-ébullition, nous la moyenne des specs) et DF (Brewfather ajuste l'atténuation selon l'empâtage et le sucre).
-- IBU Garetz (troisième formule, actuellement non implémentée malgré le type `IBUFormulaName` qui la prévoit).
+- IBU Garetz (troisième formule, actuellement non implémentée malgré le type `IBUFormulaName` qui la prévoit) (en cours).
 - Gestion de stock d'ingrédients (si besoin confirmé un jour).
-- Le bundle JS dépasse 500 kB après minification (avertissement Vite) — découpage en chunks à envisager si le temps de chargement devient gênant.
 
 ## Comment vérifier l'état du code
 
