@@ -7,6 +7,7 @@ import {
   pgTable,
   text,
   timestamp,
+  uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core'
 
@@ -200,8 +201,10 @@ export const batches = pgTable('batches', {
   fgMeasured: numeric('fg_measured', { precision: 5, scale: 3 }),
   volumeMeasuredL: numeric('volume_measured_l', { precision: 6, scale: 2 }),
   notes: text('notes'),
+  // Identifiant du brassin Brewfather d'origine (import) : évite de l'importer deux fois.
+  brewfatherId: text('brewfather_id'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-})
+}, (t) => [uniqueIndex('batches_user_brewfather_id_idx').on(t.userId, t.brewfatherId)])
 
 export const batchSteps = pgTable('batch_steps', {
   id: uuid('id').primaryKey().defaultRandom(),

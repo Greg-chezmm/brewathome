@@ -108,3 +108,33 @@ export interface BrewfatherRecipe {
   miscs?: BrewfatherMisc[]
   mash?: { steps?: BrewfatherMashStep[] } | null
 }
+
+/** Statuts d'un brassin Brewfather. */
+export type BrewfatherBatchStatus = 'Planning' | 'Brewing' | 'Fermenting' | 'Conditioning' | 'Completed' | 'Archived'
+
+/** Brassin Brewfather (`GET /batches?complete=true`) : copie de la recette et mesures du brasseur. */
+export interface BrewfatherBatch {
+  _id: string
+  name?: string
+  batchNo?: number
+  status?: BrewfatherBatchStatus | string
+  /** Date de brassage, en millisecondes depuis l'époque Unix. */
+  brewDate?: number
+  /** Copie de la recette faite au lancement du brassin (modifiable dans Brewfather). */
+  recipe?: BrewfatherRecipe | null
+  measuredOg?: number
+  measuredFg?: number
+  measuredPreBoilGravity?: number
+  /** Volume mis en fermenteur, en litres. */
+  measuredBatchSize?: number
+  measuredBoilSize?: number
+  measuredBottlingSize?: number
+  /** Rendement global mesuré (jusqu'au fermenteur), en %. */
+  measuredEfficiency?: number
+  measuredMashEfficiency?: number
+  /** Atténuation apparente mesurée, en %. */
+  measuredAttenuation?: number
+  measuredAbv?: number
+  estimatedOg?: number
+  estimatedFg?: number
+}

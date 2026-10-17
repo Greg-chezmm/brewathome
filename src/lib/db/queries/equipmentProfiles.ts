@@ -70,6 +70,13 @@ export async function createEquipmentProfile(
   return data.id as string
 }
 
+/** Profil existant du même nom, ou créé à partir de `profile` (imports : évite les doublons). */
+export async function findOrCreateEquipmentProfile(userId: string, profile: EquipmentProfile): Promise<EquipmentProfileRecord> {
+  const existing = (await listEquipmentProfiles()).find((p) => p.name === profile.name)
+  if (existing) return existing
+  return { ...profile, id: await createEquipmentProfile(userId, profile) }
+}
+
 export async function updateEquipmentProfile(id: string, profile: EquipmentProfile): Promise<void> {
   const { error } = await supabase
     .from('equipment_profiles')

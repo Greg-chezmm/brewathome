@@ -1,14 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { listBatches } from '@/lib/db/queries/batches'
-
-const STATUS_LABELS: Record<string, string> = {
-  planned: 'Planifié',
-  brew_day: 'Jour de brassage',
-  fermentation: 'Fermentation',
-  conditioning: 'Conditionnement',
-  completed: 'Terminé',
-}
+import { BATCH_STATUS_LABELS, listBatches } from '@/lib/db/queries/batches'
 
 export function BatchesList() {
   const { data: batches, isLoading, error } = useQuery({ queryKey: ['batches'], queryFn: listBatches })
@@ -29,7 +21,7 @@ export function BatchesList() {
             <Link to={`/batches/${b.id}`} className="card-link">
               <div className="flex items-center justify-between">
                 <h2 className="font-semibold text-slate-900">{b.name}</h2>
-                <span className="badge">{STATUS_LABELS[b.status]}</span>
+                <span className="badge">{BATCH_STATUS_LABELS[b.status]}</span>
               </div>
               {b.brewDate && <p className="text-sm text-slate-500">Brassage le {b.brewDate}</p>}
             </Link>

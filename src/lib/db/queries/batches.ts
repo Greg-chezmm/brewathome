@@ -2,11 +2,20 @@ import { estimateRecipeStats, REFERENCE_MASH_TEMP_C } from '@/lib/brew-calc/reci
 import type { EquipmentProfile } from '@/lib/brew-calc/types'
 import { buildBatchSteps, planBatchStepsUpdate, type NewBatchStep } from '@/lib/brew-day/steps'
 import type { RecipeDetails, RecipeInput } from './recipes'
-import { getEquipmentProfile } from './equipmentProfiles'
-import { getRecipeWithDetails, updateRecipeStatus } from './recipes'
+import type { BrewfatherBatchImport } from '@/lib/brewfather/batches'
+import { findOrCreateEquipmentProfile, getEquipmentProfile } from './equipmentProfiles'
+import { draftToRecipeInput, getRecipeWithDetails, updateRecipeStatus } from './recipes'
 import { supabase } from '@/lib/supabase/client'
 
 export type BatchStatus = 'planned' | 'brew_day' | 'fermentation' | 'conditioning' | 'completed'
+
+export const BATCH_STATUS_LABELS: Record<BatchStatus, string> = {
+  planned: 'Planifié',
+  brew_day: 'Jour de brassage',
+  fermentation: 'Fermentation',
+  conditioning: 'Conditionnement',
+  completed: 'Terminé',
+}
 export type BatchStepType =
   | 'preparation'
   | 'strike-water'
@@ -105,6 +114,62 @@ export async function createBatchFromRecipe(
   await updateRecipeStatus(recipeId, 'validated')
 
   return batchId
+}
+
+/**
+ * Enregistre un brassin importé de Brewfather : sa recette devient le snapshot (sans
+ * recette source chez nous) et le profil d'équipement est repris ou réutilisé par son nom.
+ * Les étapes de Brew Day ne sont générées que pour un brassin pas encore brassé.
+ */
+export async function createBatchFromBrewfather(userId: string, imported: BrewfatherBatchImport): Promise<string> {
+  if (!imported.draft) throw new Error('Brewfather n’a pas renvoyé la recette de ce brassin.')
+  const equipmentProfile = imported.equipment ? await findOrCreateEquipmentProfile(userId, imported.equipment) : null
+  const input = draftToRecipeInput(imported.draft, equipmentProfile?.id ?? null)
+  const stats = estimateRecipeStats({ ...input, equipment: equipmentProfile })
+  const recipe: RecipeDetails = {
+    ...input,
+    id: imported.brewfatherId,
+    status: 'validated',
+    createdAt: new Date().toISOString(),
+    estOg: stats.og,
+    estFg: stats.fg,
+    estIbu: stats.ibu,
+    estSrm: stats.srm,
+    estAbv: stats.abv,
+  }
+
+  const { data: batch, error } = await supabase
+    .from('batches')
+    .insert({
+      user_id: userId,
+      recipe_id: null,
+      recipe_snapshot: recipe,
+      name: imported.name,
+      brew_date: imported.brewDate,
+      status: imported.status,
+      og_measured: imported.ogMeasured,
+      fg_measured: imported.fgMeasured,
+      volume_measured_l: imported.volumeMeasuredL,
+      brewfather_id: imported.brewfatherId,
+    })
+    .select('id')
+    .single()
+  if (error) throw error
+  const batchId = batch.id as string
+
+  if (imported.status === 'planned' || imported.status === 'brew_day') {
+    const steps = buildBatchSteps(recipe, equipmentProfile)
+    const { error: stepsError } = await supabase.from('batch_steps').insert(steps.map((s) => toStepRow(batchId, s)))
+    if (stepsError) throw stepsError
+  }
+  return batchId
+}
+
+/** Brassins déjà importés de Brewfather : identifiant Brewfather → identifiant chez nous. */
+export async function listImportedBrewfatherBatches(): Promise<Map<string, string>> {
+  const { data, error } = await supabase.from('batches').select('id, brewfather_id').not('brewfather_id', 'is', null)
+  if (error) throw error
+  return new Map((data ?? []).map((b) => [b.brewfather_id as string, b.id as string]))
 }
 
 export async function listBatches(): Promise<BatchSummary[]> {

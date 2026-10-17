@@ -1,26 +1,30 @@
 import { useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { ChevronDown, ChevronUp, CircleCheck, TriangleAlert } from 'lucide-react'
 import { useAuth } from '@/lib/auth/AuthProvider'
 import { listBrewfatherRecipes } from '@/lib/brewfather/client'
 import { compareWithBrewfather, type BrewfatherComparison } from '@/lib/brewfather/compare'
 import type { BrewfatherCredentials } from '@/lib/brewfather/types'
 import { deleteBrewfatherAccount, getBrewfatherAccount, saveBrewfatherAccount } from '@/lib/db/queries/brewfather'
-import { createEquipmentProfile, listEquipmentProfiles } from '@/lib/db/queries/equipmentProfiles'
+import { findOrCreateEquipmentProfile } from '@/lib/db/queries/equipmentProfiles'
 import { createRecipeFromDraft } from '@/lib/db/queries/recipes'
 import { BeerGlass } from '@/components/BeerGlass'
 import { FieldLabel } from '@/components/InfoTooltip'
+import { BrewfatherBatches } from './BrewfatherBatches'
 
 export function BrewfatherImport() {
   const { user } = useAuth()
   const queryClient = useQueryClient()
   const { data: account, isLoading } = useQuery({ queryKey: ['brewfather-account'], queryFn: getBrewfatherAccount })
+  const [searchParams, setSearchParams] = useSearchParams()
+  const tab = searchParams.get('onglet') === 'brassins' ? 'batches' : 'recipes'
 
   async function handleDisconnect() {
     if (!user || !confirm('Oublier l’accès Brewfather enregistré ?')) return
     await deleteBrewfatherAccount(user.id)
     queryClient.removeQueries({ queryKey: ['brewfather-recipes'] })
+    queryClient.removeQueries({ queryKey: ['brewfather-batches'] })
     await queryClient.invalidateQueries({ queryKey: ['brewfather-account'] })
   }
 
@@ -29,13 +33,42 @@ export function BrewfatherImport() {
       <div>
         <h1 className="text-3xl font-bold tracking-tight text-slate-900">Brewfather</h1>
         <p className="text-slate-600">
-          Importez vos recettes Brewfather et comparez nos calculs aux leurs, recette par recette.
+          Importez vos recettes et vos brassins Brewfather, et comparez nos calculs aux leurs.
         </p>
       </div>
 
       {isLoading && <p className="text-slate-500">Chargement…</p>}
       {!isLoading && !account && <ConnectForm />}
-      {account && <RecipeList credentials={account} onDisconnect={handleDisconnect} />}
+      {account && (
+        <>
+          <div className="flex gap-1 rounded-lg bg-slate-100 p-1" role="tablist">
+            {(
+              [
+                ['recipes', 'Recettes', {}],
+                ['batches', 'Brassins', { onglet: 'brassins' }],
+              ] as const
+            ).map(([key, label, params]) => (
+              <button
+                key={key}
+                type="button"
+                role="tab"
+                aria-selected={tab === key}
+                onClick={() => setSearchParams(params, { replace: true })}
+                className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition ${
+                  tab === key ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          {tab === 'recipes' ? (
+            <RecipeList credentials={account} onDisconnect={handleDisconnect} />
+          ) : (
+            <BrewfatherBatches credentials={account} onDisconnect={handleDisconnect} />
+          )}
+        </>
+      )}
     </div>
   )
 }
@@ -74,8 +107,8 @@ function ConnectForm() {
         <ol className="list-decimal space-y-1 pl-5">
           <li>Dans Brewfather, ouvrez <strong>Paramètres</strong>, section <strong>API</strong>.</li>
           <li>
-            Cliquez sur <strong>Generate</strong> en cochant au moins <strong>Read Recipes</strong> (lecture seule
-            suffit).
+            Cliquez sur <strong>Generate</strong> en cochant <strong>Read Recipes</strong> et{' '}
+            <strong>Read Batches</strong> (lecture seule suffit).
           </li>
           <li>Copiez ici l’identifiant utilisateur et la clé affichés.</li>
         </ol>
@@ -183,8 +216,7 @@ function BrewfatherRecipeCard({ comparison }: { comparison: BrewfatherComparison
       let equipmentProfileId: string | null = null
       if (withEquipment && equipment) {
         // Réutilise un profil du même nom plutôt que d'en créer un à chaque import.
-        const existing = (await listEquipmentProfiles()).find((p) => p.name === equipment.name)
-        equipmentProfileId = existing?.id ?? (await createEquipmentProfile(user.id, equipment))
+        equipmentProfileId = (await findOrCreateEquipmentProfile(user.id, equipment)).id
         await queryClient.invalidateQueries({ queryKey: ['equipment-profiles'] })
       }
       const recipeId = await createRecipeFromDraft(user.id, draft, equipmentProfileId)
