@@ -15,6 +15,7 @@ import type { BrewfatherCredentials } from '@/lib/brewfather/types'
 import { deleteBrewfatherAccount, getBrewfatherAccount, saveBrewfatherAccount } from '@/lib/db/queries/brewfather'
 import { findOrCreateEquipmentProfile } from '@/lib/db/queries/equipmentProfiles'
 import { createRecipeFromDraft } from '@/lib/db/queries/recipes'
+import { DEFAULT_ATTENUATION_PERCENT } from '@/lib/brew-calc/recipe-stats'
 import { BeerGlass } from '@/components/BeerGlass'
 import { FieldLabel } from '@/components/InfoTooltip'
 import { BrewfatherBatches } from './BrewfatherBatches'
@@ -292,6 +293,12 @@ function BrewfatherRecipeCard({ comparison }: { comparison: BrewfatherComparison
             <p className="text-sm text-slate-500">Brewfather n’a pas renvoyé de valeurs calculées pour cette recette.</p>
           )}
           {gaps.length > 0 && <GapExplanation gaps={gaps} />}
+          {draft.yeasts.length === 0 && (
+            <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
+              Pas de levure dans cette recette Brewfather : elle sera importée sans levure. Ajoutez-la ensuite avec
+              « Modifier » (sinon le calcul suppose {DEFAULT_ATTENUATION_PERCENT} % d’atténuation et la quantité à ensemencer ne s’affiche pas).
+            </p>
+          )}
           <p className="text-xs text-slate-500">
             Recalculé avec le profil d’équipement de la recette Brewfather
             {equipment ? '' : ' (absent : calcul sur le volume du fermenteur, sans pertes)'} ; DF sans ajustement par la

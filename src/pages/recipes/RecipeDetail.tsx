@@ -7,7 +7,7 @@ import {
   calculateDryYeastGrams,
   calculateLiquidPacksNeeded,
 } from '@/lib/brew-calc/yeast'
-import { computeRecipe } from '@/lib/brew-calc/recipe-stats'
+import { computeRecipe, DEFAULT_ATTENUATION_PERCENT } from '@/lib/brew-calc/recipe-stats'
 import { SPARGE_WATER_TEMP_C } from '@/lib/brew-calc/volumes'
 import { deleteRecipe, getRecipeWithDetails } from '@/lib/db/queries/recipes'
 import { getEquipmentProfile } from '@/lib/db/queries/equipmentProfiles'
@@ -168,6 +168,12 @@ export function RecipeDetail() {
 
       <section className="card">
         <h2 className="section-title mb-2">Levures &amp; quantité recommandée</h2>
+        {recipe.yeasts.length === 0 && (
+          <p className="text-sm text-slate-500">
+            Aucune levure dans cette recette : les estimations (DF, alcool) supposent {DEFAULT_ATTENUATION_PERCENT} %
+            d’atténuation. Ajoutez-la avec « Modifier » pour obtenir la quantité à ensemencer.
+          </p>
+        )}
         {recipe.yeasts.map((y, i) => (
           <p key={i} className="text-sm text-slate-700">
             {y.name} ({y.type === 'dry' ? 'sèche' : 'liquide'}, {y.style}, atténuation {y.attenuationPercent}%)
