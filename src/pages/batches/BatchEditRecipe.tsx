@@ -47,6 +47,7 @@ export function BatchEditRecipe() {
     try {
       await updateBatchRecipeSnapshot(batchId, batch.recipeSnapshot, { ...value, notes: value.notes || null })
       queryClient.invalidateQueries({ queryKey: ['batch', batchId] })
+      queryClient.invalidateQueries({ queryKey: ['batch-steps', batchId] })
       navigate(`/batches/${batchId}`)
     } catch (err) {
       setError((err as Error).message)

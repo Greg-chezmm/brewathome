@@ -1,0 +1,76 @@
+import { describe, expect, it } from 'vitest'
+import { buildBatchSteps, planBatchStepsUpdate } from '@/lib/brew-day/steps'
+import type { BatchStep } from '@/lib/db/queries/batches'
+import type { RecipeDetails } from '@/lib/db/queries/recipes'
+
+const recipe: RecipeDetails = {
+  id: 'r1',
+  name: 'Pale Ale',
+  status: 'validated',
+  styleId: null,
+  type: 'all-grain',
+  targetVolumeL: 20,
+  boilTimeMin: 60,
+  mashEfficiencyPercent: 72,
+  ibuFormula: 'tinseth',
+  equipmentProfileId: null,
+  notes: null,
+  estOg: null,
+  estFg: null,
+  estIbu: null,
+  estSrm: null,
+  estAbv: null,
+  createdAt: '2026-01-01',
+  fermentables: [{ name: 'Pale', type: 'grain', amountKg: 5, colorLovibond: 3, yieldPercent: 80 }],
+  hops: [{ name: 'Cascade', amountG: 30, alphaAcidPercent: 6, timeMin: 15, use: 'boil' }],
+  yeasts: [],
+  otherIngredients: [],
+}
+
+/** Simule les étapes en base : ids + statuts. */
+function persisted(r: RecipeDetails, statuses: Record<string, BatchStep['status']> = {}): BatchStep[] {
+  return buildBatchSteps(r, null).map((s, i) => ({
+    ...s,
+    id: `s${i}`,
+    status: statuses[s.stepType] ?? 'todo',
+    actualStartAt: statuses[s.stepType] ? '2026-10-17T08:00:00Z' : null,
+  }))
+}
+
+describe('planBatchStepsUpdate', () => {
+  it('regenerates every step of a batch not started yet', () => {
+    const changed = { ...recipe, hops: [...recipe.hops, { name: 'Citra', amountG: 20, alphaAcidPercent: 12, timeMin: 5, use: 'boil' as const }] }
+    const existing = persisted(recipe)
+    const plan = planBatchStepsUpdate(existing, buildBatchSteps(changed, null))
+
+    expect(plan.deleteIds).toEqual(existing.map((s) => s.id))
+    expect(plan.update).toEqual([])
+    expect(plan.insert.map((s) => s.label)).toContain('Ajout houblon : Citra (20 g)')
+    expect(plan.insert.map((s) => s.orderIndex)).toEqual(plan.insert.map((_, i) => i))
+  })
+
+  it('keeps started steps and applies the new boil time to the running boil', () => {
+    const existing = persisted(recipe, { 'strike-water': 'done', mash: 'done', 'heat-to-boil': 'done', boil: 'in-progress' })
+    const plan = planBatchStepsUpdate(existing, buildBatchSteps({ ...recipe, boilTimeMin: 90 }, null))
+
+    const boil = existing.find((s) => s.stepType === 'boil')!
+    expect(plan.deleteIds).not.toContain(boil.id)
+    expect(plan.update.find((s) => s.id === boil.id)).toMatchObject({ plannedDurationMin: 90, label: 'Ébullition (90 min)' })
+    expect(plan.insert.some((s) => s.stepType === 'boil')).toBe(false)
+    expect(plan.insert.some((s) => s.label === 'Ajout houblon : Cascade (30 g)')).toBe(true)
+  })
+
+  it('keeps a done addition that was removed from the recipe, in place', () => {
+    const existing = persisted(recipe, { 'hop-addition': 'done' })
+    const plan = planBatchStepsUpdate(existing, buildBatchSteps({ ...recipe, hops: [] }, null))
+
+    const cascade = existing.find((s) => s.stepType === 'hop-addition')!
+    const kept = plan.update.find((s) => s.id === cascade.id)!
+    expect(kept.label).toBe(cascade.label)
+    const boilIndex = plan.insert.find((s) => s.stepType === 'boil')!.orderIndex
+    expect(kept.orderIndex).toBe(boilIndex + 1)
+
+    const allIndexes = [...plan.insert.map((s) => s.orderIndex), ...plan.update.map((s) => s.orderIndex)].sort((a, b) => a - b)
+    expect(allIndexes).toEqual(allIndexes.map((_, i) => i))
+  })
+})

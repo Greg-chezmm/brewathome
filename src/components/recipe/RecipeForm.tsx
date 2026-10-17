@@ -1,10 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import bjcpStyles from '@/data/bjcp-styles-2021.json'
-import { calculateABV } from '@/lib/brew-calc/abv'
-import { calculateSRM } from '@/lib/brew-calc/color'
-import { calculateFG, calculateOG } from '@/lib/brew-calc/gravity'
-import { calculateIBU_Rager, calculateIBU_Tinseth } from '@/lib/brew-calc/ibu'
+import { estimateRecipeStats } from '@/lib/brew-calc/recipe-stats'
 import { matchStyle } from '@/lib/brew-calc/style-matching'
 import { calculateVolumes, estimateFinalVolumeFromPreBoil, SPARGE_WATER_TEMP_C } from '@/lib/brew-calc/volumes'
 import type { Fermentable, Hop, HopUse, IBUFormulaName, OtherIngredient, Yeast } from '@/lib/brew-calc/types'
@@ -78,18 +75,18 @@ export function RecipeForm({
   })
   const [styleQuery, setStyleQuery] = useState('')
 
-  const stats = useMemo(() => {
-    const og = calculateOG(value.fermentables, value.targetVolumeL, value.mashEfficiencyPercent)
-    const attenuation = value.yeasts[0]?.attenuationPercent ?? 75
-    const fg = calculateFG(og, attenuation)
-    const ibu =
-      value.ibuFormula === 'rager'
-        ? calculateIBU_Rager(value.hops, og, value.targetVolumeL)
-        : calculateIBU_Tinseth(value.hops, og, value.targetVolumeL)
-    const srm = calculateSRM(value.fermentables, value.targetVolumeL)
-    const abv = calculateABV(og, fg)
-    return { og, fg, ibu, srm, abv }
-  }, [value.fermentables, value.hops, value.yeasts, value.targetVolumeL, value.mashEfficiencyPercent, value.ibuFormula])
+  const stats = useMemo(
+    () =>
+      estimateRecipeStats({
+        fermentables: value.fermentables,
+        hops: value.hops,
+        yeasts: value.yeasts,
+        targetVolumeL: value.targetVolumeL,
+        mashEfficiencyPercent: value.mashEfficiencyPercent,
+        ibuFormula: value.ibuFormula,
+      }),
+    [value.fermentables, value.hops, value.yeasts, value.targetVolumeL, value.mashEfficiencyPercent, value.ibuFormula],
+  )
 
   const selectedStyle = bjcpStyles.find((s) => s.id === value.styleId) ?? null
   const styleMatch = selectedStyle

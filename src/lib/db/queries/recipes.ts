@@ -1,7 +1,4 @@
-import { calculateABV } from '@/lib/brew-calc/abv'
-import { calculateSRM } from '@/lib/brew-calc/color'
-import { calculateFG, calculateOG } from '@/lib/brew-calc/gravity'
-import { calculateIBU_Tinseth } from '@/lib/brew-calc/ibu'
+import { estimateRecipeStats } from '@/lib/brew-calc/recipe-stats'
 import type { Fermentable, Hop, OtherIngredient, Yeast } from '@/lib/brew-calc/types'
 import { resolveBjcpStyleId } from '@/lib/beerxml/mapping'
 import type { ParsedRecipeDraft } from '@/lib/beerxml/types'
@@ -32,16 +29,6 @@ export interface RecipeDetails extends RecipeSummary {
   hops: Hop[]
   yeasts: Yeast[]
   otherIngredients: OtherIngredient[]
-}
-
-function computeStats(fermentables: Fermentable[], hops: Hop[], yeasts: Yeast[], volumeL: number, efficiency: number) {
-  const og = calculateOG(fermentables, volumeL, efficiency)
-  const attenuation = yeasts[0]?.attenuationPercent ?? 75
-  const fg = calculateFG(og, attenuation)
-  const ibu = calculateIBU_Tinseth(hops, og, volumeL)
-  const srm = calculateSRM(fermentables, volumeL)
-  const abv = calculateABV(og, fg)
-  return { og, fg, ibu, srm, abv }
 }
 
 export async function listRecipes(): Promise<RecipeSummary[]> {
@@ -222,7 +209,7 @@ async function replaceChildRows(recipeId: string, input: RecipeInput): Promise<v
 }
 
 function recipeStatsPayload(input: RecipeInput) {
-  const stats = computeStats(input.fermentables, input.hops, input.yeasts, input.targetVolumeL, input.mashEfficiencyPercent)
+  const stats = estimateRecipeStats(input)
   return {
     name: input.name,
     style_id: input.styleId,
@@ -273,13 +260,7 @@ export async function deleteRecipe(recipeId: string): Promise<void> {
 
 /** Crée une recette à partir d'une recette BeerXML importée (voir src/lib/beerxml). */
 export async function createRecipeFromDraft(userId: string, draft: ParsedRecipeDraft): Promise<string> {
-  const stats = computeStats(
-    draft.fermentables,
-    draft.hops,
-    draft.yeasts,
-    draft.targetVolumeL,
-    draft.mashEfficiencyPercent,
-  )
+  const stats = estimateRecipeStats({ ...draft, ibuFormula: 'tinseth' })
   const styleId = resolveBjcpStyleId(draft.style)
 
   const { data: recipe, error } = await supabase

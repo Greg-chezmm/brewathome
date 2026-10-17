@@ -1,9 +1,5 @@
-import { calculateABV } from '@/lib/brew-calc/abv'
-import { calculateSRM } from '@/lib/brew-calc/color'
-import { calculateFG, calculateOG } from '@/lib/brew-calc/gravity'
-import { calculateIBU_Rager, calculateIBU_Tinseth } from '@/lib/brew-calc/ibu'
-import { calculateVolumes, SPARGE_WATER_TEMP_C } from '@/lib/brew-calc/volumes'
-import type { EquipmentProfile } from '@/lib/brew-calc/types'
+import { estimateRecipeStats } from '@/lib/brew-calc/recipe-stats'
+import { buildBatchSteps, planBatchStepsUpdate, type NewBatchStep } from '@/lib/brew-day/steps'
 import type { RecipeDetails, RecipeInput } from './recipes'
 import { getEquipmentProfile } from './equipmentProfiles'
 import { getRecipeWithDetails, updateRecipeStatus } from './recipes'
@@ -54,156 +50,6 @@ export interface BatchDetails extends BatchSummary {
   notes: string | null
 }
 
-function buildBatchSteps(recipe: RecipeDetails, equipmentProfile: EquipmentProfile | null): Omit<BatchStep, 'id'>[] {
-  const steps: Omit<BatchStep, 'id'>[] = []
-  let order = 0
-
-  const grainFermentables = recipe.fermentables.filter((f) => f.type === 'grain')
-  const totalGrainKg = grainFermentables.reduce((sum, f) => sum + f.amountKg, 0)
-  const grainList = grainFermentables.map((f) => `${f.amountKg} kg ${f.name}`).join(', ')
-  const volumes = equipmentProfile ? calculateVolumes(recipe.targetVolumeL, totalGrainKg, equipmentProfile) : null
-
-  steps.push({
-    stepType: 'strike-water',
-    label: volumes
-      ? `Chauffer l'eau d'empâtage : ${volumes.mashWaterL.toFixed(1)} L`
-      : "Chauffer l'eau d'empâtage",
-    orderIndex: order++,
-    plannedDurationMin: null,
-    triggerTimeMin: null,
-    status: 'todo',
-    actualStartAt: null,
-    actualEndAt: null,
-  })
-
-  steps.push({
-    stepType: 'mash',
-    label: grainList ? `Empâtage — ajouter le grain : ${grainList}` : 'Empâtage — ajouter le grain',
-    orderIndex: order++,
-    plannedDurationMin: 60,
-    triggerTimeMin: null,
-    status: 'todo',
-    actualStartAt: null,
-    actualEndAt: null,
-  })
-
-  if (volumes && volumes.spargeWaterL > 0) {
-    steps.push({
-      stepType: 'sparge-water',
-      label: `Chauffer l'eau de rinçage : ${volumes.spargeWaterL.toFixed(1)} L @ ${SPARGE_WATER_TEMP_C} °C`,
-      orderIndex: order++,
-      plannedDurationMin: null,
-      triggerTimeMin: null,
-      status: 'todo',
-      actualStartAt: null,
-      actualEndAt: null,
-    })
-    steps.push({
-      stepType: 'sparge',
-      label: `Rinçage : ${volumes.spargeWaterL.toFixed(1)} L d'eau @ ${SPARGE_WATER_TEMP_C} °C`,
-      orderIndex: order++,
-      plannedDurationMin: null,
-      triggerTimeMin: null,
-      status: 'todo',
-      actualStartAt: null,
-      actualEndAt: null,
-    })
-  }
-
-  steps.push({
-    stepType: 'heat-to-boil',
-    label: "Chauffer jusqu'à ébullition",
-    orderIndex: order++,
-    plannedDurationMin: null,
-    triggerTimeMin: null,
-    status: 'todo',
-    actualStartAt: null,
-    actualEndAt: null,
-  })
-
-  steps.push({
-    stepType: 'boil',
-    label: `Ébullition (${recipe.boilTimeMin} min)`,
-    orderIndex: order++,
-    plannedDurationMin: recipe.boilTimeMin,
-    triggerTimeMin: null,
-    status: 'todo',
-    actualStartAt: null,
-    actualEndAt: null,
-  })
-
-  const boilAdditions = [
-    ...recipe.hops
-      .filter((h) => h.use === 'boil' || h.use === 'first-wort')
-      .map((h) => ({
-        stepType: 'hop-addition' as const,
-        label: `Ajout houblon : ${h.name} (${h.amountG} g)`,
-        timeMin: h.timeMin,
-      })),
-    ...recipe.otherIngredients.map((o) => ({
-      stepType: 'other-addition' as const,
-      label: `Ajout : ${o.name} (${o.amount})`,
-      timeMin: o.timeMin,
-    })),
-  ].sort((a, b) => b.timeMin - a.timeMin)
-  for (const addition of boilAdditions) {
-    steps.push({
-      stepType: addition.stepType,
-      label: addition.label,
-      orderIndex: order++,
-      plannedDurationMin: null,
-      triggerTimeMin: addition.timeMin,
-      status: 'todo',
-      actualStartAt: null,
-      actualEndAt: null,
-    })
-  }
-
-  if (recipe.hops.some((h) => h.use === 'whirlpool')) {
-    steps.push({
-      stepType: 'whirlpool',
-      label: 'Whirlpool',
-      orderIndex: order++,
-      plannedDurationMin: 15,
-      triggerTimeMin: 0,
-      status: 'todo',
-      actualStartAt: null,
-      actualEndAt: null,
-    })
-  }
-
-  steps.push({
-    stepType: 'cooling',
-    label: 'Refroidissement',
-    orderIndex: order++,
-    plannedDurationMin: null,
-    triggerTimeMin: null,
-    status: 'todo',
-    actualStartAt: null,
-    actualEndAt: null,
-  })
-
-  const dryHops = recipe.hops.filter((h) => h.use === 'dry-hop')
-  for (const hop of dryHops) {
-    const days = hop.dryHopDays ?? 0
-    steps.push({
-      stepType: 'dry-hop-addition',
-      label:
-        hop.dryHopTempC != null
-          ? `Houblonnage à froid : ${hop.name} (${hop.amountG} g) — ${days} j @ ${hop.dryHopTempC} °C`
-          : `Houblonnage à froid : ${hop.name} (${hop.amountG} g) — ${days} j`,
-      orderIndex: order++,
-      plannedDurationMin: days * 24 * 60,
-      triggerTimeMin: null,
-      status: 'todo',
-      actualStartAt: null,
-      actualEndAt: null,
-    })
-  }
-
-  return steps
-}
-
 /** Valide une recette en brassin : snapshot figé + génération des étapes de brew day. */
 export async function createBatchFromRecipe(
   userId: string,
@@ -231,17 +77,7 @@ export async function createBatchFromRecipe(
 
   const equipmentProfile = recipe.equipmentProfileId ? await getEquipmentProfile(recipe.equipmentProfileId) : null
   const steps = buildBatchSteps(recipe, equipmentProfile)
-  const { error: stepsError } = await supabase.from('batch_steps').insert(
-    steps.map((s) => ({
-      batch_id: batchId,
-      step_type: s.stepType,
-      label: s.label,
-      order_index: s.orderIndex,
-      planned_duration_min: s.plannedDurationMin,
-      trigger_time_min: s.triggerTimeMin,
-      status: s.status,
-    })),
-  )
+  const { error: stepsError } = await supabase.from('batch_steps').insert(steps.map((s) => toStepRow(batchId, s)))
   if (stepsError) throw stepsError
 
   await updateRecipeStatus(recipeId, 'validated')
@@ -337,15 +173,7 @@ export async function updateBatchRecipeSnapshot(
   currentSnapshot: RecipeDetails,
   patch: RecipeInput,
 ): Promise<void> {
-  const og = calculateOG(patch.fermentables, patch.targetVolumeL, patch.mashEfficiencyPercent)
-  const attenuation = patch.yeasts[0]?.attenuationPercent ?? 75
-  const fg = calculateFG(og, attenuation)
-  const ibu =
-    patch.ibuFormula === 'rager'
-      ? calculateIBU_Rager(patch.hops, og, patch.targetVolumeL)
-      : calculateIBU_Tinseth(patch.hops, og, patch.targetVolumeL)
-  const srm = calculateSRM(patch.fermentables, patch.targetVolumeL)
-  const abv = calculateABV(og, fg)
+  const { og, fg, ibu, srm, abv } = estimateRecipeStats(patch)
 
   const snapshot: RecipeDetails = {
     ...currentSnapshot,
@@ -371,6 +199,57 @@ export async function updateBatchRecipeSnapshot(
 
   const { error } = await supabase.from('batches').update({ recipe_snapshot: snapshot }).eq('id', batchId)
   if (error) throw error
+
+  await regenerateBatchSteps(batchId, snapshot)
+}
+
+function toStepRow(batchId: string, s: NewBatchStep) {
+  return {
+    batch_id: batchId,
+    step_type: s.stepType,
+    label: s.label,
+    order_index: s.orderIndex,
+    planned_duration_min: s.plannedDurationMin,
+    trigger_time_min: s.triggerTimeMin,
+    status: s.status,
+  }
+}
+
+/**
+ * Aligne les étapes du Brew Day sur la recette (modifiée) du brassin : les étapes 'todo'
+ * sont régénérées, celles déjà commencées ou terminées gardent leur statut et leurs minuteurs.
+ * Les suppressions passent avant les insertions : en cas d'échec, réenregistrer la recette
+ * suffit à reconstruire les étapes manquantes.
+ */
+async function regenerateBatchSteps(batchId: string, recipe: RecipeDetails): Promise<void> {
+  const [existing, equipmentProfile] = await Promise.all([
+    getBatchSteps(batchId),
+    recipe.equipmentProfileId ? getEquipmentProfile(recipe.equipmentProfileId) : null,
+  ])
+  const plan = planBatchStepsUpdate(existing, buildBatchSteps(recipe, equipmentProfile))
+
+  if (plan.deleteIds.length > 0) {
+    const { error } = await supabase.from('batch_steps').delete().in('id', plan.deleteIds)
+    if (error) throw error
+  }
+  if (plan.insert.length > 0) {
+    const { error } = await supabase.from('batch_steps').insert(plan.insert.map((s) => toStepRow(batchId, s)))
+    if (error) throw error
+  }
+  await Promise.all(
+    plan.update.map(async (s) => {
+      const { error } = await supabase
+        .from('batch_steps')
+        .update({
+          label: s.label,
+          order_index: s.orderIndex,
+          planned_duration_min: s.plannedDurationMin,
+          trigger_time_min: s.triggerTimeMin,
+        })
+        .eq('id', s.id)
+      if (error) throw error
+    }),
+  )
 }
 
 export async function deleteBatch(batchId: string): Promise<void> {

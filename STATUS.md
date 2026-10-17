@@ -17,7 +17,7 @@ Application personnelle de brassage de bière maison (type Brewfather/Little Boc
 - **Autres ajouts en ébullition** (Whirlfloc, nutriments...) : nom, quantité en texte libre, temps d'ajout — éditables directement dans le formulaire de recette.
 
 ### Batches (brassins)
-- Validation d'une recette en brassin avec **snapshot figé** (une modification ultérieure de la recette source ne touche pas un brassin déjà lancé) ; la recette du brassin reste éditable indépendamment (`/batches/:id/edit-recipe`).
+- Validation d'une recette en brassin avec **snapshot figé** (une modification ultérieure de la recette source ne touche pas un brassin déjà lancé) ; la recette du brassin reste éditable indépendamment (`/batches/:id/edit-recipe`). Enregistrer la recette du brassin recalcule ses estimations (avec la formule IBU choisie) et régénère les étapes du Brew Day encore à faire ; les étapes commencées ou terminées gardent leurs minuteurs.
 - Suivi de statut (planifié → brew day → fermentation → conditionnement → terminé), mesures réelles OG/FG/volume, ABV réel calculé.
 
 ### Mode Brew Day
