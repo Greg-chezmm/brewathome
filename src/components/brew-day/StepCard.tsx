@@ -1,4 +1,5 @@
-import { Check, ChevronDown, Lightbulb } from 'lucide-react'
+import { Check, ChevronDown, Lightbulb, Play, Square } from 'lucide-react'
+import { firstMashTempC } from '@/lib/brew-day/steps'
 import { GravityCorrectionTool } from '@/components/brew-day/GravityCorrectionTool'
 import { StrikeWaterTool } from '@/components/brew-day/StrikeWaterTool'
 import { formatDuration, formatDurationLong } from '@/hooks/useBrewTimer'
@@ -19,6 +20,8 @@ export function StepCard({
   totalGrainKg,
   mashWaterL,
   onToggleItem,
+  onStart,
+  onStop,
 }: {
   step: BatchStep
   guide: StepGuide
@@ -30,6 +33,8 @@ export function StepCard({
   totalGrainKg: number
   mashWaterL: number | undefined
   onToggleItem: (itemId: string) => void
+  onStart: () => void
+  onStop: () => void
 }) {
   const { triggerAtSeconds, isDue } = timing
 
@@ -61,7 +66,7 @@ export function StepCard({
           </div>
         </div>
 
-        <StepTimer step={step} now={now} />
+        <StepTimer step={step} now={now} onStart={onStart} onStop={onStop} />
         <StepProgressBar step={step} now={now} timing={timing} boilElapsedSeconds={boilElapsedSeconds} />
 
         {triggerAtSeconds !== null && step.status === 'todo' && (
@@ -120,7 +125,7 @@ export function StepCard({
       {step.stepType === 'strike-water' && (
         <ToolPanel title="Calculer la température de l'eau">
           <StrikeWaterTool
-            defaultTargetTempC={recipe.mashTempC}
+            defaultTargetTempC={firstMashTempC(recipe)}
             defaultGrainWeightKg={totalGrainKg}
             defaultWaterVolumeL={mashWaterL}
             embedded
@@ -149,7 +154,8 @@ function ToolPanel({ title, children }: { title: string; children: React.ReactNo
   )
 }
 
-function StepTimer({ step, now }: { step: BatchStep; now: number }) {
+/** Minuteur de l'étape, avec ses boutons Démarrer / Arrêter à portée de main. */
+function StepTimer({ step, now, onStart, onStop }: { step: BatchStep; now: number; onStart: () => void; onStop: () => void }) {
   const fmt = step.stepType === 'dry-hop-addition' ? formatDurationLong : formatDuration
 
   if (step.status === 'done') {
@@ -161,12 +167,31 @@ function StepTimer({ step, now }: { step: BatchStep; now: number }) {
     return <p className="mt-3 text-sm text-slate-400">Durée réelle : {fmt(totalSec)}</p>
   }
 
-  if (step.status !== 'in-progress' || !step.actualStartAt) {
-    if (step.status === 'todo' && step.plannedDurationMin) {
-      return <p className="mt-3 text-sm text-slate-500">Durée prévue : {fmt(step.plannedDurationMin * 60)}</p>
-    }
-    return null
+  if (step.status === 'todo') {
+    return (
+      <div className="mt-4 flex items-center justify-between gap-3">
+        <p className="text-sm text-slate-500">
+          {step.plannedDurationMin ? `Durée prévue : ${fmt(step.plannedDurationMin * 60)}` : 'Minuteur libre'}
+        </p>
+        <button type="button" onClick={onStart} className="btn-secondary shrink-0 py-2.5">
+          <Play size={16} /> Démarrer
+        </button>
+      </div>
+    )
   }
+
+  if (step.status !== 'in-progress' || !step.actualStartAt) return null
+
+  const stopButton = (
+    <button
+      type="button"
+      onClick={onStop}
+      className="mx-auto mt-3 flex items-center gap-1.5 rounded-full border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100"
+      aria-label="Arrêter le minuteur"
+    >
+      <Square size={14} /> Arrêter
+    </button>
+  )
 
   const elapsedSec = Math.max(0, Math.floor((now - new Date(step.actualStartAt).getTime()) / 1000))
 
@@ -180,6 +205,7 @@ function StepTimer({ step, now }: { step: BatchStep; now: number }) {
           {fmt(Math.abs(remainingSec))}
         </span>
         <p className="text-sm text-slate-500">{overdue ? 'de dépassement' : 'restant'}</p>
+        {stopButton}
       </div>
     )
   }
@@ -188,6 +214,7 @@ function StepTimer({ step, now }: { step: BatchStep; now: number }) {
     <div className="mt-4 text-center">
       <span className="font-mono text-6xl font-bold tabular-nums text-indigo-600">{fmt(elapsedSec)}</span>
       <p className="text-sm text-slate-500">écoulé</p>
+      {stopButton}
     </div>
   )
 }

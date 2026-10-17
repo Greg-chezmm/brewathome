@@ -6,10 +6,8 @@ import {
   ChevronRight,
   Flame,
   ListChecks,
-  Play,
   RotateCcw,
   SkipForward,
-  Square,
   TriangleAlert,
   Volume2,
   VolumeX,
@@ -311,6 +309,8 @@ export function BrewDay() {
               totalGrainKg={totalGrainKg}
               mashWaterL={volumes?.mashWaterL}
               onToggleItem={(itemId) => toggleItem(activeStep, itemId)}
+              onStart={() => startStep(activeStep)}
+              onStop={() => resetStep(activeStep)}
             />
           )}
 
@@ -351,25 +351,11 @@ export function BrewDay() {
             </button>
 
             <div className="flex flex-1 gap-2">
-              {activeStep.status === 'todo' && (
-                <>
-                  <button type="button" onClick={() => startStep(activeStep)} className="btn-secondary flex-1 py-3">
-                    <Play size={16} /> Démarrer
-                  </button>
-                  <button type="button" onClick={() => completeStep(activeStep, activeIndex)} className="btn-primary flex-1 py-3">
-                    Terminer
-                  </button>
-                </>
-              )}
-              {activeStep.status === 'in-progress' && (
-                <>
-                  <button type="button" onClick={() => resetStep(activeStep)} className="btn-secondary py-3" aria-label="Arrêter le minuteur">
-                    <Square size={16} />
-                  </button>
-                  <button type="button" onClick={() => completeStep(activeStep, activeIndex)} className="btn-primary flex-1 py-3">
-                    Terminer
-                  </button>
-                </>
+              {/* Démarrer / Arrêter sont sous le minuteur, dans la carte de l'étape. */}
+              {!isStepFinished(activeStep.status) && (
+                <button type="button" onClick={() => completeStep(activeStep, activeIndex)} className="btn-primary flex-1 py-3">
+                  Terminer
+                </button>
               )}
               {isStepFinished(activeStep.status) && (
                 <button type="button" onClick={() => resetStep(activeStep)} className="btn-secondary flex-1 py-3">
