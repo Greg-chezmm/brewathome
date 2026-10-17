@@ -21,6 +21,7 @@ import { RecipeValidate } from '@/pages/recipes/RecipeValidate'
 import { RecipesList } from '@/pages/recipes/RecipesList'
 import { StylesList } from '@/pages/styles/StylesList'
 import { Tools } from '@/pages/tools/Tools'
+import { IngredientsGuide } from '@/pages/ingredients/IngredientsGuide'
 
 export function App() {
   return (
@@ -48,6 +49,7 @@ export function App() {
           <Route path="/styles" element={<StylesList />} />
           <Route path="/devices" element={<DevicesList />} />
           <Route path="/tools" element={<Tools />} />
+          <Route path="/ingredients" element={<IngredientsGuide />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Route>

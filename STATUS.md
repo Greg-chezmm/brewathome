@@ -19,7 +19,7 @@ Application personnelle de brassage de bière maison (type Brewfather/Little Boc
 **Prochaines étapes, par priorité** (d'après l'audit des 17 recettes Brewfather : paliers, profils de fermentation, dose de levure, jour du dry hop et carbonatation y sont tous renseignés)
 1. Profil de fermentation (primaire, secondaire, garde, cold crash : température et durée) et jour d'ajout du dry hop, importés depuis Brewfather et utilisés dans le suivi de fermentation.
 2. Quantité de levure (sachets / ml) et carbonatation visée (volumes de CO₂), avec l'écran de resucrage déjà calculé dans `carbonation.ts`.
-3. Page « base de connaissances » consultable hors formulaire (empâtage, eau, levures).
+3. Base de connaissances, suite : empâtage et eau consultables hors formulaire (les ingrédients ont leur page `/ingredients`).
 
 ## Ce qui est fait
 
@@ -54,6 +54,9 @@ Application personnelle de brassage de bière maison (type Brewfather/Little Boc
 - Renvoi vers le suivi de fermentation une fois toutes les étapes terminées ou passées.
 - Outils intégrés : calcul d'eau de trempe (strike water), correction de densité (dilution/ajout de fermentescible).
 
+### Ingrédients (`/ingredients`)
+- Guide consultable (menu « Ingrédients ») tiré de `src/data/ingredients.ts` (aussi utilisé par les suggestions du formulaire de recette) : malts et céréales par catégorie (base, caramel, spéciaux, torréfiés, céréales non maltées — riz, maïs, blé cru, avoine, épeautre —, sucres, extraits) avec couleur °L/EBC et rendement ; houblons par rôle (amérisants, mixtes, aromatiques) avec origine et % alpha ; levures par type (américaine/IPA, NEIPA, anglaise, Kölsch/Alt, abbaye/trappiste, blé, saison, kveik, lager) avec références du commerce (Fermentis, Lallemand, Mangrove Jack's, Wyeast, White Labs), températures, **atténuation et DF attendue** pour une DI de 1.050. Conseils d'usage par famille, **remplaçants** cliquables pour chaque ingrédient, recherche sans accents avec compte par onglet, raccourcis vers chaque famille.
+
 ### Outils (`/tools`)
 - Page de calculatrices (menu « Outils ») : **quantité de levure** (cellules Mr Malty, sachets secs de 11,5 g ou sachets liquides selon leur âge, starter conseillé au-delà de deux), **sels minéraux** (profil d'eau après gypse, CaCl2, Epsom, sel, bicarbonate ; repères par ion, rapport sulfates/chlorures, alcalinité résiduelle ; **profil visé** (légère, équilibrée, houblonnée sèche/ronde, maltée) avec gypse + CaCl2 proposés par moindres carrés, ions déjà en excès signalés (coupe à l'eau déminéralisée, acide lactique) ; eau de départ mémorisée dans le navigateur), eau d'empâtage, correction de densité, **resucrage** (CO2 résiduel selon la température, préréglages par style, saccharose/dextrose/extrait sec, grammes par bouteille).
 - Depuis un brassin, bouton « Outils » qui pré-remplit volume, DI et levure (`?volume=&og=&yeast=&form=`).
@@ -76,7 +79,7 @@ Application personnelle de brassage de bière maison (type Brewfather/Little Boc
 ## Ce qu'il reste à faire
 
 - E-mails d'auth : configurer un SMTP personnalisé (expéditeur « BrewAtHome » au lieu de « Supabase Auth ») et coller les modèles de `supabase/templates/` dans Authentication → Emails. Écran Google : nom d'app « BrewAtHome » dans Google Cloud.
-- Formulaire de recette, suite : page « base de connaissances » consultable hors formulaire (empâtage, eau, levures).
+- Formulaire de recette, suite : conseils d'empâtage et d'eau consultables hors formulaire ; lien depuis les cartes d'ingrédients du formulaire vers leur fiche du guide.
 - Brewfather, champs encore ignorés à l'import : profil de fermentation, jour du dry hop, quantité de levure, carbonatation (voir « Prochaines étapes »).
 
 - Export BeerXML (actuellement import seulement).
