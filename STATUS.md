@@ -70,7 +70,7 @@ Application personnelle de brassage de bière maison (type Brewfather/Little Boc
 
 ### Infra
 - Auth Supabase (Google, lien par e-mail, e-mail + mot de passe). Inscription par mot de passe : le lien de confirmation ramène sur l'app, messages et erreurs en français, adresse déjà inscrite détectée ; lien ouvert dans un autre navigateur (PKCE impossible) ou expiré expliqué sur la page de connexion (`src/lib/auth/errors.ts`). Modèles d'e-mails en français dans `supabase/templates/` (à coller dans le tableau de bord Supabase).
-- RLS sur toutes les tables, déploiement GitHub Pages via GitHub Actions, PWA installable (icône : cuve fumante et cône de houblon, `public/favicon.svg` ; PNG 192/512 rendus depuis ce SVG).
+- RLS sur toutes les tables, déploiement GitHub Pages via GitHub Actions, PWA installable avec bouton « Installer l'application » (barre latérale sur PC, menu « Plus » sur mobile ; fenêtre d'installation du navigateur sur Android/Chrome/Edge, explication Partager → Sur l'écran d'accueil sur iPhone ; masqué une fois installée, `src/lib/pwa/install.ts`), raccourcis Brassins / Recettes / Outils sur l'icône, plein écran sur iPhone (icône d'accueil, barre d'état sombre) (icône : cuve fumante et cône de houblon, `public/favicon.svg` ; PNG 192/512 rendus depuis ce SVG).
 - Schéma modélisé avec Drizzle (génération de migrations SQL uniquement — aucune dépendance runtime à Drizzle, tout passe par `supabase-js`).
 
 ## Ce qu'il reste à faire
@@ -81,7 +81,7 @@ Application personnelle de brassage de bière maison (type Brewfather/Little Boc
 
 - Export BeerXML (actuellement import seulement).
 - Support Tilt/TiltBridge au-delà de la saisie manuelle.
-- Calculateur de starter de levure.
+- Calculateur de starter de levure — repoussé (petits volumes, pas de starter pour l'instant).
 - Historique/statistiques multi-brassins, export PDF de fiche de recette.
 - Usage des fermentescibles (empâtage/ébullition/fermentation) à exposer en base et dans le formulaire.
 - Sels minéraux : proposer les dosages pour viser un profil cible (aujourd'hui on saisit les grammes et on lit le résultat), et pH d'empâtage.

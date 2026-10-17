@@ -5,6 +5,9 @@ import { BrowserRouter } from 'react-router-dom'
 import { App } from './App'
 import { AuthProvider } from './lib/auth/AuthProvider'
 import './index.css'
+import { captureInstallPrompt } from './lib/pwa/install'
+
+captureInstallPrompt()
 
 const queryClient = new QueryClient({
   defaultOptions: {

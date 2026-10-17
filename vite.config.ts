@@ -15,7 +15,9 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'icons/*.png'],
       manifest: {
+        id: '/brewathome/',
         name: 'BrewAtHome',
+        lang: 'fr',
         short_name: 'BrewAtHome',
         description: 'Préparation de recettes, suivi de brassage et de fermentation pour le brassage amateur.',
         theme_color: '#0f172a',
@@ -23,6 +25,12 @@ export default defineConfig({
         display: 'standalone',
         start_url: '/brewathome/',
         scope: '/brewathome/',
+        // Appui long sur l'icône de l'app installée (Android, Windows) : accès direct.
+        shortcuts: [
+          { name: 'Brassins', url: '/brewathome/batches', icons: [{ src: 'icons/icon-192.png', sizes: '192x192' }] },
+          { name: 'Recettes', url: '/brewathome/recipes', icons: [{ src: 'icons/icon-192.png', sizes: '192x192' }] },
+          { name: 'Outils', url: '/brewathome/tools', icons: [{ src: 'icons/icon-192.png', sizes: '192x192' }] },
+        ],
         icons: [
           { src: 'icons/icon-192.png', sizes: '192x192', type: 'image/png' },
           { src: 'icons/icon-512.png', sizes: '512x512', type: 'image/png' },

@@ -5,6 +5,7 @@ import { ArrowDownUp, Beer, BookOpen, Calculator, Cpu, Ellipsis, House, Library,
 import { useAuth } from '@/lib/auth/AuthProvider'
 import { ensureStarterRecipe } from '@/lib/db/queries/starterRecipe'
 import { BrewLogo } from '@/components/BrewLogo'
+import { InstallAppButton } from '@/components/InstallAppButton'
 
 interface NavItem {
   to: string
@@ -76,6 +77,7 @@ export function Layout() {
             </NavLink>
           ))}
         </nav>
+        <InstallAppButton className="mb-3 flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-indigo-300 transition-colors hover:bg-white/5 hover:text-white" />
         <div className="border-t border-slate-800 px-3 pt-4 text-sm">
           <p className="truncate text-slate-400">{user?.email}</p>
           <button
@@ -154,6 +156,7 @@ export function Layout() {
                 {item.label}
               </NavLink>
             ))}
+            <InstallAppButton className="flex w-full items-center gap-3 rounded-xl px-3 py-3 font-medium text-indigo-600 active:bg-slate-100" />
             <div className="mt-2 border-t border-slate-100 px-3 pt-3">
               <p className="truncate text-xs text-slate-400">{user?.email}</p>
               <button
