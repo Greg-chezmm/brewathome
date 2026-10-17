@@ -84,8 +84,13 @@ export function DevicesList() {
           </li>
           <li>
             Dans le portail de configuration qui s'ouvre : choisissez votre réseau Wi-Fi habituel, puis dans la
-            section <strong>Service</strong>, sélectionnez <strong>HTTP</strong>. Collez l'URL copiée à l'étape 2
-            dans le champ URL (ou « Token » selon la version du firmware). Enregistrez — l'iSpindel redémarre.
+            champ <strong>Service Type</strong>, sélectionnez <strong>HTTPS Post</strong> (pas « HTTP » : le serveur
+            n'accepte que l'HTTPS et l'iSpindel ne suit pas la redirection). Collez l'URL copiée à l'étape 2 dans le
+            champ URL du serveur et laissez « Token » vide. Enregistrez — l'iSpindel redémarre.
+          </li>
+          <li>
+            Pas de « HTTPS Post » dans la liste ? Le firmware est trop ancien : mettez-le à jour (version 7 ou plus).
+            L'iSpindel n'envoie qu'à un seul service : il ne transmettra plus à Brewfather ou ailleurs.
           </li>
           <li>
             Plongez l'iSpindel dans le fermenteur, puis sur la page Appareils ci-dessous, choisissez le{' '}
@@ -140,7 +145,7 @@ export function DevicesList() {
                   <div className="mt-2 space-y-1 text-xs text-slate-500">
                     <div className="flex items-center">
                       <span className="font-medium text-slate-600">URL à configurer sur l'iSpindel</span>
-                      <InfoTooltip text="Dans la config Wi-Fi de l'iSpindel (portail au démarrage) : Service = HTTP, et collez cette URL complète dans le champ URL/Token. Le token identifie l'appareil, pas besoin d'en-tête d'authentification." />
+                      <InfoTooltip text="Dans la config Wi-Fi de l'iSpindel (portail au démarrage) : Service Type = HTTPS Post, et collez cette URL complète dans le champ URL (Token vide). Le token identifie l'appareil, pas besoin d'en-tête d'authentification." />
                     </div>
                     <div className="flex items-center gap-2">
                       <code className="block flex-1 overflow-x-auto rounded bg-slate-100 px-2 py-1">
