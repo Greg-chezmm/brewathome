@@ -55,7 +55,8 @@ Application personnelle de brassage de bière maison (type Brewfather/Little Boc
 - Barre d'onglets en bas sur mobile (Accueil, Recettes, Brassins, Plus), barre latérale sur PC.
 
 ### Fermentation
-- Saisie manuelle de lectures (densité, température, commentaire) + graphique. En-tête rappelant le brassin (retour vers sa page), iSpindel rattaché affiché avec son statut de connexion, liste limitée aux 50 relevés les plus récents (« Afficher tout »), courbe sans points au-delà de 100 relevés ; lecture paginée (Supabase plafonne à 1 000 lignes par requête).
+- Saisie manuelle de lectures (densité, température, commentaire) + graphique. En-tête rappelant le brassin (retour vers sa page), iSpindel rattaché affiché avec son statut de connexion (bouton « Détacher » ; terminer un brassin détache ses appareils), liste limitée aux 20 relevés les plus récents (« Tout afficher » en zone défilante), courbe densité (indigo) / température (orange) sur un vrai axe de temps, coupée dans les longues interruptions, sans points au-delà de 100 relevés ; lecture paginée (Supabase plafonne à 1 000 lignes par requête).
+- **Fin de fermentation détectée** (`src/lib/fermentation/stability.ts`) : pendant la fermentation, bandeau quand la densité (lissée par tranches de 6 h, ±0,001) ne bouge plus depuis 2 jours, avec l'atténuation apparente ; invite à confirmer au densimètre et à saisir la DF à la main.
 - **Import des relevés Brewfather** (`/batches/:id/readings`) pour un brassin lié à Brewfather (`brewfather_id`) : iSpindel, saisies, angle et batterie compris ; un second import n'ajoute que les nouveaux (testé sur 4 010 relevés).
 - Ingestion automatique iSpindel (Edge Function Supabase). Page Appareils : champs à recopier dans le portail de l'iSpindel (service **HTTPS Post**, firmware 6.6 minimum, 7.3.3 conseillé ; en simple HTTP Supabase redirige vers HTTPS et les mesures sont perdues), marche à suivre de mise à jour du firmware, et mémo des réglages de l'appareil (polynôme, facteur batterie, intervalle, angle dans l'eau) enregistré dans `devices.calibration_coefficients`.
 
@@ -73,9 +74,7 @@ Application personnelle de brassage de bière maison (type Brewfather/Little Boc
 - Calculateur de starter de levure.
 - Historique/statistiques multi-brassins, export PDF de fiche de recette.
 - Interfaces pour les calculs déjà prêts dans `src/lib/brew-calc/` : resucrage (`carbonation.ts`), sels minéraux (`water.ts`), sachets de levure sèche (`dryYeastForCells`). Usage des fermentescibles (empâtage/ébullition/fermentation) à exposer en base et dans le formulaire.
-- Migration `0009` (suppression de `evaporation_rate_percent_per_hour`) à appliquer **seulement après** le déploiement du nouveau code (le site en ligne lit encore l'ancienne colonne).
 - Brewfather : utiliser l'atténuation réelle par levure et le rendement mesuré pour ajuster les recettes. Écarts restants connus : IBU des bières fortes (Brewfather prend la densité pré-ébullition, nous la moyenne des specs) et DF (Brewfather ajuste l'atténuation selon l'empâtage et le sucre).
-- Fin de fermentation : prévenir quand la densité iSpindel est stable 2-3 jours (« prendre une mesure au densimètre »). La DF du brassin reste toujours saisie à la main.
 - IBU Garetz (troisième formule, actuellement non implémentée malgré le type `IBUFormulaName` qui la prévoit).
 - Gestion de stock d'ingrédients (si besoin confirmé un jour).
 - Le bundle JS dépasse 500 kB après minification (avertissement Vite) — découpage en chunks à envisager si le temps de chargement devient gênant.

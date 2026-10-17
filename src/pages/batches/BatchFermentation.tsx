@@ -26,6 +26,7 @@ import {
   type FermentationReading,
 } from '@/lib/db/queries/fermentation'
 import { seriesWithGaps } from '@/lib/fermentation/chart'
+import { gravityStability } from '@/lib/fermentation/stability'
 
 /** Relevés affichés avant « Tout afficher » : un iSpindel en envoie ~100 par jour. */
 const LIST_PREVIEW = 20
@@ -124,6 +125,10 @@ export function BatchFermentation() {
   const times = all.map((r) => new Date(r.recordedAt).getTime())
   const gravitySeries = seriesWithGaps(all.map((r, i) => ({ time: times[i], value: r.gravity })))
   const temperatureSeries = seriesWithGaps(all.map((r, i) => ({ time: times[i], value: r.temperatureC })))
+  // Seulement pendant la fermentation : une fois le brassin conditionné, l'alerte n'a plus d'objet.
+  const stability = batch?.status === 'fermentation' ? gravityStability(all.map((r, i) => ({ time: times[i], gravity: r.gravity }))) : null
+  const apparentAttenuation =
+    stability && batch?.ogMeasured ? ((batch.ogMeasured - stability.gravity) / (batch.ogMeasured - 1)) * 100 : null
   const dots = all.length <= CHART_DOTS_MAX ? { r: 2 } : false
   const newestFirst = all.slice().reverse()
   const listed = showAll ? newestFirst : newestFirst.slice(0, LIST_PREVIEW)
@@ -155,6 +160,25 @@ export function BatchFermentation() {
           )}
         </div>
       </div>
+
+      {stability?.stable && (
+        <div role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
+          <p className="font-semibold">
+            Densité stable à {stability.gravity.toFixed(3)} depuis {Math.floor(stability.stableDays)} jours : la fermentation
+            semble terminée.
+          </p>
+          <p className="mt-1">
+            {apparentAttenuation !== null && (
+              <>Atténuation apparente {apparentAttenuation.toFixed(0)} %. </>
+            )}
+            Confirmez par une mesure au densimètre (l'iSpindel peut dériver), puis saisissez la DF sur{' '}
+            <Link to={`/batches/${batchId}`} className="font-medium underline">
+              la page du brassin
+            </Link>
+            .
+          </p>
+        </div>
+      )}
 
       {linkedDevices.map((device) => (
         <div key={device.id} className="card flex flex-wrap items-center justify-between gap-3">

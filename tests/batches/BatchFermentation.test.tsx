@@ -8,9 +8,18 @@ vi.mock('recharts', async (importOriginal) => ({
   ...(await importOriginal<typeof import('recharts')>()),
   ResponsiveContainer: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }))
+const page = vi.hoisted(() => ({ status: 'completed', plateau: false }))
+
 vi.mock('@/lib/db/queries/batches', () => ({
-  BATCH_STATUS_LABELS: { completed: 'Terminé' },
-  getBatchWithDetails: async () => ({ id: 'b1', name: 'Barley wine', status: 'completed', brewDate: '2025-10-18', brewfatherId: 'bf1' }),
+  BATCH_STATUS_LABELS: { completed: 'Terminé', fermentation: 'Fermentation' },
+  getBatchWithDetails: async () => ({
+    id: 'b1',
+    name: 'Barley wine',
+    status: page.status,
+    brewDate: '2025-10-18',
+    brewfatherId: 'bf1',
+    ogMeasured: 1.105,
+  }),
 }))
 vi.mock('@/lib/db/queries/brewfather', () => ({ getBrewfatherAccount: async () => ({ userId: 'u', apiKey: 'k' }) }))
 vi.mock('@/lib/db/queries/devices', () => ({
@@ -23,8 +32,9 @@ vi.mock('@/lib/db/queries/fermentation', () => ({
   listFermentationReadings: async () =>
     Array.from({ length: 120 }, (_, i) => ({
       id: `r${i}`,
-      recordedAt: new Date(Date.UTC(2025, 9, 19) + i * 900_000).toISOString(),
-      gravity: 1.1 - i * 0.0005,
+      // Plateau : un relevé par heure, densité qui cesse de baisser après 20 h (à 1.020).
+      recordedAt: new Date(Date.UTC(2025, 9, 19) + i * (page.plateau ? 3_600_000 : 900_000)).toISOString(),
+      gravity: page.plateau ? Math.max(1.02, 1.1 - i * 0.004) : 1.1 - i * 0.0005,
       temperatureC: 18,
       source: 'ispindel',
       comment: null,
@@ -64,6 +74,25 @@ describe('Suivi de fermentation', () => {
     expect(screen.getAllByText('Supprimer')).toHaveLength(20)
     fireEvent.click(screen.getByText('Tout afficher (120 relevés)'))
     await waitFor(() => expect(screen.getAllByText('Supprimer')).toHaveLength(120))
+  })
+
+  it('signale une densité stable pendant la fermentation', async () => {
+    page.status = 'fermentation'
+    page.plateau = true
+    try {
+      renderPage()
+      expect(await screen.findByText(/Densité stable à 1.020 depuis 4 jours/)).toBeInTheDocument()
+      expect(screen.getByText(/Atténuation apparente 81 %/)).toBeInTheDocument()
+    } finally {
+      page.status = 'completed'
+      page.plateau = false
+    }
+  })
+
+  it('pas d’alerte de stabilité sur un brassin terminé', async () => {
+    renderPage()
+    await screen.findByText(/^120 relevés/)
+    expect(screen.queryByText(/Densité stable/)).toBeNull()
   })
 
   it('propose d’importer les relevés du brassin Brewfather d’origine', async () => {
