@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
+  hopstandOf,
+  tinsethContributions,
   calculateIBU_Garetz,
   calculateIBU_Rager,
   calculateIBU_Tinseth,
@@ -93,5 +95,23 @@ describe('calculateIBU_Garetz', () => {
       batchVolumeL: 20,
     })
     expect(ibu).toBeGreaterThan(0)
+  })
+})
+
+describe('Tinseth : pellets et hopstand', () => {
+  const boil = { name: 'Magnum', amountG: 20, alphaAcidPercent: 12, timeMin: 10, use: 'boil' as const }
+
+  it('donne 10 % d’utilisation en plus aux pellets qu’aux cônes', () => {
+    const [pellet] = tinsethContributions([{ ...boil, form: 'pellet' }], 1.05, 20)
+    const [leaf] = tinsethContributions([{ ...boil, form: 'leaf' }], 1.05, 20)
+    expect(pellet / leaf).toBeCloseTo(1.1, 6)
+  })
+
+  it('fait continuer l’isomérisation des ajouts en ébullition pendant le hopstand', () => {
+    const whirlpool = { name: 'Citra', amountG: 10, alphaAcidPercent: 12, timeMin: 30, use: 'whirlpool' as const, temperatureC: 90 }
+    const [without] = tinsethContributions([boil], 1.05, 20)
+    const [withHopstand] = tinsethContributions([boil, whirlpool], 1.05, 20)
+    expect(withHopstand).toBeGreaterThan(without * 1.2)
+    expect(hopstandOf([boil, whirlpool])).toEqual({ minutes: 30, temperatureC: 90 })
   })
 })

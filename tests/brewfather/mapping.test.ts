@@ -15,7 +15,8 @@ const paleAle: BrewfatherRecipe = {
   mashEfficiency: 75,
   og: 1.0506,
   fg: 1.011,
-  ibu: 40.8,
+  // IBU de notre moteur (hopstand compris) : cônes, donc sans bonus pellets.
+  ibu: 42.8,
   color: 9,
   abv: 5.2,
   style: { name: 'American Pale Ale', categoryNumber: 18, styleLetter: 'B', styleGuide: 'BJCP 2021' },
@@ -40,9 +41,9 @@ const paleAle: BrewfatherRecipe = {
     { name: 'Munich', type: 'Grain', amount: 0.3, color: 9, potential: 1.037 },
   ],
   hops: [
-    { name: 'Magnum', amount: 20, alpha: 14, time: 60, use: 'Boil', type: 'Pellet' },
-    { name: 'Cascade', amount: 30, alpha: 6, time: 10, use: 'Boil', type: 'Pellet' },
-    { name: 'Citra', amount: 50, alpha: 12, time: 20, use: 'Aroma', type: 'Pellet' },
+    { name: 'Magnum', amount: 20, alpha: 14, time: 60, use: 'Boil', type: 'Leaf' },
+    { name: 'Cascade', amount: 30, alpha: 6, time: 10, use: 'Boil', type: 'Leaf' },
+    { name: 'Citra', amount: 50, alpha: 12, time: 20, use: 'Aroma', type: 'Leaf' },
     { name: 'Citra', amount: 100, alpha: 12, time: 4, use: 'Dry Hop', type: 'Pellet' },
   ],
   yeasts: [{ name: 'US-05', type: 'Ale', form: 'Dry', attenuation: 78 }],

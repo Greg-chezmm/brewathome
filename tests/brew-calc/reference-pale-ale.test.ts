@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { primingSugarGrams, residualCO2Volumes } from '@/lib/brew-calc/carbonation'
-import { hopstandUtilizationFactor } from '@/lib/brew-calc/ibu'
+import { hopstandUtilizationFactor, tinsethContributions } from '@/lib/brew-calc/ibu'
 import { computeRecipe } from '@/lib/brew-calc/recipe-stats'
 import type { EquipmentProfile, Fermentable, Hop } from '@/lib/brew-calc/types'
 
@@ -77,13 +77,25 @@ describe('cas de référence des specs — Pale Ale 23 L', () => {
     expect(result.ebc).toBeCloseTo(17.7, 1)
   })
 
-  it('§4 amertume, par ajout puis au total', () => {
+  it('§4 amertume des specs, par ajout puis au total (sans prise en compte du hopstand)', () => {
     expect(hopstandUtilizationFactor(80)).toBeCloseTo(0.229, 3)
-    const [magnum, cascade, citra] = result.ibuByHop
+    const [magnum, cascade, citra] = tinsethContributions(hops, result.boilGravity, result.calculationVolumeL, {
+      boilTimeMin: 60,
+      hopstand: null,
+    })
     expect(magnum).toBeCloseTo(26.7, 1)
     expect(cascade).toBeCloseTo(6.2, 1)
     expect(citra).toBeCloseTo(7.9, 1)
-    expect(result.ibu).toBeCloseTo(40.8, 1)
+    expect(magnum + cascade + citra).toBeCloseTo(40.8, 1)
+  })
+
+  it('§4 amertume du moteur : les houblons d’ébullition continuent d’isomériser pendant le whirlpool', () => {
+    // Hopstand de 20 min à 80 °C (le whirlpool Citra) : surtout sensible sur l'ajout à 10 min.
+    const [magnum, cascade, citra] = result.ibuByHop
+    expect(magnum).toBeCloseTo(27.0, 1)
+    expect(cascade).toBeCloseTo(7.8, 1)
+    expect(citra).toBeCloseTo(7.9, 1)
+    expect(result.ibu).toBeCloseTo(42.8, 1)
   })
 
   it('§5 densité finale et alcool', () => {
