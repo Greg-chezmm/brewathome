@@ -50,6 +50,13 @@
       "when": 1792160279230,
       "tag": "0006_parched_hercules",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1792221825893,
+      "tag": "0007_loose_thunderbolt",
+      "breakpoints": true
     }
   ]
 }

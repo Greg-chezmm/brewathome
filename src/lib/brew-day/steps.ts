@@ -1,88 +1,76 @@
-import { calculateVolumes, SPARGE_WATER_TEMP_C } from '@/lib/brew-calc/volumes'
+import { REFERENCE_MASH_TEMP_C } from '@/lib/brew-calc/recipe-stats'
+import { calculateStrikeWaterTempC, calculateVolumes, SPARGE_WATER_TEMP_C } from '@/lib/brew-calc/volumes'
 import type { EquipmentProfile } from '@/lib/brew-calc/types'
 import type { BatchStep } from '@/lib/db/queries/batches'
 import type { RecipeDetails } from '@/lib/db/queries/recipes'
 
-export type NewBatchStep = Omit<BatchStep, 'id'>
+export type NewBatchStep = Omit<BatchStep, 'id' | 'checkedItems'>
 
-/** Génère les étapes du Brew Day (empâtage, ébullition, ajouts, houblonnage à froid) d'une recette. */
+/** Température de l'eau d'empâtage pour atteindre `mashTempC` une fois le grain (à 20 °C) ajouté. */
+export function strikeWaterTempFor(mashTempC: number, totalGrainKg: number, mashWaterL: number | undefined): number | null {
+  if (!mashWaterL || totalGrainKg <= 0) return null
+  return calculateStrikeWaterTempC(mashTempC, GRAIN_TEMP_C, mashWaterL / totalGrainKg)
+}
+
+/** Température du grain supposée (pièce), pour le calcul de l'eau d'empâtage. */
+export const GRAIN_TEMP_C = 20
+
+/** Température du mash-out : bloque les enzymes et fluidifie le moût avant filtration. */
+export const MASH_OUT_TEMP_C = 76
+
+/**
+ * Génère les étapes du Brew Day d'une recette, dans l'ordre de la journée :
+ * préparation → empâtage → filtration/rinçage → ébullition → refroidissement
+ * → ensemencement → rangement, puis houblonnage à froid (les jours suivants).
+ */
 export function buildBatchSteps(recipe: RecipeDetails, equipmentProfile: EquipmentProfile | null): NewBatchStep[] {
   const steps: NewBatchStep[] = []
-  let order = 0
+  const add = (step: Pick<NewBatchStep, 'stepType' | 'label'> & Partial<NewBatchStep>) =>
+    steps.push({
+      plannedDurationMin: null,
+      triggerTimeMin: null,
+      status: 'todo',
+      actualStartAt: null,
+      actualEndAt: null,
+      ...step,
+      orderIndex: steps.length,
+    })
 
   const grainFermentables = recipe.fermentables.filter((f) => f.type === 'grain')
   const totalGrainKg = grainFermentables.reduce((sum, f) => sum + f.amountKg, 0)
   const grainList = grainFermentables.map((f) => `${f.amountKg} kg ${f.name}`).join(', ')
   const volumes = equipmentProfile ? calculateVolumes(recipe.targetVolumeL, totalGrainKg, equipmentProfile) : null
+  const mashTempC = recipe.mashTempC ?? REFERENCE_MASH_TEMP_C
+  const strikeTempC = strikeWaterTempFor(mashTempC, totalGrainKg, volumes?.mashWaterL)
 
-  steps.push({
+  add({ stepType: 'preparation', label: 'Préparation : nettoyage, concassage, eau' })
+
+  add({
     stepType: 'strike-water',
     label: volumes
-      ? `Chauffer l'eau d'empâtage : ${volumes.mashWaterL.toFixed(1)} L`
+      ? `Chauffer l'eau d'empâtage : ${volumes.mashWaterL.toFixed(1)} L${strikeTempC !== null ? ` à ${strikeTempC.toFixed(0)} °C` : ''}`
       : "Chauffer l'eau d'empâtage",
-    orderIndex: order++,
-    plannedDurationMin: null,
-    triggerTimeMin: null,
-    status: 'todo',
-    actualStartAt: null,
-    actualEndAt: null,
   })
-
-  steps.push({
+  add({
     stepType: 'mash',
-    label: grainList ? `Empâtage — ajouter le grain : ${grainList}` : 'Empâtage — ajouter le grain',
-    orderIndex: order++,
+    label: grainList ? `Empâtage à ${mashTempC} °C — ajouter le grain : ${grainList}` : `Empâtage à ${mashTempC} °C`,
     plannedDurationMin: 60,
-    triggerTimeMin: null,
-    status: 'todo',
-    actualStartAt: null,
-    actualEndAt: null,
   })
+  add({ stepType: 'mash-out', label: `Mash-out à ${MASH_OUT_TEMP_C} °C`, plannedDurationMin: 10 })
 
   if (volumes && volumes.spargeWaterL > 0) {
-    steps.push({
+    add({
       stepType: 'sparge-water',
       label: `Chauffer l'eau de rinçage : ${volumes.spargeWaterL.toFixed(1)} L @ ${SPARGE_WATER_TEMP_C} °C`,
-      orderIndex: order++,
-      plannedDurationMin: null,
-      triggerTimeMin: null,
-      status: 'todo',
-      actualStartAt: null,
-      actualEndAt: null,
     })
-    steps.push({
+    add({
       stepType: 'sparge',
-      label: `Rinçage : ${volumes.spargeWaterL.toFixed(1)} L d'eau @ ${SPARGE_WATER_TEMP_C} °C`,
-      orderIndex: order++,
-      plannedDurationMin: null,
-      triggerTimeMin: null,
-      status: 'todo',
-      actualStartAt: null,
-      actualEndAt: null,
+      label: `Filtration et rinçage : ${volumes.spargeWaterL.toFixed(1)} L d'eau @ ${SPARGE_WATER_TEMP_C} °C`,
     })
   }
 
-  steps.push({
-    stepType: 'heat-to-boil',
-    label: "Chauffer jusqu'à ébullition",
-    orderIndex: order++,
-    plannedDurationMin: null,
-    triggerTimeMin: null,
-    status: 'todo',
-    actualStartAt: null,
-    actualEndAt: null,
-  })
-
-  steps.push({
-    stepType: 'boil',
-    label: `Ébullition (${recipe.boilTimeMin} min)`,
-    orderIndex: order++,
-    plannedDurationMin: recipe.boilTimeMin,
-    triggerTimeMin: null,
-    status: 'todo',
-    actualStartAt: null,
-    actualEndAt: null,
-  })
+  add({ stepType: 'heat-to-boil', label: "Chauffer jusqu'à ébullition" })
+  add({ stepType: 'boil', label: `Ébullition (${recipe.boilTimeMin} min)`, plannedDurationMin: recipe.boilTimeMin })
 
   const boilAdditions = [
     ...recipe.hops
@@ -99,57 +87,26 @@ export function buildBatchSteps(recipe: RecipeDetails, equipmentProfile: Equipme
     })),
   ].sort((a, b) => b.timeMin - a.timeMin)
   for (const addition of boilAdditions) {
-    steps.push({
-      stepType: addition.stepType,
-      label: addition.label,
-      orderIndex: order++,
-      plannedDurationMin: null,
-      triggerTimeMin: addition.timeMin,
-      status: 'todo',
-      actualStartAt: null,
-      actualEndAt: null,
-    })
+    add({ stepType: addition.stepType, label: addition.label, triggerTimeMin: addition.timeMin })
   }
 
   if (recipe.hops.some((h) => h.use === 'whirlpool')) {
-    steps.push({
-      stepType: 'whirlpool',
-      label: 'Whirlpool',
-      orderIndex: order++,
-      plannedDurationMin: 15,
-      triggerTimeMin: 0,
-      status: 'todo',
-      actualStartAt: null,
-      actualEndAt: null,
-    })
+    add({ stepType: 'whirlpool', label: 'Whirlpool / hopstand', plannedDurationMin: 15, triggerTimeMin: 0 })
   }
 
-  steps.push({
-    stepType: 'cooling',
-    label: 'Refroidissement',
-    orderIndex: order++,
-    plannedDurationMin: null,
-    triggerTimeMin: null,
-    status: 'todo',
-    actualStartAt: null,
-    actualEndAt: null,
-  })
+  add({ stepType: 'cooling', label: 'Refroidissement sous 25 °C' })
+  add({ stepType: 'pitch', label: recipe.yeasts[0] ? `Ensemencement : ${recipe.yeasts[0].name}` : 'Ensemencement' })
+  add({ stepType: 'cleanup', label: 'Rangement et nettoyage' })
 
-  const dryHops = recipe.hops.filter((h) => h.use === 'dry-hop')
-  for (const hop of dryHops) {
+  for (const hop of recipe.hops.filter((h) => h.use === 'dry-hop')) {
     const days = hop.dryHopDays ?? 0
-    steps.push({
+    add({
       stepType: 'dry-hop-addition',
       label:
         hop.dryHopTempC != null
           ? `Houblonnage à froid : ${hop.name} (${hop.amountG} g) — ${days} j @ ${hop.dryHopTempC} °C`
           : `Houblonnage à froid : ${hop.name} (${hop.amountG} g) — ${days} j`,
-      orderIndex: order++,
       plannedDurationMin: days * 24 * 60,
-      triggerTimeMin: null,
-      status: 'todo',
-      actualStartAt: null,
-      actualEndAt: null,
     })
   }
 
@@ -158,14 +115,18 @@ export function buildBatchSteps(recipe: RecipeDetails, equipmentProfile: Equipme
 
 /** Types d'étape présents au plus une fois par brassin : on les retrouve par type, même si leur libellé change. */
 const SINGLE_STEP_TYPES: BatchStep['stepType'][] = [
+  'preparation',
   'strike-water',
   'mash',
+  'mash-out',
   'sparge-water',
   'sparge',
   'heat-to-boil',
   'boil',
   'whirlpool',
   'cooling',
+  'pitch',
+  'cleanup',
 ]
 
 export interface BatchStepsUpdatePlan {

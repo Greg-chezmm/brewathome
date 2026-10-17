@@ -29,6 +29,7 @@ export function BatchEditRecipe() {
       targetVolumeL: r.targetVolumeL,
       boilTimeMin: r.boilTimeMin,
       mashEfficiencyPercent: r.mashEfficiencyPercent,
+      mashTempC: r.mashTempC,
       ibuFormula: r.ibuFormula,
       equipmentProfileId: r.equipmentProfileId,
       notes: r.notes ?? '',

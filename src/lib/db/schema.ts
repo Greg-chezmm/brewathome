@@ -95,6 +95,8 @@ export const recipes = pgTable('recipes', {
   ibuFormula: text('ibu_formula', { enum: ['tinseth', 'rager', 'garetz'] })
     .notNull()
     .default('tinseth'),
+  // Température du palier d'empâtage principal : ajuste l'atténuation estimée (FG/ABV).
+  mashTempC: numeric('mash_temp_c', { precision: 4, scale: 1 }).notNull().default('67'),
   estOg: numeric('est_og', { precision: 5, scale: 3 }),
   estFg: numeric('est_fg', { precision: 5, scale: 3 }),
   estIbu: numeric('est_ibu', { precision: 5, scale: 1 }),
@@ -200,9 +202,11 @@ export const batchSteps = pgTable('batch_steps', {
     .references(() => batches.id, { onDelete: 'cascade' }),
   stepType: text('step_type', {
     enum: [
+      'preparation',
       'strike-water',
       'mash',
       'mash-step',
+      'mash-out',
       'sparge-water',
       'sparge',
       'heat-to-boil',
@@ -211,6 +215,8 @@ export const batchSteps = pgTable('batch_steps', {
       'other-addition',
       'whirlpool',
       'cooling',
+      'pitch',
+      'cleanup',
       'dry-hop-addition',
     ],
   }).notNull(),
@@ -219,11 +225,13 @@ export const batchSteps = pgTable('batch_steps', {
   plannedDurationMin: integer('planned_duration_min'),
   // Pour les ajouts de houblon : minutes restantes en ébullition au déclenchement.
   triggerTimeMin: integer('trigger_time_min'),
-  status: text('status', { enum: ['todo', 'in-progress', 'done'] })
+  status: text('status', { enum: ['todo', 'in-progress', 'done', 'skipped'] })
     .notNull()
     .default('todo'),
   actualStartAt: timestamp('actual_start_at', { withTimezone: true }),
   actualEndAt: timestamp('actual_end_at', { withTimezone: true }),
+  // Identifiants des points de checklist cochés pendant le Brew Day (voir src/lib/brew-day/checklist.ts).
+  checkedItems: jsonb('checked_items').$type<string[]>().notNull().default([]),
 })
 
 export const fermentationReadings = pgTable('fermentation_readings', {

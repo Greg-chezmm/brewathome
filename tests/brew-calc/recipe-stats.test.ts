@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import { calculateIBU_Rager, calculateIBU_Tinseth } from '@/lib/brew-calc/ibu'
-import { estimateRecipeStats, type RecipeStatsInput } from '@/lib/brew-calc/recipe-stats'
+import {
+  adjustAttenuationForMashTemp,
+  estimateRecipeStats,
+  REFERENCE_MASH_TEMP_C,
+  type RecipeStatsInput,
+} from '@/lib/brew-calc/recipe-stats'
 
 const base: RecipeStatsInput = {
   fermentables: [{ name: 'Pale Ale', type: 'grain', amountKg: 5, colorLovibond: 3, yieldPercent: 80 }],
@@ -32,5 +37,35 @@ describe('estimateRecipeStats', () => {
     const stats = estimateRecipeStats(base)
     expect(stats.og).toBeGreaterThan(stats.fg)
     expect(stats.abv).toBeGreaterThan(0)
+  })
+})
+
+describe('adjustAttenuationForMashTemp', () => {
+  it('leaves the yeast attenuation untouched at the reference temperature', () => {
+    expect(adjustAttenuationForMashTemp(78, REFERENCE_MASH_TEMP_C)).toBe(78)
+  })
+
+  it('lowers attenuation when mashing hotter and raises it when mashing cooler', () => {
+    expect(adjustAttenuationForMashTemp(78, 69)).toBe(76)
+    expect(adjustAttenuationForMashTemp(78, 64)).toBe(81)
+  })
+
+  it('stops adjusting outside the 62–72 °C range', () => {
+    expect(adjustAttenuationForMashTemp(78, 80)).toBe(adjustAttenuationForMashTemp(78, 72))
+    expect(adjustAttenuationForMashTemp(78, 50)).toBe(adjustAttenuationForMashTemp(78, 62))
+  })
+})
+
+describe('estimateRecipeStats — mash temperature', () => {
+  it('gives a higher FG and lower ABV for a hotter mash, same OG', () => {
+    const cool = estimateRecipeStats({ ...base, mashTempC: 64 })
+    const hot = estimateRecipeStats({ ...base, mashTempC: 70 })
+    expect(hot.og).toBe(cool.og)
+    expect(hot.fg).toBeGreaterThan(cool.fg)
+    expect(hot.abv).toBeLessThan(cool.abv)
+  })
+
+  it('is unchanged when no mash temperature is given', () => {
+    expect(estimateRecipeStats(base)).toEqual(estimateRecipeStats({ ...base, mashTempC: REFERENCE_MASH_TEMP_C }))
   })
 })

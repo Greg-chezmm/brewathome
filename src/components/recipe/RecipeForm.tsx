@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import bjcpStyles from '@/data/bjcp-styles-2021.json'
-import { estimateRecipeStats } from '@/lib/brew-calc/recipe-stats'
+import { estimateRecipeStats, REFERENCE_MASH_TEMP_C } from '@/lib/brew-calc/recipe-stats'
 import { matchStyle } from '@/lib/brew-calc/style-matching'
 import { calculateVolumes, estimateFinalVolumeFromPreBoil, SPARGE_WATER_TEMP_C } from '@/lib/brew-calc/volumes'
 import type { Fermentable, Hop, HopUse, IBUFormulaName, OtherIngredient, Yeast } from '@/lib/brew-calc/types'
@@ -31,6 +31,7 @@ export interface RecipeFormValue {
   targetVolumeL: number
   boilTimeMin: number
   mashEfficiencyPercent: number
+  mashTempC: number
   ibuFormula: IBUFormulaName
   equipmentProfileId: string | null
   notes: string
@@ -47,6 +48,7 @@ export const EMPTY_RECIPE_FORM: RecipeFormValue = {
   targetVolumeL: 20,
   boilTimeMin: 60,
   mashEfficiencyPercent: 72,
+  mashTempC: REFERENCE_MASH_TEMP_C,
   ibuFormula: 'tinseth',
   equipmentProfileId: null,
   notes: '',
@@ -83,9 +85,10 @@ export function RecipeForm({
         yeasts: value.yeasts,
         targetVolumeL: value.targetVolumeL,
         mashEfficiencyPercent: value.mashEfficiencyPercent,
+        mashTempC: value.mashTempC,
         ibuFormula: value.ibuFormula,
       }),
-    [value.fermentables, value.hops, value.yeasts, value.targetVolumeL, value.mashEfficiencyPercent, value.ibuFormula],
+    [value.fermentables, value.hops, value.yeasts, value.targetVolumeL, value.mashEfficiencyPercent, value.mashTempC, value.ibuFormula],
   )
 
   const selectedStyle = bjcpStyles.find((s) => s.id === value.styleId) ?? null
@@ -320,6 +323,20 @@ export function RecipeForm({
             step="0.1"
             value={value.mashEfficiencyPercent}
             onChange={(e) => set('mashEfficiencyPercent', Number.parseFloat(e.target.value))}
+            className="field-input"
+          />
+        </div>
+        <div>
+          <FieldLabel hint="Température du palier principal d'empâtage. Plus chaud (68-70 °C) : moût moins fermentescible, bière plus ronde et en corps, un peu moins d'alcool. Plus froid (63-65 °C) : moût très fermentescible, bière plus sèche et plus alcoolisée. 66-67 °C est un bon équilibre.">
+            Température d'empâtage (°C)
+          </FieldLabel>
+          <input
+            type="number"
+            step="0.5"
+            min="60"
+            max="75"
+            value={value.mashTempC}
+            onChange={(e) => set('mashTempC', Number.parseFloat(e.target.value))}
             className="field-input"
           />
         </div>

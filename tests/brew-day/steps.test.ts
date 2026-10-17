@@ -34,8 +34,32 @@ function persisted(r: RecipeDetails, statuses: Record<string, BatchStep['status'
     id: `s${i}`,
     status: statuses[s.stepType] ?? 'todo',
     actualStartAt: statuses[s.stepType] ? '2026-10-17T08:00:00Z' : null,
+    checkedItems: [],
   }))
 }
+
+describe('buildBatchSteps', () => {
+  it('follows the brew day order, from preparation to cleanup', () => {
+    const types = buildBatchSteps(recipe, null).map((s) => s.stepType)
+    expect(types).toEqual([
+      'preparation',
+      'strike-water',
+      'mash',
+      'mash-out',
+      'heat-to-boil',
+      'boil',
+      'hop-addition',
+      'cooling',
+      'pitch',
+      'cleanup',
+    ])
+  })
+
+  it('puts the mash temperature in the mash step', () => {
+    const mash = buildBatchSteps({ ...recipe, mashTempC: 69 }, null).find((s) => s.stepType === 'mash')!
+    expect(mash.label).toContain('69 °C')
+  })
+})
 
 describe('planBatchStepsUpdate', () => {
   it('regenerates every step of a batch not started yet', () => {

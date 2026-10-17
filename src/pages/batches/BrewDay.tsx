@@ -1,51 +1,38 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useParams } from 'react-router-dom'
-import { GravityCorrectionTool } from '@/components/brew-day/GravityCorrectionTool'
-import { StrikeWaterTool } from '@/components/brew-day/StrikeWaterTool'
+import {
+  ChevronLeft,
+  ChevronRight,
+  Flame,
+  ListChecks,
+  Play,
+  RotateCcw,
+  SkipForward,
+  Square,
+  TriangleAlert,
+  Volume2,
+  VolumeX,
+  X,
+} from 'lucide-react'
+import { StepCard } from '@/components/brew-day/StepCard'
+import { StepOverview } from '@/components/brew-day/StepOverview'
+import { additionTiming, groupSteps } from '@/components/brew-day/stepMeta'
 import { useAlertSound } from '@/hooks/useAlertSound'
-import { formatDuration, formatDurationLong, useNowTick } from '@/hooks/useBrewTimer'
+import { formatDuration, useNowTick } from '@/hooks/useBrewTimer'
 import { useWakeLock } from '@/hooks/useWakeLock'
 import { calculateVolumes } from '@/lib/brew-calc/volumes'
+import { checklistProgress, stepGuide, type StepGuide } from '@/lib/brew-day/checklist'
 import {
   getBatchSteps,
+  isStepFinished,
   getBatchWithDetails,
   resetBatchStep,
+  updateBatchStepChecklist,
   updateBatchStepStatus,
   type BatchStep,
-  type BatchStepType,
 } from '@/lib/db/queries/batches'
 import { getEquipmentProfile } from '@/lib/db/queries/equipmentProfiles'
-import type { Fermentable } from '@/lib/brew-calc/types'
-
-const STEP_ICONS: Record<BatchStepType, string> = {
-  'strike-water': '🔥',
-  mash: '🌾',
-  'mash-step': '🌡️',
-  'sparge-water': '🔥',
-  sparge: '💧',
-  'heat-to-boil': '🔥',
-  boil: '🔥',
-  'hop-addition': '🌿',
-  'other-addition': '➕',
-  whirlpool: '🌀',
-  cooling: '❄️',
-  'dry-hop-addition': '🧊',
-}
-
-/** Étapes dont le déclenchement se calcule par rapport au compte à rebours d'ébullition. */
-const BOIL_TRIGGERED_STEP_TYPES: BatchStepType[] = ['hop-addition', 'other-addition']
-
-/** Regroupement des étapes en 3 phases principales du brassage, chacune avec ses sous-étapes. */
-const STEP_GROUPS: { key: string; label: string; icon: string; types: BatchStepType[] }[] = [
-  { key: 'mash', label: 'Empâtage', icon: '🌾', types: ['strike-water', 'mash', 'mash-step', 'sparge-water', 'sparge'] },
-  { key: 'boil', label: 'Ébullition', icon: '🔥', types: ['heat-to-boil', 'boil', 'hop-addition', 'other-addition', 'whirlpool', 'cooling'] },
-  { key: 'dry-hop', label: 'Houblonnage hors flamme', icon: '🧊', types: ['dry-hop-addition'] },
-]
-
-function groupKeyForStepType(stepType: BatchStepType): string {
-  return STEP_GROUPS.find((g) => g.types.includes(stepType))?.key ?? 'other'
-}
 
 export function BrewDay() {
   const { batchId } = useParams<{ batchId: string }>()
@@ -55,6 +42,8 @@ export function BrewDay() {
   const alertedStepIds = useRef(new Set<string>())
   const now = useNowTick()
   const [activeIndex, setActiveIndex] = useState<number | null>(null)
+  const [overviewOpen, setOverviewOpen] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   useWakeLock(true)
 
@@ -77,20 +66,28 @@ export function BrewDay() {
   })
 
   const boilStep = steps?.find((s) => s.stepType === 'boil')
-  const boilElapsedSeconds =
-    boilStep?.actualStartAt !== undefined && boilStep?.actualStartAt !== null
-      ? Math.max(0, Math.floor((now - new Date(boilStep.actualStartAt).getTime()) / 1000))
-      : 0
+  const boilElapsedSeconds = boilStep?.actualStartAt
+    ? Math.max(0, Math.floor((now - new Date(boilStep.actualStartAt).getTime()) / 1000))
+    : 0
+
+  const recipe = batch?.recipeSnapshot
+  const totalGrainKg = recipe
+    ? recipe.fermentables.filter((f) => f.type === 'grain').reduce((sum, f) => sum + f.amountKg, 0)
+    : 0
+  const volumes = recipe && equipmentProfile ? calculateVolumes(recipe.targetVolumeL, totalGrainKg, equipmentProfile) : null
+
+  const guides = useMemo(() => {
+    const map = new Map<string, StepGuide>()
+    if (!recipe || !steps) return map
+    const method = equipmentProfile?.method ?? (recipe.type === 'biab' ? 'biab' : recipe.type)
+    for (const step of steps) map.set(step.id, stepGuide(step, { recipe, volumes, method }))
+    return map
+  }, [recipe, steps, volumes, equipmentProfile])
 
   useEffect(() => {
     if (!soundEnabled || !boilStep || !steps) return
-    const boilRemainingPlanned = boilStep.plannedDurationMin ?? 0
     for (const step of steps) {
-      if (!BOIL_TRIGGERED_STEP_TYPES.includes(step.stepType) || step.status !== 'todo' || step.triggerTimeMin === null)
-        continue
-      const triggerAtSeconds = (boilRemainingPlanned - step.triggerTimeMin) * 60
-      const isDue = boilStep.actualStartAt !== null && boilElapsedSeconds >= triggerAtSeconds
-      if (isDue && !alertedStepIds.current.has(step.id)) {
+      if (additionTiming(step, boilStep, boilElapsedSeconds).isDue && !alertedStepIds.current.has(step.id)) {
         alertedStepIds.current.add(step.id)
         play()
         document.title = `⏰ ${step.label} — BrewAtHome`
@@ -100,401 +97,317 @@ export function BrewDay() {
 
   useEffect(() => {
     if (activeIndex !== null || !steps || steps.length === 0) return
-    const firstNotDone = steps.findIndex((s) => s.status !== 'done')
+    const firstNotDone = steps.findIndex((s) => !isStepFinished(s.status))
     setActiveIndex(firstNotDone === -1 ? steps.length - 1 : firstNotDone)
   }, [steps, activeIndex])
 
-  async function startStep(step: BatchStep) {
-    await updateBatchStepStatus(step.id, 'in-progress', { actualStartAt: new Date().toISOString() })
-    queryClient.invalidateQueries({ queryKey: ['batch-steps', batchId] })
+  async function run(action: () => Promise<void>) {
+    setError(null)
+    try {
+      await action()
+    } catch (err) {
+      setError((err as Error).message)
+    } finally {
+      queryClient.invalidateQueries({ queryKey: ['batch-steps', batchId] })
+    }
   }
 
-  async function completeStep(step: BatchStep) {
-    await updateBatchStepStatus(step.id, 'done', { actualEndAt: new Date().toISOString() })
+  function startStep(step: BatchStep) {
+    return run(() => updateBatchStepStatus(step.id, 'in-progress', { actualStartAt: new Date().toISOString() }))
+  }
+
+  async function completeStep(step: BatchStep, index: number) {
+    await run(() => updateBatchStepStatus(step.id, 'done', { actualEndAt: new Date().toISOString() }))
     document.title = 'BrewAtHome'
-    queryClient.invalidateQueries({ queryKey: ['batch-steps', batchId] })
+    goToNextUnfinished(index)
   }
 
-  async function resetStep(step: BatchStep) {
+  async function skipStep(step: BatchStep, index: number) {
+    await run(() => updateBatchStepStatus(step.id, 'skipped'))
+    goToNextUnfinished(index)
+  }
+
+  // Enchaîne sur la prochaine étape ni terminée ni passée.
+  function goToNextUnfinished(index: number) {
+    const next = steps?.findIndex((s, i) => i > index && !isStepFinished(s.status)) ?? -1
+    if (next !== -1) setActiveIndex(next)
+  }
+
+  function resetStep(step: BatchStep) {
     alertedStepIds.current.delete(step.id)
-    await resetBatchStep(step.id)
     document.title = 'BrewAtHome'
-    queryClient.invalidateQueries({ queryKey: ['batch-steps', batchId] })
+    return run(() => resetBatchStep(step.id))
   }
 
-  if (!batch || !steps) return <p className="text-slate-500">Chargement…</p>
+  function toggleItem(step: BatchStep, itemId: string) {
+    const checkedItems = step.checkedItems.includes(itemId)
+      ? step.checkedItems.filter((id) => id !== itemId)
+      : [...step.checkedItems, itemId]
+    // Mise à jour optimiste : la case réagit immédiatement, même avec un réseau lent.
+    queryClient.setQueryData<BatchStep[]>(['batch-steps', batchId], (old) =>
+      old?.map((s) => (s.id === step.id ? { ...s, checkedItems } : s)),
+    )
+    return run(() => updateBatchStepChecklist(step.id, checkedItems))
+  }
 
-  const grainFermentables = batch.recipeSnapshot.fermentables.filter((f) => f.type === 'grain')
-  const totalGrainKg = grainFermentables.reduce((sum, f) => sum + f.amountKg, 0)
-  const mashWaterL = equipmentProfile
-    ? calculateVolumes(batch.recipeSnapshot.targetVolumeL, totalGrainKg, equipmentProfile).mashWaterL
-    : undefined
+  function selectStep(index: number) {
+    setActiveIndex(index)
+    setOverviewOpen(false)
+  }
+
+  if (!batch || !steps || !recipe) return <p className="p-4 text-slate-500">Chargement…</p>
+
+  const groups = groupSteps(steps)
   const activeStep = activeIndex !== null ? steps[activeIndex] : undefined
+  const activeGroup = groups.find((g) => g.steps.some(({ index }) => index === activeIndex))
+  const positionInGroup = activeGroup ? activeGroup.steps.findIndex(({ index }) => index === activeIndex) : -1
+  const checklistTotals = new Map(
+    steps.map((s) => [s.id, checklistProgress(guides.get(s.id) ?? { checklist: [], tips: [] }, s)]),
+  )
+  const dueSteps = steps
+    .map((step, index) => ({ step, index }))
+    .filter(({ step }) => additionTiming(step, boilStep, boilElapsedSeconds).isDue)
+  const boilRunning = boilStep?.status === 'in-progress' && !!boilStep.actualStartAt
+  const boilRemainingSec = boilRunning ? (boilStep.plannedDurationMin ?? 0) * 60 - boilElapsedSeconds : 0
+  const allDone = steps.every((s) => isStepFinished(s.status))
 
-  const groupedSteps = STEP_GROUPS.map((g) => ({
-    ...g,
-    steps: steps.map((step, index) => ({ step, index })).filter(({ step }) => g.types.includes(step.stepType)),
-  })).filter((g) => g.steps.length > 0)
-  const activeGroupKey = activeStep ? groupKeyForStepType(activeStep.stepType) : groupedSteps[0]?.key
+  const overview = (
+    <StepOverview
+      groups={groups}
+      activeIndex={activeIndex}
+      boilStep={boilStep}
+      boilElapsedSeconds={boilElapsedSeconds}
+      checklistTotals={checklistTotals}
+      onSelect={selectStep}
+    />
+  )
 
-  function selectGroup(groupKey: string) {
-    const group = groupedSteps.find((g) => g.key === groupKey)
-    if (!group) return
-    const firstNotDone = group.steps.find(({ step }) => step.status !== 'done')
-    setActiveIndex((firstNotDone ?? group.steps[group.steps.length - 1]).index)
-  }
+  const soundButton = (
+    <button
+      type="button"
+      onClick={() => {
+        if (soundEnabled) {
+          setSoundEnabled(false)
+          return
+        }
+        unlock()
+        play()
+        setSoundEnabled(true)
+      }}
+      className={`flex items-center gap-1.5 rounded-full px-3 py-2 text-sm font-medium ${
+        soundEnabled ? 'bg-green-500/15 text-green-600 lg:text-green-700' : 'bg-white/10 text-slate-200 lg:bg-slate-100 lg:text-slate-600'
+      }`}
+      aria-label={soundEnabled ? 'Couper les alertes sonores' : 'Activer les alertes sonores'}
+    >
+      {soundEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
+      <span className="hidden sm:inline">{soundEnabled ? 'Alertes activées' : 'Activer les alertes'}</span>
+    </button>
+  )
 
   return (
-    <div className="space-y-8">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Brew Day</h1>
-          <p className="text-slate-500">{batch.name}</p>
-        </div>
-        {!soundEnabled && (
+    <div className="flex min-h-dvh flex-col lg:min-h-0">
+      {/* En-tête */}
+      <header className="sticky top-0 z-20 bg-slate-900 px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] text-white lg:static lg:rounded-3xl lg:px-6 lg:py-5">
+        <div className="flex items-center gap-2">
+          <Link to={`/batches/${batchId}`} className="-ml-2 rounded-full p-2 text-slate-300 hover:bg-white/10" aria-label="Retour au brassin">
+            <ChevronLeft size={22} />
+          </Link>
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-medium uppercase tracking-wide text-indigo-300">Brew Day</p>
+            <h1 className="truncate font-bold">{batch.name}</h1>
+          </div>
+          {soundButton}
           <button
-            onClick={() => {
-              unlock()
-              play()
-              setSoundEnabled(true)
-            }}
-            className="btn-primary"
+            type="button"
+            onClick={() => setOverviewOpen(true)}
+            className="rounded-full bg-white/10 p-2 text-slate-200 lg:hidden"
+            aria-label="Voir toutes les étapes"
           >
-            🔊 Activer les alertes sonores
+            <ListChecks size={20} />
+          </button>
+        </div>
+        {activeGroup && (
+          <div className="mt-3 flex items-center gap-3">
+            <p className="shrink-0 text-sm font-semibold">
+              {activeGroup.icon} {activeGroup.label}
+              <span className="font-normal text-slate-400">
+                {' '}
+                · {positionInGroup + 1}/{activeGroup.steps.length}
+              </span>
+            </p>
+            <div className="flex flex-1 gap-1">
+              {activeGroup.steps.map(({ step, index }) => (
+                <button
+                  key={step.id}
+                  type="button"
+                  onClick={() => setActiveIndex(index)}
+                  className={`h-1.5 flex-1 rounded-full ${
+                    index === activeIndex
+                      ? 'bg-indigo-400'
+                      : step.status === 'done'
+                        ? 'bg-green-500'
+                        : step.status === 'skipped'
+                          ? 'bg-slate-500'
+                          : 'bg-white/20'
+                  }`}
+                  aria-label={step.label}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+      </header>
+
+      {/* Bandeaux : ajouts à faire maintenant, ébullition en cours ailleurs */}
+      <div className="space-y-2 px-4 pt-3 lg:px-0 lg:pt-4">
+        {dueSteps.map(({ step, index }) => (
+          <button
+            key={step.id}
+            type="button"
+            onClick={() => setActiveIndex(index)}
+            className="flex w-full animate-pulse items-center gap-2 rounded-2xl bg-red-600 px-4 py-3 text-left font-semibold text-white"
+          >
+            <TriangleAlert size={20} className="shrink-0" />
+            <span className="flex-1">Maintenant : {step.label}</span>
+            <ChevronRight size={18} />
+          </button>
+        ))}
+        {boilRunning && activeStep?.id !== boilStep.id && (
+          <button
+            type="button"
+            onClick={() => setActiveIndex(steps.indexOf(boilStep))}
+            className="flex w-full items-center gap-2 rounded-2xl bg-orange-100 px-4 py-2.5 text-left text-sm font-medium text-orange-900"
+          >
+            <Flame size={18} className="shrink-0 text-orange-500" />
+            <span className="flex-1">Ébullition</span>
+            <span className="font-mono font-bold tabular-nums">
+              {boilRemainingSec < 0 ? '+' : ''}
+              {formatDuration(Math.abs(boilRemainingSec))}
+            </span>
           </button>
         )}
-        {soundEnabled && <span className="badge-ok">🔊 Alertes sonores activées</span>}
+        {error && <p className="rounded-2xl bg-red-50 px-4 py-2 text-sm text-red-700">{error}</p>}
       </div>
 
-      <div className="space-y-3">
-        <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">1 · Brassage</p>
-        <div className="flex gap-2 overflow-x-auto pb-1">
-          {groupedSteps.map((group, groupIndex) => {
-            const allDone = group.steps.every(({ step }) => step.status === 'done')
-            const isActiveGroup = group.key === activeGroupKey
-            const groupDue = group.steps.some(({ step }) => {
-              const boilRemainingPlanned = boilStep?.plannedDurationMin ?? 0
-              if (!BOIL_TRIGGERED_STEP_TYPES.includes(step.stepType) || step.status !== 'todo' || step.triggerTimeMin === null)
-                return false
-              const triggerAtSeconds = (boilRemainingPlanned - step.triggerTimeMin) * 60
-              return !!boilStep?.actualStartAt && boilElapsedSeconds >= triggerAtSeconds
-            })
-
-            return (
-              <button
-                key={group.key}
-                onClick={() => selectGroup(group.key)}
-                className={`flex shrink-0 items-center gap-1.5 rounded-full border-2 px-3 py-1.5 text-sm font-medium transition-colors ${
-                  isActiveGroup
-                    ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
-                    : allDone
-                      ? 'border-green-200 bg-green-50 text-green-700'
-                      : groupDue
-                        ? 'border-red-400 bg-red-50 text-red-700'
-                        : 'border-slate-200 bg-white text-slate-500'
-                }`}
-              >
-                <span>{group.icon}</span>
-                {allDone && <span>✓</span>}
-                <span className="whitespace-nowrap">
-                  1.{groupIndex + 1} {group.label}
-                </span>
-              </button>
-            )
-          })}
-        </div>
-
-        {groupedSteps
-          .filter((g) => g.key === activeGroupKey)
-          .map((group) => (
-            <div key={group.key} className="flex gap-2 overflow-x-auto pb-1 pl-2">
-              {group.steps.map(({ step, index }) => {
-                const boilRemainingPlanned = boilStep?.plannedDurationMin ?? 0
-                const triggerAtSeconds =
-                  BOIL_TRIGGERED_STEP_TYPES.includes(step.stepType) && step.triggerTimeMin !== null
-                    ? (boilRemainingPlanned - step.triggerTimeMin) * 60
-                    : null
-                const isDue =
-                  BOIL_TRIGGERED_STEP_TYPES.includes(step.stepType) &&
-                  step.status === 'todo' &&
-                  boilStep?.actualStartAt &&
-                  triggerAtSeconds !== null &&
-                  boilElapsedSeconds >= triggerAtSeconds
-                const active = index === activeIndex
-
-                return (
-                  <button
-                    key={step.id}
-                    onClick={() => setActiveIndex(index)}
-                    className={`flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors ${
-                      active
-                        ? 'border-indigo-400 bg-indigo-100 text-indigo-700'
-                        : step.status === 'done'
-                          ? 'border-green-200 bg-green-50 text-green-700'
-                          : isDue
-                            ? 'border-red-400 bg-red-50 text-red-700'
-                            : 'border-slate-200 bg-white text-slate-500'
-                    }`}
-                  >
-                    <span>{STEP_ICONS[step.stepType]}</span>
-                    {step.status === 'done' && <span>✓</span>}
-                    <span className="whitespace-nowrap">{step.label}</span>
-                  </button>
-                )
-              })}
-            </div>
-          ))}
-      </div>
-
-      {activeStep && (
-        <ActiveStepCard
-          key={activeStep.id}
-          step={activeStep}
-          now={now}
-          boilStep={boilStep}
-          boilElapsedSeconds={boilElapsedSeconds}
-          totalGrainKg={totalGrainKg}
-          mashWaterL={mashWaterL}
-          grainFermentables={grainFermentables}
-          onStart={startStep}
-          onComplete={completeStep}
-          onReset={resetStep}
-        />
-      )}
-
-      <div className="flex justify-between">
-        <button
-          onClick={() => setActiveIndex((i) => Math.max(0, (i ?? 0) - 1))}
-          disabled={activeIndex === null || activeIndex === 0}
-          className="btn-secondary btn-sm disabled:opacity-40"
-        >
-          ← Étape précédente
-        </button>
-        <button
-          onClick={() => setActiveIndex((i) => Math.min(steps.length - 1, (i ?? 0) + 1))}
-          disabled={activeIndex === null || activeIndex === steps.length - 1}
-          className="btn-secondary btn-sm disabled:opacity-40"
-        >
-          Étape suivante →
-        </button>
-      </div>
-
-      <GravityCorrectionTool targetGravity={batch.recipeSnapshot.estOg ?? undefined} />
-
-      {steps.every((s) => s.status === 'done') && (
-        <div className="card-tinted flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">2 · Fermentation</p>
-            <p className="font-semibold text-slate-800">Brassage terminé — place au suivi de fermentation.</p>
+      <div className="flex-1 px-4 py-4 lg:grid lg:grid-cols-[320px_1fr] lg:gap-6 lg:px-0">
+        {/* Vue d'ensemble permanente — PC */}
+        <aside className="hidden lg:block">
+          <div className="sticky top-6 max-h-[calc(100dvh-3rem)] overflow-y-auto rounded-3xl border border-slate-200 bg-white p-4">
+            {overview}
           </div>
-          <Link to={`/batches/${batchId}/fermentation`} className="btn-primary">
-            Suivi de fermentation →
-          </Link>
-        </div>
-      )}
-    </div>
-  )
-}
+        </aside>
 
-function ActiveStepCard({
-  step,
-  now,
-  boilStep,
-  boilElapsedSeconds,
-  totalGrainKg,
-  mashWaterL,
-  grainFermentables,
-  onStart,
-  onComplete,
-  onReset,
-}: {
-  step: BatchStep
-  now: number
-  boilStep: BatchStep | undefined
-  boilElapsedSeconds: number
-  totalGrainKg: number
-  mashWaterL: number | undefined
-  grainFermentables: Fermentable[]
-  onStart: (step: BatchStep) => void
-  onComplete: (step: BatchStep) => void
-  onReset: (step: BatchStep) => void
-}) {
-  const boilRemainingPlanned = boilStep?.plannedDurationMin ?? 0
-  const triggerAtSeconds =
-    BOIL_TRIGGERED_STEP_TYPES.includes(step.stepType) && step.triggerTimeMin !== null
-      ? (boilRemainingPlanned - step.triggerTimeMin) * 60
-      : null
-  const isDue =
-    BOIL_TRIGGERED_STEP_TYPES.includes(step.stepType) &&
-    step.status === 'todo' &&
-    !!boilStep?.actualStartAt &&
-    triggerAtSeconds !== null &&
-    boilElapsedSeconds >= triggerAtSeconds
+        <section className="min-w-0 space-y-4">
+          {activeStep && (
+            <StepCard
+              key={activeStep.id}
+              step={activeStep}
+              guide={guides.get(activeStep.id) ?? { checklist: [], tips: [] }}
+              timing={additionTiming(activeStep, boilStep, boilElapsedSeconds)}
+              now={now}
+              boilStarted={!!boilStep?.actualStartAt}
+              boilElapsedSeconds={boilElapsedSeconds}
+              recipe={recipe}
+              totalGrainKg={totalGrainKg}
+              mashWaterL={volumes?.mashWaterL}
+              onToggleItem={(itemId) => toggleItem(activeStep, itemId)}
+            />
+          )}
 
-  return (
-    <div
-      className={`rounded-2xl border-2 p-4 shadow-sm transition-colors sm:p-5 ${
-        step.status === 'done'
-          ? 'border-slate-200 bg-slate-50'
-          : isDue
-            ? 'border-red-400 bg-red-50'
-            : step.status === 'in-progress'
-              ? 'border-indigo-400 bg-indigo-50'
-              : 'border-slate-200 bg-white'
-      }`}
-    >
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-indigo-50 text-lg">
-            {STEP_ICONS[step.stepType]}
-          </span>
-          <p className="font-semibold text-slate-800">{step.label}</p>
-        </div>
-        <div className="flex gap-2">
-          {step.status === 'todo' && (
-            <button onClick={() => onStart(step)} className="btn-secondary btn-sm">
-              Démarrer
+          {activeStep?.status === 'todo' && activeIndex !== null && (
+            <button
+              type="button"
+              onClick={() => skipStep(activeStep, activeIndex)}
+              className="mx-auto flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium text-slate-500 hover:bg-slate-100"
+            >
+              <SkipForward size={16} /> Passer cette étape
             </button>
           )}
-          {step.status === 'in-progress' && (
-            <button onClick={() => onReset(step)} className="btn-secondary btn-sm">
-              Arrêter
-            </button>
+
+          {allDone && (
+            <div className="rounded-3xl bg-indigo-50 p-5">
+              <p className="text-xs font-semibold uppercase tracking-wide text-indigo-400">Étape suivante · Fermentation</p>
+              <p className="mt-1 font-semibold text-slate-800">Brassage terminé, place au suivi de fermentation.</p>
+              <Link to={`/batches/${batchId}/fermentation`} className="btn-primary mt-3">
+                Suivi de fermentation →
+              </Link>
+            </div>
           )}
-          {step.status !== 'done' && (
-            <button onClick={() => onComplete(step)} className="btn-primary btn-sm">
-              Terminer
-            </button>
-          )}
-          {step.status === 'done' && (
-            <button onClick={() => onReset(step)} className="btn-secondary btn-sm">
-              Réinitialiser
-            </button>
-          )}
-        </div>
+        </section>
       </div>
 
-      <StepTimer step={step} now={now} />
-      <StepProgressBar step={step} now={now} isDue={isDue} triggerAtSeconds={triggerAtSeconds} boilElapsedSeconds={boilElapsedSeconds} />
+      {/* Barre d'actions : collée en bas sur mobile, sous la carte sur PC */}
+      {activeStep && activeIndex !== null && (
+        <div className="sticky bottom-0 z-10 border-t border-slate-200 bg-white/95 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur lg:ml-[344px] lg:rounded-3xl lg:border lg:pb-3">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setActiveIndex(Math.max(0, activeIndex - 1))}
+              disabled={activeIndex === 0}
+              className="rounded-full border border-slate-200 p-3 text-slate-600 disabled:opacity-30"
+              aria-label="Étape précédente"
+            >
+              <ChevronLeft size={20} />
+            </button>
 
-      {BOIL_TRIGGERED_STEP_TYPES.includes(step.stepType) && triggerAtSeconds !== null && boilStep?.actualStartAt && (
-        <p className={`mt-2 ${isDue ? 'font-mono text-2xl font-bold text-red-700' : 'text-sm text-slate-500'}`}>
-          {isDue ? '⚠ À ajouter maintenant !' : `Dans ${formatDuration(triggerAtSeconds - boilElapsedSeconds)}`}
-        </p>
-      )}
+            <div className="flex flex-1 gap-2">
+              {activeStep.status === 'todo' && (
+                <>
+                  <button type="button" onClick={() => startStep(activeStep)} className="btn-secondary flex-1 py-3">
+                    <Play size={16} /> Démarrer
+                  </button>
+                  <button type="button" onClick={() => completeStep(activeStep, activeIndex)} className="btn-primary flex-1 py-3">
+                    Terminer
+                  </button>
+                </>
+              )}
+              {activeStep.status === 'in-progress' && (
+                <>
+                  <button type="button" onClick={() => resetStep(activeStep)} className="btn-secondary py-3" aria-label="Arrêter le minuteur">
+                    <Square size={16} />
+                  </button>
+                  <button type="button" onClick={() => completeStep(activeStep, activeIndex)} className="btn-primary flex-1 py-3">
+                    Terminer
+                  </button>
+                </>
+              )}
+              {isStepFinished(activeStep.status) && (
+                <button type="button" onClick={() => resetStep(activeStep)} className="btn-secondary flex-1 py-3">
+                  <RotateCcw size={16} /> {activeStep.status === 'skipped' ? 'Reprendre cette étape' : 'Refaire cette étape'}
+                </button>
+              )}
+            </div>
 
-      {step.stepType === 'strike-water' && (
-        <div className="mt-4 border-t border-slate-200 pt-4">
-          <StrikeWaterTool defaultGrainWeightKg={totalGrainKg} defaultWaterVolumeL={mashWaterL} embedded />
+            <button
+              type="button"
+              onClick={() => setActiveIndex(Math.min(steps.length - 1, activeIndex + 1))}
+              disabled={activeIndex === steps.length - 1}
+              className="rounded-full border border-slate-200 p-3 text-slate-600 disabled:opacity-30"
+              aria-label="Étape suivante"
+            >
+              <ChevronRight size={20} />
+            </button>
+          </div>
         </div>
       )}
 
-      {step.stepType === 'mash' && grainFermentables.length > 0 && (
-        <div className="mt-4 border-t border-slate-200 pt-4">
-          <p className="mb-1.5 text-sm font-medium text-slate-600">Grain à ajouter :</p>
-          <ul className="space-y-1 text-sm text-slate-700">
-            {grainFermentables.map((f, i) => (
-              <li key={i}>
-                <span className="font-semibold text-slate-800">{f.amountKg} kg</span> — {f.name}
-              </li>
-            ))}
-          </ul>
+      {/* Vue d'ensemble en panneau — mobile */}
+      {overviewOpen && (
+        <div className="fixed inset-0 z-40 lg:hidden" onClick={() => setOverviewOpen(false)}>
+          <div className="absolute inset-0 bg-slate-900/50" />
+          <div
+            className="absolute inset-x-0 bottom-0 max-h-[85dvh] overflow-y-auto rounded-t-3xl bg-white p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-3 flex items-center justify-between">
+              <p className="font-bold text-slate-900">Toutes les étapes</p>
+              <button type="button" onClick={() => setOverviewOpen(false)} className="rounded-full p-1 text-slate-400" aria-label="Fermer">
+                <X size={22} />
+              </button>
+            </div>
+            {overview}
+          </div>
         </div>
-      )}
-
-      {step.stepType === 'sparge-water' && (
-        <p className="mt-3 text-sm text-slate-500">
-          Peut chauffer pendant la fin de l'empâtage pour être prête à temps pour le rinçage.
-        </p>
-      )}
-    </div>
-  )
-}
-
-function StepTimer({ step, now }: { step: BatchStep; now: number }) {
-  const fmt = step.stepType === 'dry-hop-addition' ? formatDurationLong : formatDuration
-
-  if (step.status === 'done') {
-    if (!step.actualStartAt || !step.actualEndAt) return null
-    const totalSec = Math.max(
-      0,
-      Math.round((new Date(step.actualEndAt).getTime() - new Date(step.actualStartAt).getTime()) / 1000),
-    )
-    return <p className="mt-2 text-sm text-slate-400">Durée réelle : {fmt(totalSec)}</p>
-  }
-
-  if (step.status !== 'in-progress' || !step.actualStartAt) return null
-
-  const elapsedSec = Math.max(0, Math.floor((now - new Date(step.actualStartAt).getTime()) / 1000))
-
-  if (step.plannedDurationMin) {
-    const remainingSec = step.plannedDurationMin * 60 - elapsedSec
-    const overdue = remainingSec < 0
-    return (
-      <div className="mt-2 flex items-baseline gap-2">
-        <span
-          className={`font-mono text-4xl font-bold tabular-nums ${overdue ? 'text-red-600' : 'text-indigo-600'}`}
-        >
-          {overdue ? '+' : ''}
-          {fmt(Math.abs(remainingSec))}
-        </span>
-        <span className="text-sm text-slate-500">{overdue ? 'de dépassement' : 'restant'}</span>
-      </div>
-    )
-  }
-
-  return (
-    <div className="mt-2 flex items-baseline gap-2">
-      <span className="font-mono text-4xl font-bold tabular-nums text-indigo-600">{fmt(elapsedSec)}</span>
-      <span className="text-sm text-slate-500">écoulé</span>
-    </div>
-  )
-}
-
-function StepProgressBar({
-  step,
-  now,
-  isDue,
-  triggerAtSeconds,
-  boilElapsedSeconds,
-}: {
-  step: BatchStep
-  now: number
-  isDue: boolean
-  triggerAtSeconds: number | null
-  boilElapsedSeconds: number
-}) {
-  let percent = 0
-  let overdue = false
-  let indeterminate = false
-  const done = step.status === 'done'
-
-  if (done) {
-    percent = 100
-  } else if (step.status === 'in-progress' && step.actualStartAt) {
-    const elapsedSec = Math.max(0, Math.floor((now - new Date(step.actualStartAt).getTime()) / 1000))
-    if (step.plannedDurationMin) {
-      percent = (elapsedSec / (step.plannedDurationMin * 60)) * 100
-      overdue = elapsedSec > step.plannedDurationMin * 60
-    } else {
-      indeterminate = true
-    }
-  } else if (step.stepType === 'hop-addition' && step.status === 'todo' && triggerAtSeconds !== null && triggerAtSeconds > 0) {
-    percent = (boilElapsedSeconds / triggerAtSeconds) * 100
-    overdue = isDue
-  }
-
-  return (
-    <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-slate-200">
-      {indeterminate ? (
-        <div className="h-full w-1/3 animate-pulse rounded-full bg-indigo-400" />
-      ) : (
-        <div
-          className={`h-full rounded-full transition-all duration-1000 ${
-            done ? 'bg-slate-400' : overdue ? 'bg-red-500' : 'bg-indigo-500'
-          }`}
-          style={{ width: `${Math.min(100, Math.max(0, percent))}%` }}
-        />
       )}
     </div>
   )

@@ -7,6 +7,8 @@ export interface ParsedRecipeDraft {
   boilVolumeL?: number
   boilTimeMin: number
   mashEfficiencyPercent: number
+  /** Température du palier de saccharification (le plus long des paliers d'empâtage), si le fichier en a. */
+  mashTempC?: number
   notes?: string
   style: {
     name: string

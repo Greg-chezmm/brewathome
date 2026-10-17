@@ -1,4 +1,4 @@
-import { estimateRecipeStats } from '@/lib/brew-calc/recipe-stats'
+import { estimateRecipeStats, REFERENCE_MASH_TEMP_C } from '@/lib/brew-calc/recipe-stats'
 import { buildBatchSteps, planBatchStepsUpdate, type NewBatchStep } from '@/lib/brew-day/steps'
 import type { RecipeDetails, RecipeInput } from './recipes'
 import { getEquipmentProfile } from './equipmentProfiles'
@@ -7,9 +7,11 @@ import { supabase } from '@/lib/supabase/client'
 
 export type BatchStatus = 'planned' | 'brew_day' | 'fermentation' | 'conditioning' | 'completed'
 export type BatchStepType =
+  | 'preparation'
   | 'strike-water'
   | 'mash'
   | 'mash-step'
+  | 'mash-out'
   | 'sparge-water'
   | 'sparge'
   | 'heat-to-boil'
@@ -18,8 +20,15 @@ export type BatchStepType =
   | 'other-addition'
   | 'whirlpool'
   | 'cooling'
+  | 'pitch'
+  | 'cleanup'
   | 'dry-hop-addition'
-export type BatchStepStatus = 'todo' | 'in-progress' | 'done'
+export type BatchStepStatus = 'todo' | 'in-progress' | 'done' | 'skipped'
+
+/** Étape terminée ou volontairement passée : plus rien à faire dessus. */
+export function isStepFinished(status: BatchStepStatus): boolean {
+  return status === 'done' || status === 'skipped'
+}
 
 export interface BatchStep {
   id: string
@@ -31,6 +40,8 @@ export interface BatchStep {
   status: BatchStepStatus
   actualStartAt: string | null
   actualEndAt: string | null
+  /** Points de checklist cochés (identifiants de src/lib/brew-day/checklist.ts). */
+  checkedItems: string[]
 }
 
 export interface BatchSummary {
@@ -110,7 +121,8 @@ export async function getBatchWithDetails(batchId: string): Promise<BatchDetails
     brewDate: data.brew_date,
     createdAt: data.created_at,
     recipeId: data.recipe_id,
-    recipeSnapshot: data.recipe_snapshot,
+    // Les brassins créés avant l'ajout de la température d'empâtage n'en ont pas dans leur snapshot.
+    recipeSnapshot: { mashTempC: REFERENCE_MASH_TEMP_C, ...data.recipe_snapshot },
     ogMeasured: data.og_measured !== null ? Number(data.og_measured) : null,
     fgMeasured: data.fg_measured !== null ? Number(data.fg_measured) : null,
     volumeMeasuredL: data.volume_measured_l !== null ? Number(data.volume_measured_l) : null,
@@ -135,6 +147,7 @@ export async function getBatchSteps(batchId: string): Promise<BatchStep[]> {
     status: s.status,
     actualStartAt: s.actual_start_at,
     actualEndAt: s.actual_end_at,
+    checkedItems: s.checked_items ?? [],
   }))
 }
 
@@ -156,6 +169,11 @@ export async function resetBatchStep(stepId: string): Promise<void> {
     .from('batch_steps')
     .update({ status: 'todo', actual_start_at: null, actual_end_at: null })
     .eq('id', stepId)
+  if (error) throw error
+}
+
+export async function updateBatchStepChecklist(stepId: string, checkedItems: string[]): Promise<void> {
+  const { error } = await supabase.from('batch_steps').update({ checked_items: checkedItems }).eq('id', stepId)
   if (error) throw error
 }
 
@@ -183,6 +201,7 @@ export async function updateBatchRecipeSnapshot(
     targetVolumeL: patch.targetVolumeL,
     boilTimeMin: patch.boilTimeMin,
     mashEfficiencyPercent: patch.mashEfficiencyPercent,
+    mashTempC: patch.mashTempC,
     ibuFormula: patch.ibuFormula,
     equipmentProfileId: patch.equipmentProfileId,
     notes: patch.notes,

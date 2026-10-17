@@ -123,6 +123,16 @@ function mapStyle(raw: Record<string, unknown> | undefined): ParsedRecipeDraft['
   }
 }
 
+/** Palier principal = le plus long (la saccharification), les paliers protéiniques/mash-out étant courts. */
+function mapMashTemp(raw: Record<string, unknown> | undefined): number | undefined {
+  const stepsContainer = raw?.MASH_STEPS as { MASH_STEP?: Record<string, unknown> | Record<string, unknown>[] } | undefined
+  const steps = [stepsContainer?.MASH_STEP ?? []].flat()
+  const main = steps
+    .filter((s) => s.STEP_TEMP !== undefined)
+    .sort((a, b) => toNumber(b.STEP_TIME) - toNumber(a.STEP_TIME))[0]
+  return main ? toNumber(main.STEP_TEMP) : undefined
+}
+
 function mapRecipe(raw: Record<string, unknown>): ParsedRecipeDraft {
   const fermentablesContainer = raw.FERMENTABLES as { FERMENTABLE?: Record<string, unknown>[] } | undefined
   const hopsContainer = raw.HOPS as { HOP?: Record<string, unknown>[] } | undefined
@@ -139,6 +149,7 @@ function mapRecipe(raw: Record<string, unknown>): ParsedRecipeDraft {
     boilVolumeL: raw.BOIL_SIZE !== undefined ? toNumber(raw.BOIL_SIZE) : undefined,
     boilTimeMin: toNumber(raw.BOIL_TIME, 60),
     mashEfficiencyPercent: toNumber(raw.EFFICIENCY, 72),
+    mashTempC: mapMashTemp(raw.MASH as Record<string, unknown> | undefined),
     notes: raw.NOTES ? String(raw.NOTES) : undefined,
     style: mapStyle(raw.STYLE as Record<string, unknown> | undefined),
     fermentables,

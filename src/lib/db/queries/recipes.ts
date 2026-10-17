@@ -1,4 +1,4 @@
-import { estimateRecipeStats } from '@/lib/brew-calc/recipe-stats'
+import { estimateRecipeStats, REFERENCE_MASH_TEMP_C } from '@/lib/brew-calc/recipe-stats'
 import type { Fermentable, Hop, OtherIngredient, Yeast } from '@/lib/brew-calc/types'
 import { resolveBjcpStyleId } from '@/lib/beerxml/mapping'
 import type { ParsedRecipeDraft } from '@/lib/beerxml/types'
@@ -22,6 +22,8 @@ export interface RecipeDetails extends RecipeSummary {
   targetVolumeL: number
   boilTimeMin: number
   mashEfficiencyPercent: number
+  /** Température du palier d'empâtage principal (°C). */
+  mashTempC: number
   ibuFormula: 'tinseth' | 'rager' | 'garetz'
   equipmentProfileId: string | null
   notes: string | null
@@ -83,6 +85,7 @@ export async function getRecipeWithDetails(recipeId: string): Promise<RecipeDeta
     targetVolumeL: Number(recipe.target_volume_l),
     boilTimeMin: recipe.boil_time_min,
     mashEfficiencyPercent: Number(recipe.mash_efficiency_percent),
+    mashTempC: Number(recipe.mash_temp_c ?? REFERENCE_MASH_TEMP_C),
     ibuFormula: recipe.ibu_formula,
     equipmentProfileId: recipe.equipment_profile_id,
     notes: recipe.notes,
@@ -130,6 +133,8 @@ export interface RecipeInput {
   targetVolumeL: number
   boilTimeMin: number
   mashEfficiencyPercent: number
+  /** Température du palier d'empâtage principal (°C). */
+  mashTempC: number
   ibuFormula: 'tinseth' | 'rager' | 'garetz'
   equipmentProfileId: string | null
   notes: string | null
@@ -217,6 +222,7 @@ function recipeStatsPayload(input: RecipeInput) {
     target_volume_l: input.targetVolumeL,
     boil_time_min: input.boilTimeMin,
     mash_efficiency_percent: input.mashEfficiencyPercent,
+    mash_temp_c: input.mashTempC,
     ibu_formula: input.ibuFormula,
     equipment_profile_id: input.equipmentProfileId,
     notes: input.notes,
@@ -260,7 +266,8 @@ export async function deleteRecipe(recipeId: string): Promise<void> {
 
 /** Crée une recette à partir d'une recette BeerXML importée (voir src/lib/beerxml). */
 export async function createRecipeFromDraft(userId: string, draft: ParsedRecipeDraft): Promise<string> {
-  const stats = estimateRecipeStats({ ...draft, ibuFormula: 'tinseth' })
+  const mashTempC = draft.mashTempC ?? REFERENCE_MASH_TEMP_C
+  const stats = estimateRecipeStats({ ...draft, mashTempC, ibuFormula: 'tinseth' })
   const styleId = resolveBjcpStyleId(draft.style)
 
   const { data: recipe, error } = await supabase
@@ -273,6 +280,7 @@ export async function createRecipeFromDraft(userId: string, draft: ParsedRecipeD
       target_volume_l: draft.targetVolumeL,
       boil_time_min: draft.boilTimeMin,
       mash_efficiency_percent: draft.mashEfficiencyPercent,
+      mash_temp_c: mashTempC,
       ibu_formula: 'tinseth',
       est_og: stats.og,
       est_fg: stats.fg,
