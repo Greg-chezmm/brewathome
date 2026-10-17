@@ -7,13 +7,13 @@ import { BrewLogo } from '@/components/BrewLogo'
 type Mode = 'link' | 'signin' | 'signup'
 
 export function Login() {
-  const { session, signIn, signUp, signInWithGoogle, sendMagicLink } = useAuth()
+  const { session, redirectNotice, signIn, signUp, signInWithGoogle, sendMagicLink } = useAuth()
   const location = useLocation()
   const [mode, setMode] = useState<Mode>('link')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
-  const [info, setInfo] = useState<string | null>(null)
+  const [info, setInfo] = useState<string | null>(redirectNotice)
   const [submitting, setSubmitting] = useState(false)
 
   if (session) {
@@ -41,8 +41,24 @@ export function Login() {
     setError(null)
     setInfo(null)
     setSubmitting(true)
-    const result =
-      mode === 'link' ? await sendMagicLink(email) : mode === 'signin' ? await signIn(email, password) : await signUp(email, password)
+    if (mode === 'signup') {
+      const result = await signUp(email, password)
+      setSubmitting(false)
+      if (result.error) setError(result.error)
+      else if (result.alreadyRegistered) {
+        setMode('signin')
+        setError('Un compte existe déjà avec cette adresse : connecte-toi (ou utilise Google / un lien par e-mail).')
+      } else if (result.needsConfirmation) {
+        // Une fois le lien cliqué, il suffit de revenir ici et de cliquer « Se connecter » (champs déjà remplis).
+        setMode('signin')
+        setInfo(
+          `Presque fini ! Un e-mail de confirmation a été envoyé à ${email}. Clique sur son lien, puis reviens ici et connecte-toi.`,
+        )
+      }
+      // Sinon (confirmation désactivée), la session arrive et on est redirigé.
+      return
+    }
+    const result = mode === 'link' ? await sendMagicLink(email) : await signIn(email, password)
     setSubmitting(false)
     if (result.error) {
       setError(result.error)
@@ -50,8 +66,6 @@ export function Login() {
     }
     if (mode === 'link') {
       setInfo(`Lien envoyé à ${email}. Ouvre-le sur cet appareil, dans ce navigateur, pour être connecté.`)
-    } else if (mode === 'signup') {
-      setInfo('Compte créé. Si la confirmation par e-mail est activée, vérifie ta boîte mail avant de te connecter.')
     }
   }
 
@@ -135,9 +149,14 @@ export function Login() {
 
         <div className="mt-4 space-y-1 text-center text-sm">
           {mode === 'link' ? (
-            <button type="button" onClick={() => switchMode('signin')} className="text-indigo-600 hover:underline">
-              Utiliser un mot de passe
-            </button>
+            <>
+              <button type="button" onClick={() => switchMode('signin')} className="block w-full text-indigo-600 hover:underline">
+                Utiliser un mot de passe
+              </button>
+              <button type="button" onClick={() => switchMode('signup')} className="block w-full text-slate-500 hover:underline">
+                Pas encore de compte ? S'inscrire
+              </button>
+            </>
           ) : (
             <>
               <button type="button" onClick={() => switchMode('link')} className="block w-full text-indigo-600 hover:underline">

@@ -1,0 +1,12 @@
+<!-- Sujet : Confirme ton inscription à BrewAtHome -->
+<!-- À coller dans Supabase : Authentication → Emails → Templates → « Confirm signup ». -->
+<div style="font-family: -apple-system, 'Segoe UI', Roboto, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px; color: #0f172a">
+  <p style="font-size: 22px; font-weight: 700; margin: 0 0 16px">🍺 BrewAtHome</p>
+  <p style="margin: 0 0 12px">Bienvenue !</p>
+  <p style="margin: 0 0 20px">Clique sur le bouton ci-dessous pour confirmer ton adresse e-mail et activer ton compte.</p>
+  <p style="margin: 0 0 24px">
+    <a href="{{ .ConfirmationURL }}" style="display: inline-block; background: #4f46e5; color: #ffffff; text-decoration: none; font-weight: 600; padding: 12px 24px; border-radius: 999px">Confirmer mon adresse</a>
+  </p>
+  <p style="margin: 0 0 8px; font-size: 13px; color: #64748b">Astuce : ouvre ce lien sur l'appareil et dans le navigateur où tu t'es inscrit, tu seras connecté directement.</p>
+  <p style="margin: 0; font-size: 13px; color: #64748b">Tu n'as pas créé de compte BrewAtHome ? Ignore simplement cet e-mail.</p>
+</div>

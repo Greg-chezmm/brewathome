@@ -69,11 +69,13 @@ Application personnelle de brassage de bière maison (type Brewfather/Little Boc
 - Ingestion automatique iSpindel (Edge Function Supabase). Page Appareils : champs à recopier dans le portail de l'iSpindel (service **HTTPS Post**, firmware 6.6 minimum, 7.3.3 conseillé ; en simple HTTP Supabase redirige vers HTTPS et les mesures sont perdues), marche à suivre de mise à jour du firmware, et mémo des réglages de l'appareil (polynôme, facteur batterie, intervalle, angle dans l'eau) enregistré dans `devices.calibration_coefficients`.
 
 ### Infra
-- Auth Supabase, RLS sur toutes les tables, déploiement GitHub Pages via GitHub Actions, PWA installable (icône : cuve fumante et cône de houblon, `public/favicon.svg` ; PNG 192/512 rendus depuis ce SVG).
+- Auth Supabase (Google, lien par e-mail, e-mail + mot de passe). Inscription par mot de passe : le lien de confirmation ramène sur l'app, messages et erreurs en français, adresse déjà inscrite détectée ; lien ouvert dans un autre navigateur (PKCE impossible) ou expiré expliqué sur la page de connexion (`src/lib/auth/errors.ts`). Modèles d'e-mails en français dans `supabase/templates/` (à coller dans le tableau de bord Supabase).
+- RLS sur toutes les tables, déploiement GitHub Pages via GitHub Actions, PWA installable (icône : cuve fumante et cône de houblon, `public/favicon.svg` ; PNG 192/512 rendus depuis ce SVG).
 - Schéma modélisé avec Drizzle (génération de migrations SQL uniquement — aucune dépendance runtime à Drizzle, tout passe par `supabase-js`).
 
 ## Ce qu'il reste à faire
 
+- E-mails d'auth : configurer un SMTP personnalisé (expéditeur « BrewAtHome » au lieu de « Supabase Auth ») et coller les modèles de `supabase/templates/` dans Authentication → Emails. Écran Google : nom d'app « BrewAtHome » dans Google Cloud.
 - Formulaire de recette, suite : page « base de connaissances » consultable hors formulaire (empâtage, eau, levures).
 - Brewfather, champs encore ignorés à l'import : profil de fermentation, jour du dry hop, quantité de levure, carbonatation (voir « Prochaines étapes »).
 
