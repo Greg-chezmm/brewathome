@@ -3,6 +3,7 @@ import { BatchLayout } from '@/components/batches/BatchLayout'
 import { Layout } from '@/components/Layout'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
 import { Login } from '@/pages/auth/Login'
+import { BatchesHistory } from '@/pages/batches/BatchesHistory'
 import { BatchesList } from '@/pages/batches/BatchesList'
 import { BatchEditRecipe } from '@/pages/batches/BatchEditRecipe'
 import { BatchFermentation } from '@/pages/batches/BatchFermentation'
@@ -38,6 +39,7 @@ export function App() {
           <Route path="/recipes/:recipeId/edit" element={<RecipeEdit />} />
           <Route path="/recipes/:recipeId/validate" element={<RecipeValidate />} />
           <Route path="/batches" element={<BatchesList />} />
+          <Route path="/batches/history" element={<BatchesHistory />} />
           <Route path="/batches/:batchId" element={<BatchLayout />}>
             <Route index element={<BatchOverview />} />
             <Route path="fermentation" element={<BatchFermentation />} />

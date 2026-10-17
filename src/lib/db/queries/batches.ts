@@ -231,6 +231,18 @@ function withMashDefaults(snapshot: RecipeDetails): RecipeDetails {
 export async function getBatchWithDetails(batchId: string): Promise<BatchDetails> {
   const { data, error } = await supabase.from('batches').select('*').eq('id', batchId).single()
   if (error) throw error
+  return batchFromRow(data)
+}
+
+/** Tous les brassins avec leur recette figée et leurs mesures, du plus ancien au plus récent (historique). */
+export async function listBatchesWithDetails(): Promise<BatchDetails[]> {
+  const { data, error } = await supabase.from('batches').select('*').order('created_at', { ascending: true })
+  if (error) throw error
+  return (data ?? []).map(batchFromRow)
+}
+
+/** Ligne brute de supabase-js (Database non typée) → brassin. */
+function batchFromRow(data: Record<string, any>): BatchDetails {
   return {
     id: data.id,
     name: data.name,

@@ -7,7 +7,12 @@ export function BatchesList() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-3xl font-bold tracking-tight text-slate-900">Mes brassins</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-3xl font-bold tracking-tight text-slate-900">Mes brassins</h1>
+        <Link to="/batches/history" className="btn-secondary">
+          📈 Historique
+        </Link>
+      </div>
       {isLoading && <p className="text-slate-500">Chargement…</p>}
       {error && <p className="text-red-600">{(error as Error).message}</p>}
       {batches && batches.length === 0 && (

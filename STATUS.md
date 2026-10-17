@@ -83,6 +83,7 @@ Application personnelle de brassage de bière maison (type Brewfather/Little Boc
 - Brewfather, champs encore ignorés à l'import : profil de fermentation, jour du dry hop, quantité de levure, carbonatation (voir « Prochaines étapes »).
 
 - Export BeerXML (actuellement import seulement).
+- **Diviser une recette en 2 brassins pour un seul fermenteur** (demande utilisateur) : brasser la recette en deux sessions (ex. 2 × 10 L quand la cuve est trop petite) qui finissent dans le même fermenteur. À cadrer : quantités et volumes par session (moitié de la recette, profil d'équipement), deux Brew Days avec leurs mesures, puis une seule fermentation / un seul suivi iSpindel ; DI du fermenteur = moyenne pondérée des volumes.
 - Support Tilt/TiltBridge au-delà de la saisie manuelle.
 - Calculateur de starter de levure — repoussé (petits volumes, pas de starter pour l'instant).
 - Historique/statistiques multi-brassins, export PDF de fiche de recette.
