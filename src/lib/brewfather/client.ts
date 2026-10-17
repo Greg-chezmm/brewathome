@@ -1,4 +1,4 @@
-import type { BrewfatherBatch, BrewfatherCredentials, BrewfatherRecipe } from './types'
+import type { BrewfatherBatch, BrewfatherCredentials, BrewfatherReading, BrewfatherRecipe } from './types'
 
 const API_URL = 'https://api.brewfather.app/v2'
 /** Maximum autorisé par l'API pour une page. */
@@ -52,6 +52,11 @@ async function listAll<T extends { _id: string }>(credentials: BrewfatherCredent
 /** Toutes les recettes du compte (ingrédients, équipement, valeurs calculées par Brewfather). */
 export function listBrewfatherRecipes(credentials: BrewfatherCredentials): Promise<BrewfatherRecipe[]> {
   return listAll<BrewfatherRecipe>(credentials, '/recipes')
+}
+
+/** Tous les relevés de fermentation d'un brassin (iSpindel, Tilt, saisies), en un seul appel. */
+export function listBrewfatherBatchReadings(credentials: BrewfatherCredentials, batchId: string): Promise<BrewfatherReading[]> {
+  return get<BrewfatherReading[]>(credentials, `/batches/${encodeURIComponent(batchId)}/readings`)
 }
 
 /** Tous les brassins du compte, avec leur copie de recette et les mesures saisies. */

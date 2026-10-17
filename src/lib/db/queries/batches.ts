@@ -71,6 +71,8 @@ export interface BatchDetails extends BatchSummary {
   fgMeasured: number | null
   volumeMeasuredL: number | null
   notes: string | null
+  /** Brassin Brewfather d'origine (import ou rattachement) : permet d'en reprendre les relevés. */
+  brewfatherId: string | null
 }
 
 /** Valide une recette en brassin : snapshot figé + génération des étapes de brew day. */
@@ -213,6 +215,7 @@ export async function getBatchWithDetails(batchId: string): Promise<BatchDetails
     fgMeasured: data.fg_measured !== null ? Number(data.fg_measured) : null,
     volumeMeasuredL: data.volume_measured_l !== null ? Number(data.volume_measured_l) : null,
     notes: data.notes,
+    brewfatherId: data.brewfather_id ?? null,
   }
 }
 

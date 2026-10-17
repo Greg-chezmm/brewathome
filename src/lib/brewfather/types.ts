@@ -112,6 +112,25 @@ export interface BrewfatherRecipe {
   mash?: { steps?: BrewfatherMashStep[] } | null
 }
 
+/** Relevé de fermentation d'un brassin Brewfather (`GET /batches/:id/readings`). */
+export interface BrewfatherReading {
+  /** Horodatage en millisecondes depuis l'époque Unix. */
+  time: number
+  /** Densité spécifique (ex. 1.012). */
+  sg?: number | null
+  /** Température en °C. */
+  temp?: number | null
+  /** Angle de l'iSpindel. */
+  angle?: number | null
+  /** Tension de la batterie (V). */
+  battery?: number | null
+  /** Source : « iSpindel », « manual », « Tilt »… */
+  type?: string
+  /** Nom de l'appareil. */
+  id?: string
+  comment?: string | null
+}
+
 /** Statuts d'un brassin Brewfather. */
 export type BrewfatherBatchStatus = 'Planning' | 'Brewing' | 'Fermenting' | 'Conditioning' | 'Completed' | 'Archived'
 

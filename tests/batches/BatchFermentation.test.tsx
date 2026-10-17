@@ -1,0 +1,73 @@
+import { describe, expect, it, vi } from 'vitest'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { BatchFermentation } from '@/pages/batches/BatchFermentation'
+
+vi.mock('recharts', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('recharts')>()),
+  ResponsiveContainer: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+}))
+vi.mock('@/lib/db/queries/batches', () => ({
+  BATCH_STATUS_LABELS: { completed: 'Terminé' },
+  getBatchWithDetails: async () => ({ id: 'b1', name: 'Barley wine', status: 'completed', brewDate: '2025-10-18', brewfatherId: 'bf1' }),
+}))
+vi.mock('@/lib/db/queries/brewfather', () => ({ getBrewfatherAccount: async () => ({ userId: 'u', apiKey: 'k' }) }))
+vi.mock('@/lib/db/queries/devices', () => ({
+  listDevices: async () => [
+    { id: 'd1', name: 'iSpindel Vert', activeBatchId: 'b1', lastSeenAt: new Date().toISOString(), settings: {} },
+    { id: 'd2', name: 'iSpindel Rouge', activeBatchId: null, lastSeenAt: null, settings: {} },
+  ],
+}))
+vi.mock('@/lib/db/queries/fermentation', () => ({
+  listFermentationReadings: async () =>
+    Array.from({ length: 120 }, (_, i) => ({
+      id: `r${i}`,
+      recordedAt: new Date(Date.UTC(2025, 9, 19) + i * 900_000).toISOString(),
+      gravity: 1.1 - i * 0.0005,
+      temperatureC: 18,
+      source: 'ispindel',
+      comment: null,
+      rawAngle: 70,
+      battery: 4.1,
+    })),
+  addFermentationReading: vi.fn(),
+  deleteFermentationReading: vi.fn(),
+  insertFermentationReadings: vi.fn(),
+}))
+
+function renderPage() {
+  render(
+    <QueryClientProvider client={new QueryClient()}>
+      <MemoryRouter initialEntries={['/batches/b1/fermentation']}>
+        <Routes>
+          <Route path="/batches/:batchId/fermentation" element={<BatchFermentation />} />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
+  )
+}
+
+describe('Suivi de fermentation', () => {
+  it('rappelle le brassin et montre l’iSpindel qui lui est rattaché', async () => {
+    renderPage()
+    expect(await screen.findByRole('link', { name: /Barley wine/ })).toHaveAttribute('href', '/batches/b1')
+    expect(await screen.findByText('📡 iSpindel Vert')).toBeInTheDocument()
+    expect(screen.getByText(/Connecté · dernier signal/)).toBeInTheDocument()
+    expect(screen.queryByText(/iSpindel Rouge/)).toBeNull()
+    expect(screen.queryByText(/Associer un iSpindel/)).toBeNull()
+  })
+
+  it('n’affiche que les 50 relevés les plus récents, puis tout à la demande', async () => {
+    renderPage()
+    expect(await screen.findByText(/^120 relevés/)).toBeInTheDocument()
+    expect(screen.getAllByText('Supprimer')).toHaveLength(50)
+    fireEvent.click(screen.getByText('Afficher les 120 relevés'))
+    await waitFor(() => expect(screen.getAllByText('Supprimer')).toHaveLength(120))
+  })
+
+  it('propose d’importer les relevés du brassin Brewfather d’origine', async () => {
+    renderPage()
+    expect(await screen.findByText('Importer les relevés')).toBeInTheDocument()
+  })
+})
