@@ -63,8 +63,8 @@ export function BatchEditRecipe() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight text-slate-900">Modifier la recette de « {batch.name} »</h1>
-        <p className="text-slate-500">
+        <h2 className="section-title">Recette du brassin</h2>
+        <p className="text-sm text-slate-500">
           Ces changements ne s'appliquent qu'à ce brassin — la recette d'origine (si elle existe encore) n'est pas
           modifiée.
         </p>

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useParams } from 'react-router-dom'
-import { ChevronLeft, Download } from 'lucide-react'
+import { Download } from 'lucide-react'
 import {
   CartesianGrid,
   Legend,
@@ -16,7 +16,7 @@ import { listBrewfatherBatchReadings } from '@/lib/brewfather/client'
 import { brewfatherReadingsToImport } from '@/lib/brewfather/readings'
 import { MeasurementsPanel } from '@/components/batches/MeasurementsPanel'
 import { ConnectionBadge } from '@/components/devices/ConnectionBadge'
-import { BATCH_STATUS_LABELS, getBatchWithDetails } from '@/lib/db/queries/batches'
+import { getBatchWithDetails } from '@/lib/db/queries/batches'
 import { getBrewfatherAccount } from '@/lib/db/queries/brewfather'
 import { listDevices, setDeviceActiveBatch } from '@/lib/db/queries/devices'
 import {
@@ -145,31 +145,13 @@ export function BatchFermentation() {
 
   return (
     <div className="space-y-8">
-      <div>
-        <Link
-          to={`/batches/${batchId}`}
-          className="-ml-1 inline-flex items-center gap-1 text-sm font-medium text-indigo-600 hover:underline"
-        >
-          <ChevronLeft size={16} /> {batch?.name ?? 'Retour au brassin'}
-        </Link>
-        <div className="mt-1 flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight text-slate-900">Suivi de fermentation</h1>
-            {batch && (
-              <p className="mt-0.5 flex flex-wrap items-center gap-2 text-sm text-slate-500">
-                <span className="font-medium text-slate-700">{batch.name}</span>
-                <span className="badge">{BATCH_STATUS_LABELS[batch.status]}</span>
-                {batch.brewDate && <span>brassé le {new Date(batch.brewDate).toLocaleDateString('fr-FR')}</span>}
-              </p>
-            )}
-          </div>
-          {linkedDevices.length === 0 && (
-            <Link to="/devices" className="btn-secondary btn-sm">
-              📡 Associer un iSpindel
-            </Link>
-          )}
+      {linkedDevices.length === 0 && (
+        <div className="flex justify-end">
+          <Link to="/devices" className="btn-secondary btn-sm">
+            📡 Associer un iSpindel
+          </Link>
         </div>
-      </div>
+      )}
 
       {stability?.stable && batch && (
         <div role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">

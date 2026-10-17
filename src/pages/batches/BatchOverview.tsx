@@ -85,26 +85,12 @@ export function BatchOverview() {
 
   return (
     <div className="space-y-8">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">{batch.name}</h1>
-          <p className="text-slate-500">{batch.brewDate ?? 'Date non définie'}</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="badge">{STATUS_LABELS[batch.status]}</span>
-          <button onClick={handleDelete} className="btn-danger">
-            Supprimer
-          </button>
-        </div>
-      </div>
-
       <div className="flex flex-wrap gap-2">
-        <Link to={`/batches/${batchId}/brew-day`} className="btn-primary">
-          Mode Brew Day
-        </Link>
-        <Link to={`/batches/${batchId}/fermentation`} className="btn-secondary">
-          Suivi de fermentation
-        </Link>
+        {(batch.status === 'planned' || batch.status === 'brew_day') && (
+          <Link to={`/batches/${batchId}/brew-day`} className="btn-primary">
+            Lancer le Brew Day
+          </Link>
+        )}
         <Link to={`/tools?${toolsParams}`} className="btn-secondary">
           Outils (levure, resucrage…)
         </Link>
@@ -113,6 +99,9 @@ export function BatchOverview() {
             Passer à l'étape suivante ({STATUS_LABELS[STATUS_FLOW[STATUS_FLOW.indexOf(batch.status) + 1]]})
           </button>
         )}
+        <button onClick={handleDelete} className="btn-danger ml-auto">
+          Supprimer
+        </button>
       </div>
 
       <section className="card">

@@ -74,9 +74,8 @@ function renderPage() {
 }
 
 describe('Suivi de fermentation', () => {
-  it('rappelle le brassin et montre l’iSpindel qui lui est rattaché', async () => {
+  it('montre l’iSpindel rattaché au brassin', async () => {
     renderPage()
-    expect(await screen.findByRole('link', { name: /Barley wine/ })).toHaveAttribute('href', '/batches/b1')
     expect(await screen.findByText('📡 iSpindel Vert')).toBeInTheDocument()
     expect(screen.getByText(/Connecté · dernier signal/)).toBeInTheDocument()
     expect(screen.queryByText(/iSpindel Rouge/)).toBeNull()
