@@ -99,6 +99,13 @@
       "when": 1792245633109,
       "tag": "0013_useful_madame_web",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1792246133270,
+      "tag": "0014_ispindel_service_role_grants",
+      "breakpoints": true
     }
   ]
 }
