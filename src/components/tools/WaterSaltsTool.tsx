@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import {
   BREWING_SALT_LABELS,
   WATER_TARGETS,
@@ -97,7 +98,10 @@ export function WaterSaltsTool({ defaultVolumeL }: { defaultVolumeL?: number }) 
       <h2 className="section-title mb-1">Sels minéraux</h2>
       <p className="mb-3 text-sm text-slate-500">
         Profil de l'eau après ajout de sels. Partez de l'analyse de votre eau (fiche qualité de la commune, ou 0 partout
-        pour une eau osmosée) ; elle est mémorisée dans ce navigateur.
+        pour une eau osmosée) ; elle est mémorisée dans ce navigateur.{' '}
+        <Link to="/ingredients?tab=mash-water" className="font-medium text-indigo-600 hover:underline">
+          Rôle de chaque ion
+        </Link>
       </p>
 
       <h3 className="mb-1 text-sm font-semibold text-slate-700">Eau de départ (ppm = mg/L)</h3>

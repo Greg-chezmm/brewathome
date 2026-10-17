@@ -46,4 +46,15 @@ describe('Page Ingrédients', () => {
     fireEvent.click(screen.getByRole('button', { name: /Malts & céréales/ }))
     expect(screen.getByRole('heading', { name: 'Malt d’épeautre' })).toBeInTheDocument()
   })
+
+  it('onglet Empâtage & eau : paliers, ions et profils cibles, sans recherche', () => {
+    renderGuide('/ingredients?tab=mash-water')
+    expect(screen.queryByLabelText('Rechercher un ingrédient')).not.toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Les températures d’empâtage' })).toBeInTheDocument()
+    expect(screen.getByText('Bêta-amylase : bière sèche')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Les ions de l’eau' })).toBeInTheDocument()
+    // Profil « Houblonnée sèche » : 250 ppm de sulfates pour 60 de chlorures.
+    const hoppy = screen.getByText('Houblonnée sèche').closest('tr')!
+    expect(hoppy).toHaveTextContent('4,2')
+  })
 })

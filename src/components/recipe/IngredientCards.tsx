@@ -676,6 +676,11 @@ export function MashStepCards({ steps, onChange }: { steps: MashStep[]; onChange
       title="Empâtage"
       hint="Les paliers de température de la maische, dans l'ordre. Le palier principal (le plus long, hors mash-out) décide de la fermentescibilité du moût : c'est lui qui ajuste l'atténuation estimée. Au Brew Day, chaque palier devient une étape minutée."
       summary={`${steps.length} palier${steps.length > 1 ? 's' : ''} · ${fmt(totalMashTimeMin(steps))} min au total`}
+      tools={
+        <Link to="/ingredients?tab=mash-water" className="text-sm font-medium text-indigo-600 hover:underline">
+          Guide : températures et profils d’empâtage
+        </Link>
+      }
       addLabel="Ajouter un palier"
       onAdd={() => onChange(withNewMashStep(steps))}
       empty="Aucun palier."

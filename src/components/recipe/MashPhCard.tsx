@@ -94,7 +94,10 @@ export function MashPhCard({ fermentables, mashWaterL }: { fermentables: Ferment
       )}
       <p className="mt-3 text-xs text-slate-400">
         Estimation (±0,1 à 0,2) : mesurez au pH-mètre 10–15 min après l’empâtage, sur un échantillon refroidi, et notez-le dans les mesures du
-        brassin.
+        brassin.{' '}
+        <Link to="/ingredients?tab=mash-water" className="font-medium text-indigo-600 hover:underline">
+          Comprendre le pH et l’eau
+        </Link>
       </p>
     </section>
   )

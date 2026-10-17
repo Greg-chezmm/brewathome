@@ -13,13 +13,16 @@ import {
   type HopGuide,
   type YeastGuide,
 } from '@/data/ingredients'
+import { MashWaterGuide } from '@/components/ingredients/MashWaterGuide'
 
-type Tab = 'malts' | 'hops' | 'yeasts'
+type Tab = 'malts' | 'hops' | 'yeasts' | 'mash-water'
 
-const TABS: { id: Tab; label: string }[] = [
-  { id: 'malts', label: 'Malts & céréales' },
+/** `short` : libellé sur mobile, pour que les quatre onglets tiennent sur la largeur. */
+const TABS: { id: Tab; label: string; short?: string }[] = [
+  { id: 'malts', label: 'Malts & céréales', short: 'Malts' },
   { id: 'hops', label: 'Houblons' },
   { id: 'yeasts', label: 'Levures' },
+  { id: 'mash-water', label: 'Empâtage & eau' },
 ]
 
 /** DI d'exemple pour traduire l'atténuation en DF attendue. */
@@ -69,7 +72,7 @@ export function IngredientsGuide() {
   // ?q= : ouvert depuis la fiche d'un ingrédient de recette.
   const [query, setQuery] = useState(() => params.get('q') ?? '')
 
-  const counts = useMemo(
+  const counts = useMemo<Partial<Record<Tab, number>>>(
     () => ({
       malts: FERMENTABLE_LIBRARY.filter((f) => fermentableMatches(query, f)).length,
       hops: HOP_LIBRARY.filter((h) => hopMatches(query, h)).length,
@@ -90,11 +93,12 @@ export function IngredientsGuide() {
       <div>
         <h1 className="text-3xl font-bold tracking-tight text-slate-900">Ingrédients</h1>
         <p className="text-slate-600">
-          À quoi sert chaque malt, houblon ou levure, en quelle quantité, et par quoi le remplacer s’il manque. Valeurs
-          typiques : l’étiquette du fabricant fait foi.
+          À quoi sert chaque malt, houblon ou levure, en quelle quantité, et par quoi le remplacer s’il manque ; comment régler
+          l’empâtage et l’eau. Valeurs typiques : l’étiquette du fabricant fait foi.
         </p>
       </div>
 
+      {tab !== 'mash-water' && (
       <div className="relative">
         <Search size={18} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
         <label htmlFor="ingredient-search" className="sr-only">
@@ -119,20 +123,28 @@ export function IngredientsGuide() {
           </button>
         )}
       </div>
+      )}
 
-      <nav aria-label="Familles d’ingrédients" className="flex gap-1 overflow-x-auto border-b border-slate-200">
+      <nav aria-label="Familles d’ingrédients" className="flex overflow-x-auto border-b border-slate-200 sm:gap-1">
         {TABS.map((t) => (
           <button
             key={t.id}
             type="button"
             onClick={() => selectTab(t.id)}
             aria-current={tab === t.id ? 'page' : undefined}
-            className={`-mb-px shrink-0 border-b-2 px-3 py-2.5 text-sm font-medium transition-colors ${
+            className={`-mb-px shrink-0 border-b-2 px-2 py-2.5 sm:px-3 text-sm font-medium transition-colors ${
               tab === t.id ? 'border-indigo-600 text-indigo-700' : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
-            {t.label}
-            {query && <span className="ml-1 text-xs text-slate-400">({counts[t.id]})</span>}
+            {t.short ? (
+              <>
+                <span className="sm:hidden">{t.short}</span>
+                <span className="hidden sm:inline">{t.label}</span>
+              </>
+            ) : (
+              t.label
+            )}
+            {query && counts[t.id] !== undefined && <span className="ml-1 text-xs text-slate-400">({counts[t.id]})</span>}
           </button>
         ))}
       </nav>
@@ -140,6 +152,7 @@ export function IngredientsGuide() {
       {tab === 'malts' && <MaltsSection query={query} onPick={showIngredient} />}
       {tab === 'hops' && <HopsSection query={query} onPick={showIngredient} />}
       {tab === 'yeasts' && <YeastsSection query={query} onPick={showIngredient} />}
+      {tab === 'mash-water' && <MashWaterGuide />}
     </div>
   )
 }
