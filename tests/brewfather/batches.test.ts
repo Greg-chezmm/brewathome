@@ -29,6 +29,27 @@ describe('brewfatherBatchToImport', () => {
     })
   })
 
+  it('reprend aussi les mesures du Brew Day (volumes, densités intermédiaires, conditionnement)', () => {
+    const imported = brewfatherBatchToImport({
+      ...barleyWine,
+      measuredBoilSize: 16,
+      measuredKettleSize: 12.5,
+      measuredPostBoilGravity: 1.085,
+      measuredFermenterTopUp: 0,
+      measuredBottlingSize: 9.5,
+      measuredBottlingTemp: 18,
+    })
+    // Appoint à 0 : rien de saisi, donc rien de repris.
+    expect(imported.measurements).toEqual({
+      preBoilVolumeL: 16,
+      preBoilGravity: 1.063,
+      postBoilVolumeL: 12.5,
+      postBoilGravity: 1.085,
+      packagingVolumeL: 9.5,
+      maxFermentationTempC: 18,
+    })
+  })
+
   it('date le brassage dans le fuseau du brasseur (Brewfather stocke minuit local)', () => {
     process.env.TZ = 'Europe/Paris'
     // 2025-10-24T22:00Z : minuit le 25 à Paris.

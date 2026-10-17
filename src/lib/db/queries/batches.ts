@@ -1,4 +1,5 @@
 import { effectiveMashSteps, mainMashTempC } from '@/lib/brew-calc/mash'
+import type { MeasurementKey, MeasurementValues } from '@/lib/brew-day/measurements'
 import { estimateRecipeStats, REFERENCE_MASH_TEMP_C } from '@/lib/brew-calc/recipe-stats'
 import type { EquipmentProfile } from '@/lib/brew-calc/types'
 import { buildBatchSteps, planBatchStepsUpdate, type NewBatchStep } from '@/lib/brew-day/steps'
@@ -17,6 +18,21 @@ export const BATCH_STATUS_LABELS: Record<BatchStatus, string> = {
   conditioning: 'Conditionnement',
   completed: 'Terminé',
 }
+/** Colonne de `batches` de chaque mesure. */
+const MEASUREMENT_COLUMNS: Record<MeasurementKey, string> = {
+  mashPh: 'mash_ph_measured',
+  preBoilVolumeL: 'pre_boil_volume_measured_l',
+  preBoilGravity: 'pre_boil_gravity_measured',
+  postBoilVolumeL: 'post_boil_volume_measured_l',
+  postBoilGravity: 'post_boil_gravity_measured',
+  fermenterTopUpL: 'fermenter_top_up_l',
+  fermenterVolumeL: 'volume_measured_l',
+  og: 'og_measured',
+  fg: 'fg_measured',
+  packagingVolumeL: 'packaging_volume_l',
+  maxFermentationTempC: 'max_fermentation_temp_c',
+}
+
 export type BatchStepType =
   | 'preparation'
   | 'strike-water'
@@ -69,6 +85,8 @@ export interface BatchDetails extends BatchSummary {
   recipeSnapshot: RecipeDetails
   ogMeasured: number | null
   fgMeasured: number | null
+  /** Mesures du Brew Day et du conditionnement (voir `MEASUREMENTS`) ; DI, DF et volume fermenteur compris. */
+  measurements: MeasurementValues
   volumeMeasuredL: number | null
   notes: string | null
   /** Brassin Brewfather d'origine (import ou rattachement) : permet d'en reprendre les relevés. */
@@ -154,6 +172,9 @@ export async function createBatchFromBrewfather(userId: string, imported: Brewfa
       og_measured: imported.ogMeasured,
       fg_measured: imported.fgMeasured,
       volume_measured_l: imported.volumeMeasuredL,
+      ...Object.fromEntries(
+        Object.entries(imported.measurements).map(([key, value]) => [MEASUREMENT_COLUMNS[key as MeasurementKey], value]),
+      ),
       brewfather_id: imported.brewfatherId,
     })
     .select('id')
@@ -214,6 +235,10 @@ export async function getBatchWithDetails(batchId: string): Promise<BatchDetails
     ogMeasured: data.og_measured !== null ? Number(data.og_measured) : null,
     fgMeasured: data.fg_measured !== null ? Number(data.fg_measured) : null,
     volumeMeasuredL: data.volume_measured_l !== null ? Number(data.volume_measured_l) : null,
+    measurements: Object.fromEntries(
+      // Colonnes ajoutées en 0015 : absentes (undefined) tant que la migration n'est pas appliquée.
+      Object.entries(MEASUREMENT_COLUMNS).map(([key, column]) => [key, data[column] != null ? Number(data[column]) : null]),
+    ) as MeasurementValues,
     notes: data.notes,
     brewfatherId: data.brewfather_id ?? null,
   }
@@ -373,14 +398,15 @@ export async function deleteBatch(batchId: string): Promise<void> {
   if (error) throw error
 }
 
+/** Enregistre les mesures fournies ; `null` efface une mesure, une clé absente la laisse telle quelle. */
 export async function updateBatchMeasurements(
   batchId: string,
-  measurements: { ogMeasured?: number; fgMeasured?: number; volumeMeasuredL?: number },
+  measurements: Partial<Record<MeasurementKey, number | null>>,
 ): Promise<void> {
-  const payload: Record<string, number> = {}
-  if (measurements.ogMeasured !== undefined) payload.og_measured = measurements.ogMeasured
-  if (measurements.fgMeasured !== undefined) payload.fg_measured = measurements.fgMeasured
-  if (measurements.volumeMeasuredL !== undefined) payload.volume_measured_l = measurements.volumeMeasuredL
+  const payload: Record<string, number | null> = {}
+  for (const [key, value] of Object.entries(measurements) as [MeasurementKey, number | null | undefined][]) {
+    if (value !== undefined) payload[MEASUREMENT_COLUMNS[key]] = value
+  }
   const { error } = await supabase.from('batches').update(payload).eq('id', batchId)
   if (error) throw error
 }

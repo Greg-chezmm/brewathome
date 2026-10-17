@@ -22,6 +22,7 @@ export function StepCard({
   onToggleItem,
   onStart,
   onStop,
+  measurement,
 }: {
   step: BatchStep
   guide: StepGuide
@@ -35,6 +36,8 @@ export function StepCard({
   onToggleItem: (itemId: string) => void
   onStart: () => void
   onStop: () => void
+  /** Densité à relever à cette étape (pré-ébullition, fin d'ébullition, DI), comparée à la recette. */
+  measurement?: React.ReactNode
 }) {
   const { triggerAtSeconds, isDue } = timing
 
@@ -111,6 +114,7 @@ export function StepCard({
         )}
       </div>
 
+      {measurement}
       {guide.tips.length > 0 && (
         <div className="flex gap-3 rounded-3xl bg-amber-50 p-4 text-sm text-amber-900">
           <Lightbulb size={20} className="mt-0.5 shrink-0 text-amber-500" />

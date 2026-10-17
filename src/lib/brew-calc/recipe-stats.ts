@@ -34,6 +34,8 @@ export interface RecipeCalculation extends RecipeStats {
   calculationVolumeL: number
   /** Densité avant ébullition (§2) — null sans profil d'équipement. */
   preBoilGravity: number | null
+  /** Densité de fin d'ébullition, refroidie : la DI sans les ajouts faits en fermenteur. */
+  postBoilGravity: number
   /** Densité d'ébullition utilisée pour l'IBU : moyenne pré-ébullition / DI hors ajouts en fermentation. */
   boilGravity: number
   /** Couleur en EBC (§3). */
@@ -130,6 +132,7 @@ export function computeRecipe(input: RecipeStatsInput): RecipeCalculation {
     volumes,
     calculationVolumeL,
     preBoilGravity,
+    postBoilGravity: boiledOg,
     boilGravity,
     ibuByHop,
     attenuationPercent,

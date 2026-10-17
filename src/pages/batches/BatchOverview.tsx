@@ -1,14 +1,23 @@
-import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import { BatchSummaryTable } from '@/components/batches/BatchSummaryTable'
+import { MeasurementsPanel } from '@/components/batches/MeasurementsPanel'
 import { calculateABV_simple } from '@/lib/brew-calc/abv'
+import { calculateFG } from '@/lib/brew-calc/gravity'
+import {
+  MEASUREMENTS,
+  apparentAttenuation,
+  batchSummary,
+  plannedMeasurements,
+  type MeasurementKey,
+} from '@/lib/brew-day/measurements'
 import {
   deleteBatch,
   getBatchWithDetails,
-  updateBatchMeasurements,
   updateBatchStatus,
   type BatchStatus,
 } from '@/lib/db/queries/batches'
+import { getEquipmentProfile } from '@/lib/db/queries/equipmentProfiles'
 
 const STATUS_FLOW: BatchStatus[] = ['planned', 'brew_day', 'fermentation', 'conditioning', 'completed']
 const STATUS_LABELS: Record<BatchStatus, string> = {
@@ -28,8 +37,12 @@ export function BatchOverview() {
     queryFn: () => getBatchWithDetails(batchId!),
     enabled: !!batchId,
   })
-  const [og, setOg] = useState('')
-  const [fg, setFg] = useState('')
+  const equipmentProfileId = batch?.recipeSnapshot.equipmentProfileId
+  const { data: equipmentProfile } = useQuery({
+    queryKey: ['equipment-profile', equipmentProfileId],
+    queryFn: () => getEquipmentProfile(equipmentProfileId!),
+    enabled: !!equipmentProfileId,
+  })
 
   if (!batch) return <p className="text-slate-500">Chargement…</p>
 
@@ -44,8 +57,13 @@ export function BatchOverview() {
     toolsParams.set('yeast', recipe.yeasts[0].style)
     toolsParams.set('form', recipe.yeasts[0].type)
   }
-  const actualAbv =
-    batch.ogMeasured !== null && batch.fgMeasured !== null ? calculateABV_simple(batch.ogMeasured, batch.fgMeasured) : null
+  const planned = plannedMeasurements(recipe, equipmentProfile)
+  const { og, fg } = batch.measurements
+  // DI mesurée sans DF : degré attendu en gardant l'atténuation prévue par la recette.
+  const projectedAbv =
+    og !== null && fg === null && planned.og !== null && planned.fg !== null
+      ? calculateABV_simple(og, calculateFG(og, apparentAttenuation(planned.og, planned.fg)))
+      : null
 
   async function advanceStatus() {
     if (!batchId) return
@@ -64,14 +82,6 @@ export function BatchOverview() {
     navigate('/batches')
   }
 
-  async function saveMeasurements() {
-    if (!batchId) return
-    await updateBatchMeasurements(batchId, {
-      ogMeasured: og ? Number.parseFloat(og) : undefined,
-      fgMeasured: fg ? Number.parseFloat(fg) : undefined,
-    })
-    queryClient.invalidateQueries({ queryKey: ['batch', batchId] })
-  }
 
   return (
     <div className="space-y-8">
@@ -121,34 +131,28 @@ export function BatchOverview() {
         </p>
       </section>
 
+      <MeasurementsPanel
+        batchId={batch.id}
+        fields={Object.keys(MEASUREMENTS) as MeasurementKey[]}
+        measured={batch.measurements}
+        planned={planned}
+        recipe={recipe}
+        equipment={equipmentProfile}
+        title="Mesures du brassin"
+      />
+
       <section className="card">
-        <h2 className="section-title mb-2">Mesures réelles</h2>
-        <div className="flex flex-wrap items-end gap-3">
-          <div>
-            <label className="field-label">OG mesurée</label>
-            <input
-              type="number"
-              step="0.001"
-              defaultValue={batch.ogMeasured ?? ''}
-              onChange={(e) => setOg(e.target.value)}
-              className="field-input w-28"
-            />
-          </div>
-          <div>
-            <label className="field-label">FG mesurée</label>
-            <input
-              type="number"
-              step="0.001"
-              defaultValue={batch.fgMeasured ?? ''}
-              onChange={(e) => setFg(e.target.value)}
-              className="field-input w-28"
-            />
-          </div>
-          <button onClick={saveMeasurements} className="btn-primary">
-            Enregistrer
-          </button>
-        </div>
-        {actualAbv !== null && <p className="mt-2 text-sm font-medium text-indigo-600">ABV réel calculé : {actualAbv.toFixed(2)}%</p>}
+        <h2 className="section-title mb-1">Résumé : recette / brassin</h2>
+        <p className="mb-3 text-sm text-slate-500">
+          Saisissez les mesures au Brew Day (chaque étape propose les siennes) ou ci-dessus. Seules la DI et la DF sont
+          indispensables ; volumes et densités intermédiaires donnent les efficacités réelles.
+        </p>
+        <BatchSummaryTable rows={batchSummary(recipe, equipmentProfile, batch.measurements)} />
+        {projectedAbv !== null && (
+          <p className="mt-3 text-sm text-slate-600">
+            Avec la DI mesurée, alcool attendu : <strong>{projectedAbv.toFixed(1)} %</strong> (atténuation de la recette).
+          </p>
+        )}
       </section>
     </div>
   )

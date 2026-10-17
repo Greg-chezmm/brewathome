@@ -179,7 +179,7 @@ export function stepGuide(step: BatchStep, ctx: StepGuideContext): StepGuide {
             .filter((h) => h.use === 'first-wort')
             .map((h, i) => ({ id: `fwh-${i}`, label: `Ajouter ${h.amountG} g de ${h.name} (first wort) dès maintenant` })),
           { id: 'volume', label: volumes ? `Vérifier le volume : ~${fmtL(volumes.preBoilVolumeL)}` : 'Vérifier le volume pré-ébullition' },
-          { id: 'gravity', label: 'Mesurer la densité pré-ébullition (échantillon refroidi)', optional: true },
+          { id: 'gravity', label: 'Mesurer la densité pré-ébullition (échantillon refroidi) et la saisir ci-dessous', optional: true },
           { id: 'watch', label: 'Surveiller la montée : écumer la mousse pour éviter le débordement' },
         ],
         tips: [
@@ -241,6 +241,7 @@ export function stepGuide(step: BatchStep, ctx: StepGuideContext): StepGuide {
           { id: 'cool', label: 'Refroidir le plus vite possible sous 25 °C (serpentin ou échangeur à plaques)' },
           { id: 'whirl', label: 'Remuer en cercle (tourbillon) puis laisser reposer 10–15 min', optional: true },
           { id: 'target', label: `Viser ${fermentTemp} pour l'ensemencement` },
+          { id: 'gravity', label: "Mesurer la densité de fin d'ébullition et la saisir ci-dessous", optional: true },
         ],
         tips: [
           "Refroidir vite est crucial : un moût tiède est la cible idéale des bactéries.",
@@ -273,7 +274,7 @@ export function stepGuide(step: BatchStep, ctx: StepGuideContext): StepGuide {
         tips: [
           "L'oxygène est indispensable au départ : c'est lui qui permet aux levures de se multiplier.",
           "N'ensemence que sous 20–25 °C : trop chaud, la levure produit des arômes de solvant ou meurt.",
-          'Note la densité mesurée dans le suivi de fermentation.',
+          'La densité saisie ci-dessus devient la DI du brassin, comparée à celle de la recette.',
         ],
       }
 

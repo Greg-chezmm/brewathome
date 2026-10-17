@@ -199,6 +199,16 @@ export const batches = pgTable('batches', {
   })
     .notNull()
     .default('planned'),
+  // Mesures relevées pendant le Brew Day (comme Brewfather) : comparées à la recette, elles donnent
+  // les efficacités réelles. Volumes avant/après ébullition mesurés à chaud.
+  mashPhMeasured: numeric('mash_ph_measured', { precision: 4, scale: 2 }),
+  preBoilVolumeMeasuredL: numeric('pre_boil_volume_measured_l', { precision: 6, scale: 2 }),
+  preBoilGravityMeasured: numeric('pre_boil_gravity_measured', { precision: 5, scale: 3 }),
+  postBoilVolumeMeasuredL: numeric('post_boil_volume_measured_l', { precision: 6, scale: 2 }),
+  postBoilGravityMeasured: numeric('post_boil_gravity_measured', { precision: 5, scale: 3 }),
+  fermenterTopUpL: numeric('fermenter_top_up_l', { precision: 6, scale: 2 }),
+  packagingVolumeL: numeric('packaging_volume_l', { precision: 6, scale: 2 }),
+  maxFermentationTempC: numeric('max_fermentation_temp_c', { precision: 4, scale: 1 }),
   ogMeasured: numeric('og_measured', { precision: 5, scale: 3 }),
   fgMeasured: numeric('fg_measured', { precision: 5, scale: 3 }),
   volumeMeasuredL: numeric('volume_measured_l', { precision: 6, scale: 2 }),

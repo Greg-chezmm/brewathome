@@ -14,6 +14,7 @@ import {
 } from 'recharts'
 import { listBrewfatherBatchReadings } from '@/lib/brewfather/client'
 import { brewfatherReadingsToImport } from '@/lib/brewfather/readings'
+import { MeasurementsPanel } from '@/components/batches/MeasurementsPanel'
 import { ConnectionBadge } from '@/components/devices/ConnectionBadge'
 import { BATCH_STATUS_LABELS, getBatchWithDetails } from '@/lib/db/queries/batches'
 import { getBrewfatherAccount } from '@/lib/db/queries/brewfather'
@@ -26,6 +27,7 @@ import {
   type FermentationReading,
 } from '@/lib/db/queries/fermentation'
 import { seriesWithGaps } from '@/lib/fermentation/chart'
+import { plannedMeasurements } from '@/lib/brew-day/measurements'
 import { gravityStability } from '@/lib/fermentation/stability'
 
 /** Relevés affichés avant « Tout afficher » : un iSpindel en envoie ~100 par jour. */
@@ -161,7 +163,7 @@ export function BatchFermentation() {
         </div>
       </div>
 
-      {stability?.stable && (
+      {stability?.stable && batch && (
         <div role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
           <p className="font-semibold">
             Densité stable à {stability.gravity.toFixed(3)} depuis {Math.floor(stability.stableDays)} jours : la fermentation
@@ -171,12 +173,19 @@ export function BatchFermentation() {
             {apparentAttenuation !== null && (
               <>Atténuation apparente {apparentAttenuation.toFixed(0)} %. </>
             )}
-            Confirmez par une mesure au densimètre (l'iSpindel peut dériver), puis saisissez la DF sur{' '}
-            <Link to={`/batches/${batchId}`} className="font-medium underline">
-              la page du brassin
-            </Link>
-            .
+            Confirmez par une mesure au densimètre (l'iSpindel peut dériver) et saisissez-la comme DF :
           </p>
+          <div className="mt-3">
+            <MeasurementsPanel
+              batchId={batch.id}
+              fields={['fg']}
+              measured={batch.measurements}
+              planned={plannedMeasurements(batch.recipeSnapshot, null)}
+              recipe={batch.recipeSnapshot}
+              equipment={null}
+              title="Densité finale"
+            />
+          </div>
         </div>
       )}
 

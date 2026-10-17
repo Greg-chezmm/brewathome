@@ -1,5 +1,6 @@
 import type { EquipmentProfile } from '@/lib/brew-calc/types'
 import type { ParsedRecipeDraft } from '@/lib/beerxml/types'
+import type { MeasurementKey } from '@/lib/brew-day/measurements'
 import type { BatchStatus } from '@/lib/db/queries/batches'
 import { brewfatherEquipmentToProfile, brewfatherRecipeToDraft } from './mapping'
 import type { BrewfatherBatch } from './types'
@@ -23,6 +24,8 @@ export interface BrewfatherBatchImport {
   ogMeasured: number | null
   fgMeasured: number | null
   volumeMeasuredL: number | null
+  /** Autres mesures du Brew Day (volumes, densités intermédiaires, pH…), quand Brewfather les a. */
+  measurements: Partial<Record<MeasurementKey, number>>
   /** Copie de la recette du brassin (null si Brewfather n'en a pas renvoyé). */
   draft: ParsedRecipeDraft | null
   equipment: EquipmentProfile | null
@@ -60,6 +63,18 @@ export function brewfatherBatchToImport(batch: BrewfatherBatch): BrewfatherBatch
     ogMeasured: measured(batch.measuredOg),
     fgMeasured: measured(batch.measuredFg),
     volumeMeasuredL: measured(batch.measuredBatchSize),
+    measurements: Object.fromEntries(
+      Object.entries({
+        mashPh: measured(batch.measuredMashPh),
+        preBoilVolumeL: measured(batch.measuredBoilSize),
+        preBoilGravity: measured(batch.measuredPreBoilGravity),
+        postBoilVolumeL: measured(batch.measuredKettleSize),
+        postBoilGravity: measured(batch.measuredPostBoilGravity),
+        fermenterTopUpL: measured(batch.measuredFermenterTopUp),
+        packagingVolumeL: measured(batch.measuredBottlingSize),
+        maxFermentationTempC: measured(batch.measuredBottlingTemp),
+      }).filter(([, value]) => value !== null),
+    ),
     draft: recipe ? { ...brewfatherRecipeToDraft(recipe), name: batchName(batch) } : null,
     equipment: recipe ? brewfatherEquipmentToProfile(recipe) : null,
   }

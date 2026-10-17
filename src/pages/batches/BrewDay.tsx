@@ -13,6 +13,7 @@ import {
   VolumeX,
   X,
 } from 'lucide-react'
+import { MeasurementsPanel } from '@/components/batches/MeasurementsPanel'
 import { StepCard } from '@/components/brew-day/StepCard'
 import { StepOverview } from '@/components/brew-day/StepOverview'
 import { additionTiming, groupSteps } from '@/components/brew-day/stepMeta'
@@ -21,6 +22,7 @@ import { formatDuration, useNowTick } from '@/hooks/useBrewTimer'
 import { useWakeLock } from '@/hooks/useWakeLock'
 import { calculateVolumes } from '@/lib/brew-calc/volumes'
 import { checklistProgress, stepGuide, type StepGuide } from '@/lib/brew-day/checklist'
+import { plannedMeasurements, type MeasurementKey } from '@/lib/brew-day/measurements'
 import {
   getBatchSteps,
   isStepFinished,
@@ -29,8 +31,17 @@ import {
   updateBatchStepChecklist,
   updateBatchStepStatus,
   type BatchStep,
+  type BatchStepType,
 } from '@/lib/db/queries/batches'
 import { getEquipmentProfile } from '@/lib/db/queries/equipmentProfiles'
+
+/** Mesures à relever à chaque étape (comme dans Brewfather), comparées aux valeurs de la recette. */
+const STEP_MEASUREMENTS: Partial<Record<BatchStepType, MeasurementKey[]>> = {
+  mash: ['mashPh'],
+  'heat-to-boil': ['preBoilVolumeL', 'preBoilGravity'],
+  cooling: ['postBoilVolumeL', 'postBoilGravity'],
+  pitch: ['fermenterTopUpL', 'fermenterVolumeL', 'og'],
+}
 
 export function BrewDay() {
   const { batchId } = useParams<{ batchId: string }>()
@@ -73,6 +84,8 @@ export function BrewDay() {
     ? recipe.fermentables.filter((f) => f.type === 'grain').reduce((sum, f) => sum + f.amountKg, 0)
     : 0
   const volumes = recipe && equipmentProfile ? calculateVolumes(recipe.targetVolumeL, totalGrainKg, recipe.boilTimeMin, equipmentProfile) : null
+
+  const planned = useMemo(() => (recipe ? plannedMeasurements(recipe, equipmentProfile) : null), [recipe, equipmentProfile])
 
   const guides = useMemo(() => {
     const map = new Map<string, StepGuide>()
@@ -157,6 +170,7 @@ export function BrewDay() {
 
   const groups = groupSteps(steps)
   const activeStep = activeIndex !== null ? steps[activeIndex] : undefined
+  const activeMeasurements = activeStep ? STEP_MEASUREMENTS[activeStep.stepType] : undefined
   const activeGroup = groups.find((g) => g.steps.some(({ index }) => index === activeIndex))
   const positionInGroup = activeGroup ? activeGroup.steps.findIndex(({ index }) => index === activeIndex) : -1
   const checklistTotals = new Map(
@@ -311,6 +325,19 @@ export function BrewDay() {
               onToggleItem={(itemId) => toggleItem(activeStep, itemId)}
               onStart={() => startStep(activeStep)}
               onStop={() => resetStep(activeStep)}
+              measurement={
+                activeMeasurements && batch && planned ? (
+                  <MeasurementsPanel
+                    batchId={batch.id}
+                    fields={activeMeasurements}
+                    measured={batch.measurements}
+                    planned={planned}
+                    recipe={recipe}
+                    equipment={equipmentProfile}
+                    title="Mesures de l'étape"
+                  />
+                ) : undefined
+              }
             />
           )}
 

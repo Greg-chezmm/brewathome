@@ -147,8 +147,16 @@ export interface BrewfatherBatch {
   measuredOg?: number
   measuredFg?: number
   measuredPreBoilGravity?: number
+  measuredPostBoilGravity?: number
+  /** Volume en cuve en fin d'ébullition (chaud), en litres. */
+  measuredKettleSize?: number
+  measuredFermenterTopUp?: number
+  measuredMashPh?: number
+  /** Température retenue pour le resucrage : la plus haute de la fermentation. */
+  measuredBottlingTemp?: number
   /** Volume mis en fermenteur, en litres. */
   measuredBatchSize?: number
+  /** Volume pré-ébullition (chaud), en litres. */
   measuredBoilSize?: number
   measuredBottlingSize?: number
   /** Rendement global mesuré (jusqu'au fermenteur), en %. */

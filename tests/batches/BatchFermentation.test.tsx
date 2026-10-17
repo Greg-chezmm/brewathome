@@ -19,6 +19,21 @@ vi.mock('@/lib/db/queries/batches', () => ({
     brewDate: '2025-10-18',
     brewfatherId: 'bf1',
     ogMeasured: 1.105,
+    fgMeasured: null,
+    measurements: { og: 1.105, fg: null },
+    recipeSnapshot: {
+      fermentables: [],
+      hops: [],
+      yeasts: [],
+      mashSteps: [],
+      mashTempC: 67,
+      targetVolumeL: 10.8,
+      boilTimeMin: 60,
+      mashEfficiencyPercent: 72,
+      ibuFormula: 'tinseth',
+      estOg: 1.105,
+      estFg: 1.017,
+    },
   }),
 }))
 vi.mock('@/lib/db/queries/brewfather', () => ({ getBrewfatherAccount: async () => ({ userId: 'u', apiKey: 'k' }) }))
@@ -83,6 +98,7 @@ describe('Suivi de fermentation', () => {
       renderPage()
       expect(await screen.findByText(/Densité stable à 1.020 depuis 4 jours/)).toBeInTheDocument()
       expect(screen.getByText(/Atténuation apparente 81 %/)).toBeInTheDocument()
+      expect(screen.getByLabelText('Densité finale (DF)')).toHaveAttribute('placeholder', '1.017')
     } finally {
       page.status = 'completed'
       page.plateau = false
