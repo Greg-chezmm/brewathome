@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link, Outlet, useParams } from 'react-router-dom'
 import { ChevronLeft } from 'lucide-react'
@@ -36,7 +37,9 @@ export function BatchLayout() {
           <BatchTabs batchId={batchId!} />
         </div>
       </div>
-      <Outlet />
+      <Suspense fallback={<p className="text-slate-500">Chargement…</p>}>
+        <Outlet />
+      </Suspense>
     </div>
   )
 }

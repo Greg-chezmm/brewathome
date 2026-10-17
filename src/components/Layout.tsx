@@ -1,9 +1,8 @@
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { NavLink, Outlet, useLocation, useMatch } from 'react-router-dom'
 import { ArrowDownUp, Beer, BookOpen, Calculator, Cpu, Ellipsis, House, Library, LogOut, Wheat, Wrench, X, type LucideIcon } from 'lucide-react'
 import { useAuth } from '@/lib/auth/AuthProvider'
-import { ensureStarterRecipe } from '@/lib/db/queries/starterRecipe'
 import { BrewLogo } from '@/components/BrewLogo'
 import { InstallAppButton } from '@/components/InstallAppButton'
 
@@ -38,9 +37,11 @@ export function Layout() {
   const queryClient = useQueryClient()
 
   // Nouveau compte : on lui offre une recette d'exemple (une Pale Ale) à la première connexion.
+  // Import à la demande : la création de recette (moteur de calcul, styles BJCP) reste hors du fichier principal.
   useEffect(() => {
     if (!user) return
-    ensureStarterRecipe(user)
+    import('@/lib/db/queries/starterRecipe')
+      .then(({ ensureStarterRecipe }) => ensureStarterRecipe(user))
       .then((created) => {
         if (created) void queryClient.invalidateQueries({ queryKey: ['recipes'] })
       })
@@ -106,7 +107,10 @@ export function Layout() {
               : 'mx-auto w-full max-w-5xl px-4 pb-[calc(5.5rem+env(safe-area-inset-bottom))] pt-5 sm:px-6 lg:px-8 lg:py-10'
           }
         >
-          <Outlet />
+          {/* Pages chargées à la demande (voir App) : le menu reste affiché pendant le téléchargement. */}
+          <Suspense fallback={<p className="text-slate-500">Chargement…</p>}>
+            <Outlet />
+          </Suspense>
         </main>
       </div>
 

@@ -1,28 +1,39 @@
+import { lazy, type ComponentType } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
-import { BatchLayout } from '@/components/batches/BatchLayout'
 import { Layout } from '@/components/Layout'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
 import { Login } from '@/pages/auth/Login'
-import { BatchesHistory } from '@/pages/batches/BatchesHistory'
-import { BatchesList } from '@/pages/batches/BatchesList'
-import { BatchEditRecipe } from '@/pages/batches/BatchEditRecipe'
-import { BatchFermentation } from '@/pages/batches/BatchFermentation'
-import { BatchOverview } from '@/pages/batches/BatchOverview'
-import { BrewDay } from '@/pages/batches/BrewDay'
 import { Dashboard } from '@/pages/Dashboard'
-import { DevicesList } from '@/pages/devices/DevicesList'
-import { EquipmentProfileDetail } from '@/pages/equipment-profiles/EquipmentProfileDetail'
-import { EquipmentProfilesList } from '@/pages/equipment-profiles/EquipmentProfilesList'
-import { BrewfatherImport } from '@/pages/recipes/BrewfatherImport'
-import { RecipeDetail } from '@/pages/recipes/RecipeDetail'
-import { RecipeEdit } from '@/pages/recipes/RecipeEdit'
-import { RecipeImport } from '@/pages/recipes/RecipeImport'
-import { RecipeNew } from '@/pages/recipes/RecipeNew'
-import { RecipeValidate } from '@/pages/recipes/RecipeValidate'
-import { RecipesList } from '@/pages/recipes/RecipesList'
-import { StylesList } from '@/pages/styles/StylesList'
-import { Tools } from '@/pages/tools/Tools'
-import { IngredientsGuide } from '@/pages/ingredients/IngredientsGuide'
+
+/**
+ * Pages chargées à la demande : chacune devient son propre fichier JS, téléchargé à la première visite
+ * (le service worker les précharge ensuite pour le hors-ligne). Accueil et connexion restent dans le
+ * fichier principal pour un premier affichage immédiat.
+ */
+function lazyPage<K extends string>(load: () => Promise<Record<K, ComponentType>>, name: K) {
+  return lazy(() => load().then((module) => ({ default: module[name] })))
+}
+
+const BatchLayout = lazyPage(() => import('@/components/batches/BatchLayout'), 'BatchLayout')
+const BatchesHistory = lazyPage(() => import('@/pages/batches/BatchesHistory'), 'BatchesHistory')
+const BatchesList = lazyPage(() => import('@/pages/batches/BatchesList'), 'BatchesList')
+const BatchEditRecipe = lazyPage(() => import('@/pages/batches/BatchEditRecipe'), 'BatchEditRecipe')
+const BatchFermentation = lazyPage(() => import('@/pages/batches/BatchFermentation'), 'BatchFermentation')
+const BatchOverview = lazyPage(() => import('@/pages/batches/BatchOverview'), 'BatchOverview')
+const BrewDay = lazyPage(() => import('@/pages/batches/BrewDay'), 'BrewDay')
+const DevicesList = lazyPage(() => import('@/pages/devices/DevicesList'), 'DevicesList')
+const EquipmentProfileDetail = lazyPage(() => import('@/pages/equipment-profiles/EquipmentProfileDetail'), 'EquipmentProfileDetail')
+const EquipmentProfilesList = lazyPage(() => import('@/pages/equipment-profiles/EquipmentProfilesList'), 'EquipmentProfilesList')
+const BrewfatherImport = lazyPage(() => import('@/pages/recipes/BrewfatherImport'), 'BrewfatherImport')
+const RecipeDetail = lazyPage(() => import('@/pages/recipes/RecipeDetail'), 'RecipeDetail')
+const RecipeEdit = lazyPage(() => import('@/pages/recipes/RecipeEdit'), 'RecipeEdit')
+const RecipeImport = lazyPage(() => import('@/pages/recipes/RecipeImport'), 'RecipeImport')
+const RecipeNew = lazyPage(() => import('@/pages/recipes/RecipeNew'), 'RecipeNew')
+const RecipeValidate = lazyPage(() => import('@/pages/recipes/RecipeValidate'), 'RecipeValidate')
+const RecipesList = lazyPage(() => import('@/pages/recipes/RecipesList'), 'RecipesList')
+const StylesList = lazyPage(() => import('@/pages/styles/StylesList'), 'StylesList')
+const Tools = lazyPage(() => import('@/pages/tools/Tools'), 'Tools')
+const IngredientsGuide = lazyPage(() => import('@/pages/ingredients/IngredientsGuide'), 'IngredientsGuide')
 
 export function App() {
   return (
