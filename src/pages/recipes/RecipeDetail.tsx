@@ -9,6 +9,7 @@ import {
 } from '@/lib/brew-calc/yeast'
 import { computeRecipe, DEFAULT_ATTENUATION_PERCENT } from '@/lib/brew-calc/recipe-stats'
 import { SPARGE_WATER_TEMP_C } from '@/lib/brew-calc/volumes'
+import { formatWeightKg } from '@/lib/brew-calc/units'
 import { deleteRecipe, getRecipeWithDetails } from '@/lib/db/queries/recipes'
 import { getEquipmentProfile } from '@/lib/db/queries/equipmentProfiles'
 import { BeerGlass } from '@/components/BeerGlass'
@@ -147,7 +148,7 @@ export function RecipeDetail() {
         <ul className="divide-y divide-slate-100 text-sm text-slate-700">
           {recipe.fermentables.map((f, i) => (
             <li key={i} className="py-1.5">
-              <span className="font-medium text-slate-800">{f.amountKg} kg</span> — {f.name} ({f.type},{' '}
+              <span className="font-medium text-slate-800">{formatWeightKg(f.amountKg)}</span> — {f.name} ({f.type},{' '}
               {f.colorLovibond}°L, {f.yieldPercent}%)
             </li>
           ))}

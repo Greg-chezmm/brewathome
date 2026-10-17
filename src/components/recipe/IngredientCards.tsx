@@ -1,4 +1,4 @@
-import { useId, type ReactNode } from 'react'
+import { useId, useState, type ReactNode } from 'react'
 import { ArrowDown, ArrowUp, Plus, Trash2 } from 'lucide-react'
 import {
   FERMENTABLE_LIBRARY,
@@ -23,6 +23,7 @@ import {
 import type { Fermentable, Hop, HopForm, HopUse, OtherIngredient, Yeast } from '@/lib/brew-calc/types'
 import type { IngredientHistory } from '@/lib/db/queries/ingredientHistory'
 import { InfoTooltip } from '@/components/InfoTooltip'
+import { formatWeightKg } from '@/lib/brew-calc/units'
 
 const HOP_USES: HopUse[] = ['first-wort', 'boil', 'whirlpool', 'dry-hop', 'mash']
 const HOP_USE_LABELS: Record<HopUse, string> = {
@@ -227,6 +228,29 @@ function NumberInput({
   )
 }
 
+/** Poids saisi en kg ou en g au choix (toujours enregistré en kg) ; en grammes d'office sous 1 kg. */
+function WeightInput({ valueKg, onChange }: { valueKg: number; onChange: (kg: number) => void }) {
+  const [unit, setUnit] = useState<'kg' | 'g'>(() => (valueKg > 0 && valueKg < 1 ? 'g' : 'kg'))
+  // Arrondi au dixième de gramme pour ne pas afficher 299,99999 g.
+  const shown = unit === 'g' && Number.isFinite(valueKg) ? Math.round(valueKg * 10000) / 10 : valueKg
+  return (
+    <div className="flex gap-1">
+      <div className="min-w-0 flex-1">
+        <NumberInput value={shown} step={unit === 'g' ? '1' : '0.01'} onChange={(value) => onChange(unit === 'g' ? value / 1000 : value)} />
+      </div>
+      <select
+        aria-label="Unité de poids"
+        value={unit}
+        onChange={(e) => setUnit(e.target.value as 'kg' | 'g')}
+        className="field-input w-auto shrink-0 px-2"
+      >
+        <option value="kg">kg</option>
+        <option value="g">g</option>
+      </select>
+    </div>
+  )
+}
+
 function Chips({ children }: { children: ReactNode }) {
   return <div className="mt-3 flex flex-wrap gap-1.5">{children}</div>
 }
@@ -275,7 +299,7 @@ export function FermentableCards({
     <IngredientSection
       title="Fermentescibles"
       hint="Les ingrédients qui apportent les sucres (malts, extraits, sucres). Leur poids, leur couleur (°L) et leur rendement font la densité initiale et la couleur de la bière."
-      summary={fermentables.length > 0 ? `${fmt(totalKg, 2)} kg au total` : undefined}
+      summary={fermentables.length > 0 ? `${formatWeightKg(totalKg)} au total` : undefined}
       addLabel="Ajouter un fermentescible"
       onAdd={() => onChange([...fermentables, { ...EMPTY_FERMENTABLE }])}
       empty="Aucun fermentescible : commencez par un malt de base (Pilsner, Pale Ale…)."
@@ -295,8 +319,8 @@ export function FermentableCards({
               {...reorder(fermentables, i, onChange)}
             />
             <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
-              <Field label="Poids (kg)">
-                <NumberInput value={f.amountKg} step="0.01" onChange={(amountKg) => update(i, { amountKg })} />
+              <Field label="Poids">
+                <WeightInput valueKg={f.amountKg} onChange={(amountKg) => update(i, { amountKg })} />
               </Field>
               <Field label="Type" hint="Grain : à empâter (l'efficacité s'applique). Extrait et sucre : dissous directement, sans perte d'empâtage.">
                 <select value={f.type} onChange={(e) => update(i, { type: e.target.value as Fermentable['type'] })} className="field-input">

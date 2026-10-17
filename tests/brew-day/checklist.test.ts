@@ -40,7 +40,7 @@ describe('stepGuide', () => {
   it('lists every grain to pour during the mash', () => {
     const labels = stepGuide(step('mash'), ctx).checklist.map((i) => i.label)
     expect(labels).toContain('Verser 5 kg de Pale')
-    expect(labels).toContain('Verser 0.3 kg de Crystal')
+    expect(labels).toContain('Verser 300 g de Crystal')
   })
 
   it('explains the effect of a hot mash', () => {

@@ -2,6 +2,7 @@ import { effectiveMashSteps, isMashOut, type MashStep } from '@/lib/brew-calc/ma
 import { REFERENCE_MASH_TEMP_C } from '@/lib/brew-calc/recipe-stats'
 import { calculateStrikeWaterTempC, calculateVolumes, SPARGE_WATER_TEMP_C } from '@/lib/brew-calc/volumes'
 import type { EquipmentProfile } from '@/lib/brew-calc/types'
+import { formatWeightKg } from '@/lib/brew-calc/units'
 import type { BatchStep } from '@/lib/db/queries/batches'
 import type { RecipeDetails } from '@/lib/db/queries/recipes'
 
@@ -51,7 +52,7 @@ export function buildBatchSteps(recipe: RecipeDetails, equipmentProfile: Equipme
 
   const grainFermentables = recipe.fermentables.filter((f) => f.type === 'grain')
   const totalGrainKg = grainFermentables.reduce((sum, f) => sum + f.amountKg, 0)
-  const grainList = grainFermentables.map((f) => `${f.amountKg} kg ${f.name}`).join(', ')
+  const grainList = grainFermentables.map((f) => `${formatWeightKg(f.amountKg)} ${f.name}`).join(', ')
   const volumes = equipmentProfile ? calculateVolumes(recipe.targetVolumeL, totalGrainKg, recipe.boilTimeMin, equipmentProfile) : null
   const mashSteps = effectiveMashSteps(recipe)
   const strikeTempC = strikeWaterTempFor(firstMashTempC(recipe), totalGrainKg, volumes?.mashWaterL)

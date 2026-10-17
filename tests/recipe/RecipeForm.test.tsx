@@ -44,6 +44,26 @@ describe('RecipeForm', () => {
     expect(screen.getByText(/Pamplemousse, fleurs/)).toBeInTheDocument()
   })
 
+  it('poids des fermentescibles en kg ou en g : grammes d’office sous 1 kg, enregistré en kg', () => {
+    render(<Harness />)
+    expect(screen.getByText('5 kg au total')).toBeInTheDocument()
+    // Crystal 60 (0,5 kg) s'affiche en grammes.
+    const crystal = screen.getByDisplayValue('Crystal 60').closest('li')!
+    expect(within(crystal).getByLabelText('Unité de poids')).toHaveValue('g')
+    const grams = within(crystal).getByDisplayValue('500')
+    fireEvent.change(grams, { target: { value: '250' } })
+    expect(screen.getByText('4,75 kg au total')).toBeInTheDocument()
+
+    // Le malt de base passe en grammes : même poids, autre unité.
+    // (« Pale Ale » est aussi le nom de la recette : on prend la carte d'ingrédient.)
+    const pale = screen
+      .getAllByDisplayValue('Pale Ale')
+      .map((input) => input.closest('li'))
+      .find(Boolean)!
+    fireEvent.change(within(pale).getByLabelText('Unité de poids'), { target: { value: 'g' } })
+    expect(within(pale).getByDisplayValue('4500')).toBeInTheDocument()
+  })
+
   it('reprend l’acide alpha d’un houblon choisi dans la bibliothèque, et l’amertume suit', () => {
     render(<Harness />)
     const ibuBefore = screen.getByText(/^[0-9,]+ IBU$/).textContent

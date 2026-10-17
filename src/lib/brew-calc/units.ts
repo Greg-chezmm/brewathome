@@ -52,3 +52,10 @@ export function ebcToSrm(ebc: number): number {
 }
 
 export type UnitSystem = 'metric' | 'imperial'
+
+/** Poids lisible : en grammes sous 1 kg (« 300 g »), sinon en kilos (« 4,3 kg »). */
+export function formatWeightKg(kg: number): string {
+  if (!Number.isFinite(kg)) return '—'
+  if (Math.abs(kg) < 1) return `${(kg * 1000).toLocaleString('fr-FR', { maximumFractionDigits: 0 })} g`
+  return `${kg.toLocaleString('fr-FR', { maximumFractionDigits: 3 })} kg`
+}

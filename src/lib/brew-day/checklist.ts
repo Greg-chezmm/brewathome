@@ -1,5 +1,6 @@
 import { effectiveMashSteps, isMashOut, mainMashStep, MASH_OUT_TEMP_C, mashStepTip } from '@/lib/brew-calc/mash'
 import type { BrewMethod } from '@/lib/brew-calc/types'
+import { formatWeightKg } from '@/lib/brew-calc/units'
 import { SPARGE_WATER_TEMP_C, type VolumeBreakdown } from '@/lib/brew-calc/volumes'
 import type { BatchStep } from '@/lib/db/queries/batches'
 import type { RecipeDetails } from '@/lib/db/queries/recipes'
@@ -96,7 +97,7 @@ export function stepGuide(step: BatchStep, ctx: StepGuideContext): StepGuide {
       const saccharified = mainStep === mashSteps[0]
       return {
         checklist: [
-          ...grains.map((f, i) => ({ id: `grain-${i}`, label: `Verser ${f.amountKg} kg de ${f.name}` })),
+          ...grains.map((f, i) => ({ id: `grain-${i}`, label: `Verser ${formatWeightKg(f.amountKg)} de ${f.name}` })),
           { id: 'stir', label: 'Remuer vigoureusement : aucun grumeau de farine sèche' },
           { id: 'check-temp', label: `Après 5 min, vérifier ${mashTempC} °C au cœur de la maische` },
           { id: 'cover', label: 'Couvrir et isoler la cuve' },
