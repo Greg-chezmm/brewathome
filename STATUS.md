@@ -17,7 +17,6 @@ Application personnelle de brassage de bière maison (type Brewfather/Little Boc
 
 **À faire juste après**
 - Pousser les commits locaux (déploiement).
-- Brune forte : sa recette pointe sur le profil « Imported » créé par le Barley wine (brassin #31 : 120 min, 3,14 L/h, cuve estimée à 24 L). La rattacher à un profil fidèle à Brewfather (12 L, 60 min, 2,879 L/h, pré-ébullition 15,9 L, cuve 20 L) — en attente de validation.
 
 **Prochaines étapes** : voir « Ce qu'il reste à faire ».
 
