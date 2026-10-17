@@ -269,6 +269,11 @@ export async function updateBatchStepChecklist(stepId: string, checkedItems: str
 export async function updateBatchStatus(batchId: string, status: BatchStatus): Promise<void> {
   const { error } = await supabase.from('batches').update({ status }).eq('id', batchId)
   if (error) throw error
+  if (status === 'completed') {
+    // Brassin terminé : son iSpindel est libéré pour le suivant (ses mesures n'iraient plus nulle part d'utile).
+    const { error: devicesError } = await supabase.from('devices').update({ active_batch_id: null }).eq('active_batch_id', batchId)
+    if (devicesError) throw devicesError
+  }
 }
 
 /**

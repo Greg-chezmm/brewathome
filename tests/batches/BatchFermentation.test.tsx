@@ -58,11 +58,11 @@ describe('Suivi de fermentation', () => {
     expect(screen.queryByText(/Associer un iSpindel/)).toBeNull()
   })
 
-  it('n’affiche que les 50 relevés les plus récents, puis tout à la demande', async () => {
+  it('n’affiche que les 20 relevés les plus récents, puis tout à la demande', async () => {
     renderPage()
     expect(await screen.findByText(/^120 relevés/)).toBeInTheDocument()
-    expect(screen.getAllByText('Supprimer')).toHaveLength(50)
-    fireEvent.click(screen.getByText('Afficher les 120 relevés'))
+    expect(screen.getAllByText('Supprimer')).toHaveLength(20)
+    fireEvent.click(screen.getByText('Tout afficher (120 relevés)'))
     await waitFor(() => expect(screen.getAllByText('Supprimer')).toHaveLength(120))
   })
 

@@ -17,18 +17,26 @@ import { brewfatherReadingsToImport } from '@/lib/brewfather/readings'
 import { ConnectionBadge } from '@/components/devices/ConnectionBadge'
 import { BATCH_STATUS_LABELS, getBatchWithDetails } from '@/lib/db/queries/batches'
 import { getBrewfatherAccount } from '@/lib/db/queries/brewfather'
-import { listDevices } from '@/lib/db/queries/devices'
+import { listDevices, setDeviceActiveBatch } from '@/lib/db/queries/devices'
 import {
   addFermentationReading,
   deleteFermentationReading,
   insertFermentationReadings,
   listFermentationReadings,
+  type FermentationReading,
 } from '@/lib/db/queries/fermentation'
+import { seriesWithGaps } from '@/lib/fermentation/chart'
 
-/** Relevés affichés dans la liste avant « Afficher tout » : un iSpindel en envoie ~100 par jour. */
-const LIST_PREVIEW = 50
+/** Relevés affichés avant « Tout afficher » : un iSpindel en envoie ~100 par jour. */
+const LIST_PREVIEW = 20
 /** Au-delà, la courbe est tracée sans points (plus lisible et plus rapide). */
 const CHART_DOTS_MAX = 100
+const GRAVITY_COLOR = '#4f46e5'
+const TEMPERATURE_COLOR = '#f97316'
+
+const formatDateTime = (t: number) =>
+  new Date(t).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+const formatDay = (t: number) => new Date(t).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })
 
 export function BatchFermentation() {
   const { batchId } = useParams<{ batchId: string }>()
@@ -112,12 +120,11 @@ export function BatchFermentation() {
   }
 
   const all = readings ?? []
-  const chartData = all.map((r) => ({
-    date: new Date(r.recordedAt).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }),
-    gravity: r.gravity,
-    temperature: r.temperatureC,
-  }))
-  const dots = chartData.length <= CHART_DOTS_MAX ? { r: 2 } : false
+  // Axe de temps réel : un trou dans les mesures (batterie vide…) reste visible, et la courbe y est coupée.
+  const times = all.map((r) => new Date(r.recordedAt).getTime())
+  const gravitySeries = seriesWithGaps(all.map((r, i) => ({ time: times[i], value: r.gravity })))
+  const temperatureSeries = seriesWithGaps(all.map((r, i) => ({ time: times[i], value: r.temperatureC })))
+  const dots = all.length <= CHART_DOTS_MAX ? { r: 2 } : false
   const newestFirst = all.slice().reverse()
   const listed = showAll ? newestFirst : newestFirst.slice(0, LIST_PREVIEW)
 
@@ -155,9 +162,21 @@ export function BatchFermentation() {
             <p className="font-semibold text-slate-900">📡 {device.name}</p>
             <ConnectionBadge device={device} now={devicesUpdatedAt} />
           </div>
-          <Link to="/devices" className="btn-secondary btn-sm">
-            Gérer l'appareil
-          </Link>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={async () => {
+                await setDeviceActiveBatch(device.id, null)
+                queryClient.invalidateQueries({ queryKey: ['devices'] })
+              }}
+              className="btn-secondary btn-sm"
+            >
+              Détacher
+            </button>
+            <Link to="/devices" className="btn-secondary btn-sm">
+              Gérer l'appareil
+            </Link>
+          </div>
         </div>
       ))}
 
@@ -213,18 +232,39 @@ export function BatchFermentation() {
         </button>
       </form>
 
-      {chartData.length > 1 && (
+      {all.length > 1 && (
         <div className="card h-72">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={chartData}>
+            <LineChart>
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="date" tick={{ fontSize: 11 }} minTickGap={40} />
-              <YAxis yAxisId="gravity" domain={['auto', 'auto']} tick={{ fontSize: 11 }} />
-              <YAxis yAxisId="temperature" orientation="right" domain={['auto', 'auto']} tick={{ fontSize: 11 }} />
-              <Tooltip />
+              <XAxis
+                dataKey="time"
+                type="number"
+                scale="time"
+                domain={['dataMin', 'dataMax']}
+                tickFormatter={formatDay}
+                tick={{ fontSize: 11 }}
+                minTickGap={40}
+              />
+              <YAxis
+                yAxisId="gravity"
+                domain={['auto', 'auto']}
+                tickFormatter={(v: number) => v.toFixed(3)}
+                tick={{ fontSize: 11, fill: GRAVITY_COLOR }}
+                stroke={GRAVITY_COLOR}
+              />
+              <YAxis
+                yAxisId="temperature"
+                orientation="right"
+                domain={['auto', 'auto']}
+                tickFormatter={(v: number) => `${v} °C`}
+                tick={{ fontSize: 11, fill: TEMPERATURE_COLOR }}
+                stroke={TEMPERATURE_COLOR}
+              />
+              <Tooltip content={({ active, label }) => (active ? <ReadingTooltip reading={nearestReading(all, times, Number(label))} /> : null)} />
               <Legend />
-              <Line yAxisId="gravity" type="monotone" dataKey="gravity" name="Densité" stroke="#4f46e5" dot={dots} isAnimationActive={false} connectNulls />
-              <Line yAxisId="temperature" type="monotone" dataKey="temperature" name="Température (°C)" stroke="#2563eb" dot={dots} isAnimationActive={false} connectNulls />
+              <Line yAxisId="gravity" type="monotone" data={gravitySeries} dataKey="value" name="Densité" stroke={GRAVITY_COLOR} strokeWidth={2} dot={dots} isAnimationActive={false} />
+              <Line yAxisId="temperature" type="monotone" data={temperatureSeries} dataKey="value" name="Température" stroke={TEMPERATURE_COLOR} dot={dots} isAnimationActive={false} />
             </LineChart>
           </ResponsiveContainer>
         </div>
@@ -237,7 +277,7 @@ export function BatchFermentation() {
             {all.length > 1 &&
               ` · du ${new Date(all[0].recordedAt).toLocaleDateString('fr-FR')} au ${new Date(all[all.length - 1].recordedAt).toLocaleDateString('fr-FR')}`}
           </p>
-          <ul className="space-y-1">
+          <ul className={`space-y-1 ${showAll ? 'max-h-[60vh] overflow-y-auto rounded-lg border border-slate-200 bg-slate-50 p-1' : ''}`}>
             {listed.map((r) => (
               <li key={r.id} className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm">
                 <span className="flex items-center gap-2">
@@ -263,10 +303,36 @@ export function BatchFermentation() {
           </ul>
           {all.length > LIST_PREVIEW && (
             <button type="button" onClick={() => setShowAll(!showAll)} className="btn-secondary btn-sm">
-              {showAll ? `Afficher les ${LIST_PREVIEW} plus récents` : `Afficher les ${all.length.toLocaleString('fr-FR')} relevés`}
+              {showAll ? `Ne garder que les ${LIST_PREVIEW} derniers` : `Tout afficher (${all.length.toLocaleString('fr-FR')} relevés)`}
             </button>
           )}
         </div>
+      )}
+    </div>
+  )
+}
+
+/** Relevé le plus proche de l'instant survolé (les relevés sont triés par date). */
+function nearestReading(readings: FermentationReading[], times: number[], time: number): FermentationReading | undefined {
+  if (!Number.isFinite(time) || readings.length === 0) return undefined
+  let lo = 0
+  let hi = times.length - 1
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1
+    if (times[mid] < time) lo = mid + 1
+    else hi = mid
+  }
+  return lo > 0 && time - times[lo - 1] < times[lo] - time ? readings[lo - 1] : readings[lo]
+}
+
+function ReadingTooltip({ reading }: { reading: FermentationReading | undefined }) {
+  if (!reading) return null
+  return (
+    <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs shadow-sm">
+      <p className="font-medium text-slate-700">{formatDateTime(new Date(reading.recordedAt).getTime())}</p>
+      {reading.gravity !== null && <p style={{ color: GRAVITY_COLOR }}>Densité : {reading.gravity.toFixed(3)}</p>}
+      {reading.temperatureC !== null && (
+        <p style={{ color: TEMPERATURE_COLOR }}>Température : {reading.temperatureC} °C</p>
       )}
     </div>
   )

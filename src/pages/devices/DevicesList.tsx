@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { Link } from 'react-router-dom'
 import { useAuth } from '@/lib/auth/AuthProvider'
 import {
   createDevice,
@@ -215,12 +216,24 @@ export function DevicesList() {
                 className="field-input max-w-xs"
               >
                 <option value="">— Aucun —</option>
-                {activeBatches.map((b) => (
-                  <option key={b.id} value={b.id}>
-                    {b.name}
-                  </option>
-                ))}
+                {/* Le brassin rattaché reste dans la liste même terminé : sinon impossible de le détacher. */}
+                {batches
+                  ?.filter((b) => b.status !== 'completed' || b.id === device.activeBatchId)
+                  .map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.name}
+                      {b.status === 'completed' ? ' (terminé)' : ''}
+                    </option>
+                  ))}
               </select>
+              {activeBatches.length === 0 && (
+                <p className="mt-1 text-xs text-slate-500">
+                  Aucun brassin en cours : seuls les brassins non terminés peuvent être suivis.{' '}
+                  <Link to="/recipes" className="font-medium text-indigo-600 underline">
+                    Lancer un brassin depuis une recette
+                  </Link>
+                </p>
+              )}
             </div>
 
             {device.type === 'ispindel' && <ISpindelSettingsForm device={device} />}
