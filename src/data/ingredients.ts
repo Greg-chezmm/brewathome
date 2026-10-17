@@ -100,7 +100,7 @@ export const HOP_LIBRARY: LibraryHop[] = [
 
 export const YEAST_LIBRARY: LibraryYeast[] = [
   // Fermentis
-  { name: 'SafAle US-05', type: 'dry', style: 'ale', attenuationPercent: 81, note: 'Ale américaine propre et neutre, 18–22 °C. Laisse parler le houblon.' },
+  { name: 'SafAle US-05', type: 'dry', style: 'ale', attenuationPercent: 78, note: 'Ale américaine propre et neutre, 18–22 °C. Laisse parler le houblon. Fermentis annonce 78–82 % d’atténuation.' },
   { name: 'SafAle S-04', type: 'dry', style: 'ale', attenuationPercent: 75, note: 'Ale anglaise : légèrement fruitée, flocule très bien. 15–20 °C.' },
   { name: 'SafAle K-97', type: 'dry', style: 'ale', attenuationPercent: 81, note: 'Ale allemande (Kölsch, Alt) : propre, florale. 15–20 °C.' },
   { name: 'SafAle WB-06', type: 'dry', style: 'ale', attenuationPercent: 86, note: 'Bière de blé : banane et clou de girofle. 18–24 °C. Atténue souvent plus qu’annoncé.' },

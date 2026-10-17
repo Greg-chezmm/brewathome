@@ -1,7 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { NavLink, Outlet, useLocation, useMatch } from 'react-router-dom'
-import { Beer, BookOpen, Cpu, Ellipsis, House, Library, LogOut, Wrench, X, type LucideIcon } from 'lucide-react'
+import { ArrowDownUp, Beer, BookOpen, Cpu, Ellipsis, House, Library, LogOut, Wrench, X, type LucideIcon } from 'lucide-react'
 import { useAuth } from '@/lib/auth/AuthProvider'
+import { ensureStarterRecipe } from '@/lib/db/queries/starterRecipe'
 import { BrewLogo } from '@/components/BrewLogo'
 
 interface NavItem {
@@ -22,6 +24,7 @@ const primaryNav: NavItem[] = [
 const secondaryNav: NavItem[] = [
   { to: '/equipment-profiles', label: 'Équipement', icon: Wrench },
   { to: '/devices', label: 'Appareils', icon: Cpu },
+  { to: '/recipes/brewfather', label: 'Brewfather', icon: ArrowDownUp },
   { to: '/styles', label: 'Styles BJCP', icon: Library },
 ]
 
@@ -29,9 +32,23 @@ export function Layout() {
   const { user, signOut } = useAuth()
   const location = useLocation()
   const [moreOpen, setMoreOpen] = useState(false)
+  const queryClient = useQueryClient()
+
+  // Nouveau compte : on lui offre une recette d'exemple (une Pale Ale) à la première connexion.
+  useEffect(() => {
+    if (!user) return
+    ensureStarterRecipe(user)
+      .then((created) => {
+        if (created) void queryClient.invalidateQueries({ queryKey: ['recipes'] })
+      })
+      .catch((err) => console.warn('Recette d’exemple non créée :', err))
+  }, [user, queryClient])
   // Le Brew Day occupe tout l'écran sur mobile (sa propre barre d'actions remplace les onglets).
   const immersive = useMatch('/batches/:batchId/brew-day') !== null
   const secondaryActive = secondaryNav.some((item) => location.pathname.startsWith(item.to))
+  // Une entrée plus précise (Brewfather sous /recipes) prend la main : « Recettes » ne s'allume pas avec elle.
+  const shadowed = (item: NavItem) =>
+    [...primaryNav, ...secondaryNav].some((other) => other.to.startsWith(`${item.to}/`) && location.pathname.startsWith(other.to))
 
   return (
     <div className="min-h-dvh bg-slate-50 text-slate-900 lg:flex">
@@ -49,7 +66,7 @@ export function Layout() {
               end={item.end}
               className={({ isActive }) =>
                 `flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
-                  isActive ? 'bg-indigo-500 text-white' : 'text-slate-300 hover:bg-white/5 hover:text-white'
+                  isActive && !shadowed(item) ? 'bg-indigo-500 text-white' : 'text-slate-300 hover:bg-white/5 hover:text-white'
                 }`
               }
             >
@@ -100,7 +117,7 @@ export function Layout() {
               to={item.to}
               end={item.end}
               onClick={() => setMoreOpen(false)}
-              className={({ isActive }) => tabClass(isActive && !moreOpen)}
+              className={({ isActive }) => tabClass(isActive && !moreOpen && !shadowed(item))}
             >
               <item.icon size={22} />
               {item.label}
