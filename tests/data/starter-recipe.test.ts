@@ -1,9 +1,12 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import bjcpStyles from '@/data/bjcp-styles-2021.json'
 import { STARTER_RECIPE } from '@/data/starter-recipe'
 import { estimateRecipeStats } from '@/lib/brew-calc/recipe-stats'
 import { matchStyle } from '@/lib/brew-calc/style-matching'
 import { DEFAULT_EQUIPMENT_PROFILE } from '@/lib/db/queries/equipmentProfiles'
+
+// equipmentProfiles charge le client Supabase, qui exige des clés absentes en CI.
+vi.mock('@/lib/supabase/client', () => ({ supabase: {} }))
 
 const style = bjcpStyles.find((s) => s.id === STARTER_RECIPE.styleId)!
 const ranges = {
