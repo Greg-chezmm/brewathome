@@ -26,12 +26,18 @@ export const equipmentProfiles = pgTable('equipment_profiles', {
   boilKettleVolumeL: numeric('boil_kettle_volume_l', { precision: 6, scale: 2 }).notNull(),
   targetBatchVolumeL: numeric('target_batch_volume_l', { precision: 6, scale: 2 }).notNull(),
   boilTimeMin: integer('boil_time_min').notNull().default(60),
-  evaporationRatePercentPerHour: numeric('evaporation_rate_percent_per_hour', {
-    precision: 5,
-    scale: 2,
-  })
+  // Évaporation en litres par heure d'ébullition (specs §1).
+  evaporationRateLPerHour: numeric('evaporation_rate_l_per_hour', { precision: 5, scale: 2 })
     .notNull()
-    .default('12'),
+    .default('2.5'),
+  // Capacité de la cuve d'empâtage (contrôle de débordement) ; null = non renseignée.
+  mashTunVolumeL: numeric('mash_tun_volume_l', { precision: 6, scale: 2 }),
+  // Volume mort sous le faux-fond de la cuve d'empâtage : eau à prévoir en plus.
+  mashTunDeadspaceL: numeric('mash_tun_deadspace_l', { precision: 4, scale: 2 }).notNull().default('0'),
+  // Perte dans le fermenteur (lie, soutirage) : réduit le volume embouteillé.
+  fermenterLossL: numeric('fermenter_loss_l', { precision: 4, scale: 2 }).notNull().default('0'),
+  // Facteur correcteur de l'IBU des ajouts en ébullition (100 = Tinseth tel quel).
+  hopUtilizationPercent: numeric('hop_utilization_percent', { precision: 5, scale: 2 }).notNull().default('100'),
   grainAbsorptionLPerKg: numeric('grain_absorption_l_per_kg', { precision: 4, scale: 2 })
     .notNull()
     .default('1.0'),
@@ -135,6 +141,8 @@ export const recipeHops = pgTable('recipe_hops', {
     .notNull()
     .default('boil'),
   form: text('form', { enum: ['pellet', 'leaf', 'plug'] }).default('pellet'),
+  // Whirlpool uniquement : température du moût pendant l'infusion (°C), 80 par défaut si null.
+  temperatureC: numeric('temperature_c', { precision: 4, scale: 1 }),
   dryHopDays: integer('dry_hop_days'),
   dryHopTempC: numeric('dry_hop_temp_c', { precision: 4, scale: 1 }),
   sortOrder: integer('sort_order').notNull().default(0),

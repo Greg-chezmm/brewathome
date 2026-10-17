@@ -39,7 +39,7 @@ export function buildBatchSteps(recipe: RecipeDetails, equipmentProfile: Equipme
   const grainFermentables = recipe.fermentables.filter((f) => f.type === 'grain')
   const totalGrainKg = grainFermentables.reduce((sum, f) => sum + f.amountKg, 0)
   const grainList = grainFermentables.map((f) => `${f.amountKg} kg ${f.name}`).join(', ')
-  const volumes = equipmentProfile ? calculateVolumes(recipe.targetVolumeL, totalGrainKg, equipmentProfile) : null
+  const volumes = equipmentProfile ? calculateVolumes(recipe.targetVolumeL, totalGrainKg, recipe.boilTimeMin, equipmentProfile) : null
   const mashTempC = recipe.mashTempC ?? REFERENCE_MASH_TEMP_C
   const strikeTempC = strikeWaterTempFor(mashTempC, totalGrainKg, volumes?.mashWaterL)
 

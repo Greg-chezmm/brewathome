@@ -5,13 +5,17 @@ import type { EquipmentProfile } from '@/lib/brew-calc/types'
 const profile: EquipmentProfile = {
   name: 'Test rig',
   boilKettleVolumeL: 30,
+  mashTunVolumeL: null,
   targetBatchVolumeL: 20,
   boilTimeMin: 60,
-  evaporationRatePercentPerHour: 12,
+  evaporationRateLPerHour: 3,
   grainAbsorptionLPerKg: 1.0,
   waterToGrainRatioLPerKg: 3,
   hopAbsorptionL: 1.5,
   deadspaceL: 1.5,
+  mashTunDeadspaceL: 1,
+  fermenterLossL: 0,
+  hopUtilizationPercent: 100,
   thermalShrinkagePercent: 4,
   mashEfficiencyPercent: 72,
   method: 'all-grain',
@@ -19,7 +23,7 @@ const profile: EquipmentProfile = {
 
 describe('calculateVolumes', () => {
   it('computes increasing volumes going backwards through the process', () => {
-    const result = calculateVolumes(20, 5, profile)
+    const result = calculateVolumes(20, 5, 60, profile)
     expect(result.volumeIntoFermenterL).toBe(20)
     expect(result.postBoilVolumeL).toBeGreaterThan(result.volumeIntoFermenterL)
     expect(result.preBoilVolumeL).toBeGreaterThan(result.postBoilVolumeL)
@@ -27,38 +31,45 @@ describe('calculateVolumes', () => {
   })
 
   it('is the mathematical inverse of estimateFinalVolumeFromPreBoil', () => {
-    const result = calculateVolumes(20, 5, profile)
-    const roundTrip = estimateFinalVolumeFromPreBoil(result.preBoilVolumeL, profile)
+    const result = calculateVolumes(20, 5, 60, profile)
+    const roundTrip = estimateFinalVolumeFromPreBoil(result.preBoilVolumeL, 60, profile)
     expect(roundTrip).toBeCloseTo(20, 6)
   })
 
   it('requires more pre-boil volume for a longer boil (more evaporation)', () => {
-    const shortBoil = calculateVolumes(20, 5, { ...profile, boilTimeMin: 30 })
-    const longBoil = calculateVolumes(20, 5, { ...profile, boilTimeMin: 90 })
+    const shortBoil = calculateVolumes(20, 5, 30, profile)
+    const longBoil = calculateVolumes(20, 5, 90, profile)
     expect(longBoil.preBoilVolumeL).toBeGreaterThan(shortBoil.preBoilVolumeL)
   })
 
   it('requires more total water for heavier grain bills (more absorption)', () => {
-    const lightGrist = calculateVolumes(20, 3, profile)
-    const heavyGrist = calculateVolumes(20, 8, profile)
+    const lightGrist = calculateVolumes(20, 3, 60, profile)
+    const heavyGrist = calculateVolumes(20, 8, 60, profile)
     expect(heavyGrist.totalWaterNeededL).toBeGreaterThan(lightGrist.totalWaterNeededL)
   })
 
   it('splits total water into mash water (ratio x grain) and sparge water (the remainder)', () => {
-    const result = calculateVolumes(20, 5, profile)
+    const result = calculateVolumes(20, 5, 60, profile)
     expect(result.mashWaterL).toBeCloseTo(5 * profile.waterToGrainRatioLPerKg, 6)
     expect(result.spargeWaterL).toBeCloseTo(result.totalWaterNeededL - result.mashWaterL, 6)
     expect(result.mashWaterL + result.spargeWaterL).toBeCloseTo(result.totalWaterNeededL, 6)
   })
 
   it('caps mash water at total water needed when the ratio would exceed it (no negative sparge)', () => {
-    const result = calculateVolumes(20, 1, { ...profile, waterToGrainRatioLPerKg: 50 })
+    const result = calculateVolumes(20, 1, 60, { ...profile, waterToGrainRatioLPerKg: 50 })
     expect(result.mashWaterL).toBeCloseTo(result.totalWaterNeededL, 6)
     expect(result.spargeWaterL).toBe(0)
   })
 
+  it('adds the mash tun deadspace to the total water, not to the pre-boil volume', () => {
+    const without = calculateVolumes(20, 5, 60, { ...profile, mashTunDeadspaceL: 0 })
+    const withLoss = calculateVolumes(20, 5, 60, profile)
+    expect(withLoss.totalWaterNeededL - without.totalWaterNeededL).toBeCloseTo(1, 6)
+    expect(withLoss.preBoilVolumeL).toBeCloseTo(without.preBoilVolumeL, 6)
+  })
+
   it('includes grain displacement in the mash tun fill volume (17L water + 5kg grain is more than 17L in the tun)', () => {
-    const result = calculateVolumes(20, 5, profile)
+    const result = calculateVolumes(20, 5, 60, profile)
     expect(result.mashTunFillVolumeL).toBeGreaterThan(result.mashWaterL)
     expect(result.mashTunFillVolumeL).toBeCloseTo(result.mashWaterL + 5 * 0.67, 6)
   })

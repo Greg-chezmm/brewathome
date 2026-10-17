@@ -7,7 +7,8 @@ import {
   calculateDryYeastGrams,
   calculateLiquidPacksNeeded,
 } from '@/lib/brew-calc/yeast'
-import { calculateVolumes, SPARGE_WATER_TEMP_C } from '@/lib/brew-calc/volumes'
+import { computeRecipe } from '@/lib/brew-calc/recipe-stats'
+import { SPARGE_WATER_TEMP_C } from '@/lib/brew-calc/volumes'
 import { deleteRecipe, getRecipeWithDetails } from '@/lib/db/queries/recipes'
 import { getEquipmentProfile } from '@/lib/db/queries/equipmentProfiles'
 import { BeerGlass } from '@/components/BeerGlass'
@@ -33,11 +34,13 @@ export function RecipeDetail() {
   if (error) return <p className="text-red-600">{(error as Error).message}</p>
   if (!recipe) return null
 
+  // Valeurs toujours recalculées (les est_* en base ne servent qu'aux listes).
+  const calc = computeRecipe({ ...recipe, equipment: equipmentProfile ?? null })
   const style = bjcpStyles.find((s) => s.id === recipe.styleId) ?? null
   const styleMatch =
-    style && recipe.estOg !== null
+    style
       ? matchStyle(
-          { og: recipe.estOg!, fg: recipe.estFg!, ibu: recipe.estIbu!, srm: recipe.estSrm!, abv: recipe.estAbv! },
+          calc,
           {
             og: { min: style.ogMin, max: style.ogMax },
             fg: { min: style.fgMin, max: style.fgMax },
@@ -48,8 +51,7 @@ export function RecipeDetail() {
         )
       : null
 
-  const totalGrainKg = recipe.fermentables.filter((f) => f.type === 'grain').reduce((sum, f) => sum + f.amountKg, 0)
-  const volumes = equipmentProfile ? calculateVolumes(recipe.targetVolumeL, totalGrainKg, equipmentProfile) : null
+  const volumes = calc.volumes
   const kettleOverflow =
     equipmentProfile && volumes ? volumes.preBoilVolumeL > equipmentProfile.boilKettleVolumeL + 0.05 : false
   const mashTunOverflow =
@@ -59,13 +61,13 @@ export function RecipeDetail() {
 
   const primaryYeast = recipe.yeasts[0]
   const yeastRecommendation =
-    primaryYeast && recipe.estOg !== null
+    primaryYeast
       ? primaryYeast.type === 'dry'
         ? calculateDryYeastGrams(recipe.targetVolumeL, primaryYeast.style)
         : {
-            cellsNeededBillions: calculateCellsNeededBillions(recipe.targetVolumeL, recipe.estOg, primaryYeast.style),
+            cellsNeededBillions: calculateCellsNeededBillions(recipe.targetVolumeL, calc.og, primaryYeast.style),
             packsFresh: calculateLiquidPacksNeeded(
-              calculateCellsNeededBillions(recipe.targetVolumeL, recipe.estOg, primaryYeast.style),
+              calculateCellsNeededBillions(recipe.targetVolumeL, calc.og, primaryYeast.style),
               0,
             ),
           }
@@ -82,7 +84,7 @@ export function RecipeDetail() {
     <div className="space-y-8">
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-start gap-4">
-          <BeerGlass srm={recipe.estSrm} size={56} />
+          <BeerGlass srm={calc.srm} size={56} />
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-slate-900">{recipe.name}</h1>
             <p className="text-slate-500">
@@ -104,31 +106,31 @@ export function RecipeDetail() {
         <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-5">
           <Stat
             label="OG"
-            value={recipe.estOg?.toFixed(3) ?? '—'}
+            value={calc.og.toFixed(3)}
             ok={styleMatch?.og}
             hint="Densité initiale avant fermentation. Indique le potentiel d'alcool."
           />
           <Stat
             label="FG"
-            value={recipe.estFg?.toFixed(3) ?? '—'}
+            value={calc.fg.toFixed(3)}
             ok={styleMatch?.fg}
             hint="Densité finale après fermentation. Plus basse = bière plus sèche."
           />
           <Stat
             label="IBU"
-            value={recipe.estIbu?.toFixed(0) ?? '—'}
+            value={calc.ibu.toFixed(0)}
             ok={styleMatch?.ibu}
             hint="Amertume apportée par les houblons."
           />
           <Stat
             label="SRM"
-            value={recipe.estSrm?.toFixed(1) ?? '—'}
+            value={calc.srm.toFixed(1)}
             ok={styleMatch?.srm}
             hint="Couleur de la bière, du plus clair au plus foncé."
           />
           <Stat
             label="ABV"
-            value={recipe.estAbv !== null ? `${recipe.estAbv.toFixed(1)}%` : '—'}
+            value={`${calc.abv.toFixed(1)}%`}
             ok={styleMatch?.abv}
             hint="Pourcentage d'alcool par volume."
           />

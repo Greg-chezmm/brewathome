@@ -26,6 +26,11 @@ export interface VolumeBreakdown {
   preBoilVolumeL: number
   /** Volume en fin d'ébullition, moût encore chaud. */
   postBoilVolumeL: number
+  /**
+   * Volume en fin d'ébullition ramené à froid (fermenteur + pertes trub/cuve).
+   * C'est la base de calcul de la DI, de la couleur et de l'IBU.
+   */
+  endOfBoilColdVolumeL: number
   /** Volume final transféré dans le fermenteur, moût refroidi. */
   volumeIntoFermenterL: number
   /**
@@ -38,39 +43,30 @@ export interface VolumeBreakdown {
   mashTunFillVolumeL: number
 }
 
+/** Pertes entre la fin d'ébullition et le fermenteur (houblon/trub + volume mort cuve/refroidisseur). */
+export function postBoilLossesL(profile: EquipmentProfile): number {
+  return profile.hopAbsorptionL + profile.deadspaceL
+}
+
 /**
- * Calcule, en partant du volume final visé en fermenteur, les volumes
- * intermédiaires nécessaires à chaque étape (eau totale, pré-ébullition,
- * post-ébullition), en intégrant les pertes du profil d'équipement :
- * absorption du grain, évaporation, absorption houblon/trub, deadspace de
- * cuve et contraction thermique au refroidissement.
+ * Calcule les volumes à rebours depuis le volume visé en fermenteur (specs §1) :
+ * fin d'ébullition à froid = fermenteur + pertes ; à chaud = ÷ (1 − contraction) ;
+ * pré-ébullition = + évaporation (L/h × durée) ; eau totale = + absorption grain
+ * + volume mort de la cuve d'empâtage. Eau d'empâtage = ratio × grain (plafonnée),
+ * le reste part au rinçage.
  */
 export function calculateVolumes(
-  targetFinalVolumeL: number,
+  fermenterVolumeL: number,
   grainWeightKg: number,
+  boilTimeMin: number,
   profile: EquipmentProfile,
 ): VolumeBreakdown {
-  const boilTimeHours = profile.boilTimeMin / 60
+  const endOfBoilColdVolumeL = fermenterVolumeL + postBoilLossesL(profile)
+  const postBoilVolumeL = endOfBoilColdVolumeL / (1 - profile.thermalShrinkagePercent / 100)
+  const preBoilVolumeL = postBoilVolumeL + profile.evaporationRateLPerHour * (boilTimeMin / 60)
+  const totalWaterNeededL =
+    preBoilVolumeL + grainWeightKg * profile.grainAbsorptionLPerKg + profile.mashTunDeadspaceL
 
-  // Volume chaud à soutirer de la cuve d'ébullition pour, une fois les pertes
-  // houblon/trub et deadspace retirées puis la contraction thermique
-  // appliquée, obtenir le volume final visé.
-  const postBoilVolumeL =
-    targetFinalVolumeL / (1 - profile.thermalShrinkagePercent / 100) +
-    profile.hopAbsorptionL +
-    profile.deadspaceL
-
-  const evaporationLossFraction = (profile.evaporationRatePercentPerHour / 100) * boilTimeHours
-  const preBoilVolumeL = postBoilVolumeL / (1 - evaporationLossFraction)
-
-  const totalWaterNeededL = preBoilVolumeL + grainWeightKg * profile.grainAbsorptionLPerKg
-
-  // Répartition empâtage / rinçage : l'eau d'empâtage vise le ratio eau/grain
-  // configuré, le reste de l'eau totale part au rinçage. Si le ratio visé
-  // dépasse l'eau totale disponible (grain très faible ou ratio très élevé),
-  // on plafonne l'empâtage à l'eau totale et le rinçage tombe à 0.
-  // Source : AlchemyOverlord / Brewfather — eau d'empâtage = kg × ratio,
-  // plafonnée ; le reste = eau de rinçage.
   const mashWaterL = Math.min(grainWeightKg * profile.waterToGrainRatioLPerKg, totalWaterNeededL)
   const spargeWaterL = totalWaterNeededL - mashWaterL
 
@@ -80,7 +76,8 @@ export function calculateVolumes(
     spargeWaterL,
     preBoilVolumeL,
     postBoilVolumeL,
-    volumeIntoFermenterL: targetFinalVolumeL,
+    endOfBoilColdVolumeL,
+    volumeIntoFermenterL: fermenterVolumeL,
     mashTunFillVolumeL: mashWaterL + grainWeightKg * GRAIN_DISPLACEMENT_L_PER_KG,
   }
 }
@@ -94,13 +91,12 @@ export function calculateVolumes(
  */
 export function estimateFinalVolumeFromPreBoil(
   preBoilVolumeL: number,
+  boilTimeMin: number,
   profile: EquipmentProfile,
 ): number {
-  const boilTimeHours = profile.boilTimeMin / 60
-  const evaporationLossFraction = (profile.evaporationRatePercentPerHour / 100) * boilTimeHours
-  const postBoilVolumeL = preBoilVolumeL * (1 - evaporationLossFraction)
-  const hotTransferVolumeL = postBoilVolumeL - profile.hopAbsorptionL - profile.deadspaceL
-  return hotTransferVolumeL * (1 - profile.thermalShrinkagePercent / 100)
+  const postBoilVolumeL = preBoilVolumeL - profile.evaporationRateLPerHour * (boilTimeMin / 60)
+  const endOfBoilColdVolumeL = postBoilVolumeL * (1 - profile.thermalShrinkagePercent / 100)
+  return endOfBoilColdVolumeL - postBoilLossesL(profile)
 }
 
 /**

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import bjcpStyles from '@/data/bjcp-styles-2021.json'
 import { estimateRecipeStats, REFERENCE_MASH_TEMP_C } from '@/lib/brew-calc/recipe-stats'
@@ -77,19 +77,8 @@ export function RecipeForm({
   })
   const [styleQuery, setStyleQuery] = useState('')
 
-  const stats = useMemo(
-    () =>
-      estimateRecipeStats({
-        fermentables: value.fermentables,
-        hops: value.hops,
-        yeasts: value.yeasts,
-        targetVolumeL: value.targetVolumeL,
-        mashEfficiencyPercent: value.mashEfficiencyPercent,
-        mashTempC: value.mashTempC,
-        ibuFormula: value.ibuFormula,
-      }),
-    [value.fermentables, value.hops, value.yeasts, value.targetVolumeL, value.mashEfficiencyPercent, value.mashTempC, value.ibuFormula],
-  )
+  const selectedEquipment = equipmentProfiles?.find((p) => p.id === value.equipmentProfileId) ?? null
+  const stats = estimateRecipeStats({ ...value, equipment: selectedEquipment })
 
   const selectedStyle = bjcpStyles.find((s) => s.id === value.styleId) ?? null
   const styleMatch = selectedStyle
@@ -106,9 +95,8 @@ export function RecipeForm({
     ? bjcpStyles.filter((s) => s.name.toLowerCase().includes(styleQuery.toLowerCase())).slice(0, 15)
     : []
 
-  const selectedEquipment = equipmentProfiles?.find((p) => p.id === value.equipmentProfileId) ?? null
   const totalGrainKg = value.fermentables.filter((f) => f.type === 'grain').reduce((sum, f) => sum + f.amountKg, 0)
-  const volumes = selectedEquipment ? calculateVolumes(value.targetVolumeL, totalGrainKg, selectedEquipment) : null
+  const volumes = selectedEquipment ? calculateVolumes(value.targetVolumeL, totalGrainKg, value.boilTimeMin, selectedEquipment) : null
   const kettleOverflow =
     selectedEquipment && volumes ? volumes.preBoilVolumeL > selectedEquipment.boilKettleVolumeL + 0.05 : false
   // En BIAB, la cuve d'empâtage est la même que la cuve d'ébullition : le
@@ -129,12 +117,12 @@ export function RecipeForm({
     if (volumeAnchor !== 'preboil' || !selectedEquipment) return
     const parsed = Number.parseFloat(preBoilTargetL)
     if (!Number.isFinite(parsed)) return
-    const derivedFinal = Math.round(estimateFinalVolumeFromPreBoil(parsed, selectedEquipment) * 100) / 100
+    const derivedFinal = Math.round(estimateFinalVolumeFromPreBoil(parsed, value.boilTimeMin, selectedEquipment) * 100) / 100
     if (Math.abs(derivedFinal - value.targetVolumeL) > 0.01) {
       set('targetVolumeL', derivedFinal)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [volumeAnchor, preBoilTargetL, selectedEquipment])
+  }, [volumeAnchor, preBoilTargetL, selectedEquipment, value.boilTimeMin])
 
   function switchVolumeAnchor(anchor: 'final' | 'preboil') {
     if (anchor === 'preboil' && volumeAnchor !== 'preboil' && selectedEquipment) {
@@ -489,7 +477,7 @@ export function RecipeForm({
         rows={value.hops}
         onAdd={() => set('hops', [...value.hops, { ...emptyHop }])}
         onRemove={(i) => set('hops', value.hops.filter((_, idx) => idx !== i))}
-        headers={['Nom', 'Poids (g)', 'Acide alpha (%AA)', 'Temps (min)', 'Usage', 'Dry hop (jours)', 'Dry hop (°C)']}
+        headers={['Nom', 'Poids (g)', 'Acide alpha (%AA)', 'Temps (min)', 'Usage', 'Dry hop (jours)', 'Temp. (°C)']}
         headerHints={[
           undefined,
           'Quantité de houblon ajoutée, en grammes.',
@@ -497,7 +485,7 @@ export function RecipeForm({
           "Temps restant en ébullition au moment de l'ajout. Un ajout à 60 min en ébullition de 60 min = ajout en début d'ébullition (amertume maximale) ; un ajout à 5 min = arôme, peu d'amertume. Sans effet pour un houblon Dry hop.",
           "First wort (ajouté dès le remplissage de la cuve), Ébullition, Whirlpool (après coupure du feu), Dry hop (dans le fermenteur, sans ébullition) ou Empâtage.",
           "Dry hop uniquement : durée du contact du houblon avec la bière après fermentation, en jours.",
-          'Dry hop uniquement : température visée pendant le contact.',
+          "Whirlpool : température du moût pendant l'infusion (80 °C par défaut ; plus chaud = plus d'amertume). Dry hop : température visée pendant le contact.",
         ]}
         renderRow={(h, i) => (
           <>
@@ -524,11 +512,14 @@ export function RecipeForm({
             <input
               type="number"
               step="0.5"
-              value={h.dryHopTempC ?? ''}
-              onChange={(e) => updateHop(i, { dryHopTempC: e.target.value === '' ? undefined : Number.parseFloat(e.target.value) })}
-              placeholder="°C"
+              value={(h.use === 'whirlpool' ? h.temperatureC : h.dryHopTempC) ?? ''}
+              onChange={(e) => {
+                const temp = e.target.value === '' ? undefined : Number.parseFloat(e.target.value)
+                updateHop(i, h.use === 'whirlpool' ? { temperatureC: temp } : { dryHopTempC: temp })
+              }}
+              placeholder={h.use === 'whirlpool' ? '80' : '°C'}
               className="field-input"
-              disabled={h.use !== 'dry-hop'}
+              disabled={h.use !== 'dry-hop' && h.use !== 'whirlpool'}
             />
           </>
         )}

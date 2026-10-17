@@ -1,0 +1,1 @@
+ALTER TABLE "equipment_profiles" DROP COLUMN "evaporation_rate_percent_per_hour";

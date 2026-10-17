@@ -3,6 +3,7 @@ import type { Fermentable, Hop, OtherIngredient, Yeast } from '@/lib/brew-calc/t
 import { resolveBjcpStyleId } from '@/lib/beerxml/mapping'
 import type { ParsedRecipeDraft } from '@/lib/beerxml/types'
 import { supabase } from '@/lib/supabase/client'
+import { getEquipmentProfile } from './equipmentProfiles'
 
 export interface RecipeSummary {
   id: string
@@ -110,6 +111,7 @@ export async function getRecipeWithDetails(recipeId: string): Promise<RecipeDeta
       use: h.use,
       form: h.form ?? undefined,
       dryHopDays: h.dry_hop_days ?? undefined,
+      temperatureC: h.temperature_c !== null && h.temperature_c !== undefined ? Number(h.temperature_c) : undefined,
       dryHopTempC: h.dry_hop_temp_c !== null && h.dry_hop_temp_c !== undefined ? Number(h.dry_hop_temp_c) : undefined,
     })),
     yeasts: (yeasts ?? []).map((y) => ({
@@ -178,6 +180,7 @@ async function replaceChildRows(recipeId: string, input: RecipeInput): Promise<v
         use: h.use,
         form: h.form ?? 'pellet',
         dry_hop_days: h.dryHopDays ?? null,
+        temperature_c: h.use === 'whirlpool' ? (h.temperatureC ?? null) : null,
         dry_hop_temp_c: h.dryHopTempC ?? null,
         sort_order: i,
       })),
@@ -213,8 +216,9 @@ async function replaceChildRows(recipeId: string, input: RecipeInput): Promise<v
   }
 }
 
-function recipeStatsPayload(input: RecipeInput) {
-  const stats = estimateRecipeStats(input)
+async function recipeStatsPayload(input: RecipeInput) {
+  const equipment = input.equipmentProfileId ? await getEquipmentProfile(input.equipmentProfileId) : null
+  const stats = estimateRecipeStats({ ...input, equipment })
   return {
     name: input.name,
     style_id: input.styleId,
@@ -235,7 +239,7 @@ function recipeStatsPayload(input: RecipeInput) {
 }
 
 export async function createRecipe(userId: string, input: RecipeInput): Promise<string> {
-  const payload = recipeStatsPayload(input)
+  const payload = await recipeStatsPayload(input)
   const { data, error } = await supabase
     .from('recipes')
     .insert({ ...payload, user_id: userId, status: 'draft' })
@@ -248,7 +252,7 @@ export async function createRecipe(userId: string, input: RecipeInput): Promise<
 }
 
 export async function updateRecipe(recipeId: string, input: RecipeInput): Promise<void> {
-  const payload = { ...recipeStatsPayload(input), updated_at: new Date().toISOString() }
+  const payload = { ...(await recipeStatsPayload(input)), updated_at: new Date().toISOString() }
   const { error } = await supabase.from('recipes').update(payload).eq('id', recipeId)
   if (error) throw error
   await replaceChildRows(recipeId, input)

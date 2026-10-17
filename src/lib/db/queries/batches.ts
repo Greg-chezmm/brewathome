@@ -1,4 +1,5 @@
 import { estimateRecipeStats, REFERENCE_MASH_TEMP_C } from '@/lib/brew-calc/recipe-stats'
+import type { EquipmentProfile } from '@/lib/brew-calc/types'
 import { buildBatchSteps, planBatchStepsUpdate, type NewBatchStep } from '@/lib/brew-day/steps'
 import type { RecipeDetails, RecipeInput } from './recipes'
 import { getEquipmentProfile } from './equipmentProfiles'
@@ -68,7 +69,18 @@ export async function createBatchFromRecipe(
   name: string,
   brewDate: string | null,
 ): Promise<string> {
-  const recipe = await getRecipeWithDetails(recipeId)
+  const savedRecipe = await getRecipeWithDetails(recipeId)
+  const equipmentProfile = savedRecipe.equipmentProfileId ? await getEquipmentProfile(savedRecipe.equipmentProfileId) : null
+  // Estimations recalculées au moment de figer la recette (le cache en base peut dater d'un ancien moteur).
+  const stats = estimateRecipeStats({ ...savedRecipe, equipment: equipmentProfile })
+  const recipe: RecipeDetails = {
+    ...savedRecipe,
+    estOg: stats.og,
+    estFg: stats.fg,
+    estIbu: stats.ibu,
+    estSrm: stats.srm,
+    estAbv: stats.abv,
+  }
 
   const { data: batch, error } = await supabase
     .from('batches')
@@ -86,7 +98,6 @@ export async function createBatchFromRecipe(
 
   const batchId = batch.id as string
 
-  const equipmentProfile = recipe.equipmentProfileId ? await getEquipmentProfile(recipe.equipmentProfileId) : null
   const steps = buildBatchSteps(recipe, equipmentProfile)
   const { error: stepsError } = await supabase.from('batch_steps').insert(steps.map((s) => toStepRow(batchId, s)))
   if (stepsError) throw stepsError
@@ -191,7 +202,8 @@ export async function updateBatchRecipeSnapshot(
   currentSnapshot: RecipeDetails,
   patch: RecipeInput,
 ): Promise<void> {
-  const { og, fg, ibu, srm, abv } = estimateRecipeStats(patch)
+  const equipment = patch.equipmentProfileId ? await getEquipmentProfile(patch.equipmentProfileId) : null
+  const { og, fg, ibu, srm, abv } = estimateRecipeStats({ ...patch, equipment })
 
   const snapshot: RecipeDetails = {
     ...currentSnapshot,
@@ -219,7 +231,7 @@ export async function updateBatchRecipeSnapshot(
   const { error } = await supabase.from('batches').update({ recipe_snapshot: snapshot }).eq('id', batchId)
   if (error) throw error
 
-  await regenerateBatchSteps(batchId, snapshot)
+  await regenerateBatchSteps(batchId, snapshot, equipment)
 }
 
 function toStepRow(batchId: string, s: NewBatchStep) {
@@ -240,11 +252,12 @@ function toStepRow(batchId: string, s: NewBatchStep) {
  * Les suppressions passent avant les insertions : en cas d'échec, réenregistrer la recette
  * suffit à reconstruire les étapes manquantes.
  */
-async function regenerateBatchSteps(batchId: string, recipe: RecipeDetails): Promise<void> {
-  const [existing, equipmentProfile] = await Promise.all([
-    getBatchSteps(batchId),
-    recipe.equipmentProfileId ? getEquipmentProfile(recipe.equipmentProfileId) : null,
-  ])
+async function regenerateBatchSteps(
+  batchId: string,
+  recipe: RecipeDetails,
+  equipmentProfile: EquipmentProfile | null,
+): Promise<void> {
+  const existing = await getBatchSteps(batchId)
   const plan = planBatchStepsUpdate(existing, buildBatchSteps(recipe, equipmentProfile))
 
   if (plan.deleteIds.length > 0) {

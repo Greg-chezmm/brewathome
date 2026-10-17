@@ -74,7 +74,7 @@ export function BrewDay() {
   const totalGrainKg = recipe
     ? recipe.fermentables.filter((f) => f.type === 'grain').reduce((sum, f) => sum + f.amountKg, 0)
     : 0
-  const volumes = recipe && equipmentProfile ? calculateVolumes(recipe.targetVolumeL, totalGrainKg, equipmentProfile) : null
+  const volumes = recipe && equipmentProfile ? calculateVolumes(recipe.targetVolumeL, totalGrainKg, recipe.boilTimeMin, equipmentProfile) : null
 
   const guides = useMemo(() => {
     const map = new Map<string, StepGuide>()

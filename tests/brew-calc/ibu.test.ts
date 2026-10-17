@@ -30,8 +30,8 @@ describe('calculateIBU_Tinseth', () => {
 
   it('whirlpool contribution decreases at lower hopstand temperatures', () => {
     const whirlpoolHop: Hop = { name: 'Whirlpool', amountG: 20, alphaAcidPercent: 8, timeMin: 20, use: 'whirlpool' }
-    const hot = calculateIBU_Tinseth([whirlpoolHop], 1.05, 20, 90)
-    const cool = calculateIBU_Tinseth([whirlpoolHop], 1.05, 20, 65)
+    const hot = calculateIBU_Tinseth([whirlpoolHop], 1.05, 20, { hopstandTempC: 90 })
+    const cool = calculateIBU_Tinseth([whirlpoolHop], 1.05, 20, { hopstandTempC: 65 })
     expect(hot).toBeGreaterThan(cool)
   })
 

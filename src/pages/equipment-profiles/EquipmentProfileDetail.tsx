@@ -11,7 +11,7 @@ import {
 import type { EquipmentProfile } from '@/lib/brew-calc/types'
 import { FieldLabel } from '@/components/InfoTooltip'
 
-const FIELDS: Array<{ key: keyof EquipmentProfile; label: string; step?: string; hint: string }> = [
+const FIELDS: Array<{ key: keyof EquipmentProfile; label: string; step?: string; hint: string; optional?: boolean }> = [
   { key: 'name', label: 'Nom', hint: 'Un nom pour reconnaître ce profil (ex : "Cuve 30L BIAB").' },
   {
     key: 'targetBatchVolumeL',
@@ -26,16 +26,23 @@ const FIELDS: Array<{ key: keyof EquipmentProfile; label: string; step?: string;
     hint: "Capacité maximale de votre cuve. L'app vous alerte si le volume pré-ébullition d'une recette dépasse cette capacité.",
   },
   {
-    key: 'boilTimeMin',
-    label: "Durée d'ébullition (min)",
-    step: '1',
-    hint: "Durée habituelle de l'ébullition avec ce matériel — utilisée pour calculer l'évaporation totale.",
+    key: 'mashTunVolumeL',
+    label: "Volume de la cuve d'empâtage (L)",
+    step: '0.1',
+    optional: true,
+    hint: "Capacité de la cuve d'empâtage, pour vérifier qu'eau + grain y tiennent. Laissez vide en BIAB (c'est la cuve d'ébullition qui compte).",
   },
   {
-    key: 'evaporationRatePercentPerHour',
-    label: "Taux d'évaporation (%/h)",
+    key: 'boilTimeMin',
+    label: "Durée d'ébullition habituelle (min)",
+    step: '1',
+    hint: "Valeur par défaut des nouvelles recettes. Les calculs utilisent la durée d'ébullition de chaque recette.",
+  },
+  {
+    key: 'evaporationRateLPerHour',
+    label: "Évaporation (L/h)",
     step: '0.1',
-    hint: "Pourcentage du volume en cuve qui s'évapore chaque heure d'ébullition. Dépend de la puissance de chauffe et de la largeur de la cuve. Typique : 8-15%/h. Mesurez le vôtre en comparant un volume avant/après une ébullition d'1h.",
+    hint: "Litres perdus par heure d'ébullition. Dépend de la puissance de chauffe et de la largeur de la cuve, pas du volume. Mesurez-la : volume avant − volume après une ébullition d'1 h. Typique : 2-5 L/h.",
   },
   {
     key: 'grainAbsorptionLPerKg',
@@ -50,16 +57,28 @@ const FIELDS: Array<{ key: keyof EquipmentProfile; label: string; step?: string;
     hint: "Volume d'eau visé pour l'empâtage, par kg de grain (un empâtage \"épais\" utilise moins d'eau, ex. 2,5 L/kg ; \"fin\" davantage, ex. 3,5-4 L/kg). Le reste de l'eau totale nécessaire part au rinçage. Typique : 3 L/kg.",
   },
   {
+    key: 'mashTunDeadspaceL',
+    label: "Perte cuve d'empâtage (L)",
+    step: '0.1',
+    hint: "Volume mort sous le faux-fond de la cuve d'empâtage, jamais récupéré : l'app le rajoute à l'eau totale. 0 en BIAB.",
+  },
+  {
     key: 'hopAbsorptionL',
-    label: 'Absorption houblon/trub (L)',
+    label: 'Pertes houblon/trub (L)',
     step: '0.1',
     hint: "Volume de moût perdu dans les résidus de houblon et de protéines coagulées (trub) au fond de la cuve en fin d'ébullition.",
   },
   {
     key: 'deadspaceL',
-    label: 'Deadspace de cuve (L)',
+    label: "Volume mort cuve d'ébullition / refroidisseur (L)",
     step: '0.1',
-    hint: "Volume mort au fond de la cuve qui ne peut pas être soutiré (sous le niveau de la crépine ou du robinet).",
+    hint: "Moût qui reste dans la cuve (sous le robinet) ou dans le refroidisseur. Avec les pertes houblon/trub, c'est ce qui sépare la fin d'ébullition du fermenteur.",
+  },
+  {
+    key: 'fermenterLossL',
+    label: 'Perte au fermenteur (L)',
+    step: '0.1',
+    hint: 'Lie et bière laissée au soutirage : le volume embouteillé = volume en fermenteur − cette perte.',
   },
   {
     key: 'thermalShrinkagePercent',
@@ -72,6 +91,12 @@ const FIELDS: Array<{ key: keyof EquipmentProfile; label: string; step?: string;
     label: 'Efficacité de brassage (%)',
     step: '0.1',
     hint: "Efficacité moyenne d'extraction des sucres avec ce matériel — valeur par défaut reprise dans vos nouvelles recettes.",
+  },
+  {
+    key: 'hopUtilizationPercent',
+    label: 'Utilisation houblon (%)',
+    step: '1',
+    hint: "Facteur correcteur de l'amertume des houblons en ébullition. 100 % = formule de Tinseth telle quelle. Baissez-le si vos bières sont régulièrement moins amères que prévu (sac à houblon, cuve étroite…).",
   },
 ]
 
@@ -97,7 +122,12 @@ export function EquipmentProfileDetail() {
   function updateField(key: keyof EquipmentProfile, value: string) {
     setProfile((p) => ({
       ...p,
-      [key]: key === 'name' || key === 'method' ? value : Number.parseFloat(value),
+      [key]:
+        key === 'name' || key === 'method'
+          ? value
+          : key === 'mashTunVolumeL' && value === ''
+            ? null
+            : Number.parseFloat(value),
     }))
   }
 
@@ -142,9 +172,9 @@ export function EquipmentProfileDetail() {
             <input
               type={field.key === 'name' ? 'text' : 'number'}
               step={field.step}
-              value={String(profile[field.key])}
+              value={String(profile[field.key] ?? '')}
               onChange={(e) => updateField(field.key, e.target.value)}
-              required
+              required={!field.optional}
               className="field-input"
             />
           </div>

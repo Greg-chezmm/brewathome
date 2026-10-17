@@ -11,50 +11,82 @@ function contributingHops(hops: Hop[]): Hop[] {
 
 /**
  * Facteur d'utilisation de l'isomérisation à une température donnée (hopstand
- * / whirlpool, en dessous du point d'ébullition), selon la loi d'Arrhenius.
+ * / whirlpool, en dessous du point d'ébullition), selon la loi d'Arrhenius :
+ * f_T = 2,39·10¹¹ × e^(−9773 / T) (specs §4), égal à 1 à 100 °C.
  * Source : Mark Malowicki, thèse sur la cinétique d'isomérisation des acides
  * alpha ; formule reprise par Brewfather (vérifiée à ≈0,23 pour 80°C).
  */
 export function hopstandUtilizationFactor(temperatureC: number): number {
-  const tempK = temperatureC + 273.15
-  const boilTempK = 100 + 273.15
-  return Math.exp(-9773 * (1 / tempK - 1 / boilTempK))
+  // Constante des specs (arrondie : la formule brute donne 1,009 à 100 °C), plafonnée à 1.
+  return Math.min(1, ARRHENIUS_FACTOR * Math.exp(-9773 / (temperatureC + 273.15)))
+}
+
+/** Facteur pré-exponentiel de la loi d'Arrhenius du whirlpool (specs §4). */
+const ARRHENIUS_FACTOR = 2.39e11
+
+/** Facteur appliqué aux houblons « premier moût » (first wort hopping), convention courante (specs §4). */
+export const FIRST_WORT_HOP_FACTOR = 1.1
+
+/** Température par défaut d'un whirlpool / hopstand, en °C. */
+export const DEFAULT_WHIRLPOOL_TEMP_C = 80
+
+export interface TinsethOptions {
+  /** Durée d'ébullition : temps de contact des houblons « premier moût ». Absente : leur propre `timeMin`. */
+  boilTimeMin?: number
+  /** Facteur correcteur de l'équipement pour les ajouts en ébullition, en % (100 par défaut). */
+  hopUtilizationPercent?: number
+  /** Température des whirlpools sans température propre (`Hop.temperatureC`), en °C. */
+  hopstandTempC?: number
 }
 
 /**
- * IBU — formule de Tinseth.
+ * IBU de chaque ajout selon Tinseth (specs §4), dans l'ordre de `hops` :
+ * U(t) = 1,65 × 0,000125^(G − 1) × (1 − e^(−0,04 t)) / 4,15 ;
+ * IBU = U(t) × f × α × g × 1000 / V. Le facteur f vaut l'utilisation de
+ * l'équipement en ébullition, 1,10 en premier moût (t = durée d'ébullition),
+ * le facteur de température (Arrhenius) en whirlpool, 0 en dry hop / empâtage.
  * Source : Glenn Tinseth, "Hop Utilization, the Boil, and Malt Vigor".
- * Les ajouts whirlpool/hopstand sont inclus via le facteur de température de
- * Malowicki (cf. hopstandUtilizationFactor) — approximation documentée, un
- * écart résiduel avec Brewfather subsiste sur ce point précis (non élucidé).
  */
+export function tinsethContributions(
+  hops: Hop[],
+  boilGravity: number,
+  volumeL: number,
+  options: TinsethOptions = {},
+): number[] {
+  const bignessFactor = 1.65 * 0.000125 ** (boilGravity - 1)
+  const utilization = (timeMin: number) => (bignessFactor * (1 - Math.exp(-0.04 * timeMin))) / 4.15
+
+  return hops.map((hop) => {
+    let timeMin: number
+    let factor: number
+    switch (hop.use) {
+      case 'boil':
+        timeMin = hop.timeMin
+        factor = (options.hopUtilizationPercent ?? 100) / 100
+        break
+      case 'first-wort':
+        timeMin = options.boilTimeMin ?? hop.timeMin
+        factor = FIRST_WORT_HOP_FACTOR
+        break
+      case 'whirlpool':
+        timeMin = hop.timeMin
+        factor = hopstandUtilizationFactor(hop.temperatureC ?? options.hopstandTempC ?? DEFAULT_WHIRLPOOL_TEMP_C)
+        break
+      default:
+        return 0
+    }
+    return (utilization(timeMin) * factor * (hop.alphaAcidPercent / 100) * hop.amountG * 1000) / volumeL
+  })
+}
+
+/** IBU total selon Tinseth : somme des ajouts (voir `tinsethContributions`). */
 export function calculateIBU_Tinseth(
   hops: Hop[],
   boilGravity: number,
-  batchVolumeL: number,
-  hopstandTempC = 80,
+  volumeL: number,
+  options: TinsethOptions = {},
 ): number {
-  const bignessFactor = 1.65 * 0.000125 ** (boilGravity - 1)
-
-  const boilIbu = contributingHops(hops).reduce((total, hop) => {
-    const boilTimeFactor = (1 - Math.exp(-0.04 * hop.timeMin)) / 4.15
-    const utilization = bignessFactor * boilTimeFactor
-    const aaDecimal = hop.alphaAcidPercent / 100
-    const ibu = (hop.amountG * aaDecimal * utilization * 1000) / batchVolumeL
-    return total + ibu
-  }, 0)
-
-  const whirlpoolIbu = hops
-    .filter((h) => h.use === 'whirlpool')
-    .reduce((total, hop) => {
-      const boilTimeFactor = (1 - Math.exp(-0.04 * hop.timeMin)) / 4.15
-      const utilization = bignessFactor * boilTimeFactor * hopstandUtilizationFactor(hopstandTempC)
-      const aaDecimal = hop.alphaAcidPercent / 100
-      const ibu = (hop.amountG * aaDecimal * utilization * 1000) / batchVolumeL
-      return total + ibu
-    }, 0)
-
-  return boilIbu + whirlpoolIbu
+  return tinsethContributions(hops, boilGravity, volumeL, options).reduce((sum, ibu) => sum + ibu, 0)
 }
 
 /**

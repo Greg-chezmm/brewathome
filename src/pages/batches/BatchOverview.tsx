@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { calculateABV } from '@/lib/brew-calc/abv'
+import { calculateABV_simple } from '@/lib/brew-calc/abv'
 import {
   deleteBatch,
   getBatchWithDetails,
@@ -35,7 +35,7 @@ export function BatchOverview() {
 
   const recipe = batch.recipeSnapshot
   const actualAbv =
-    batch.ogMeasured !== null && batch.fgMeasured !== null ? calculateABV(batch.ogMeasured, batch.fgMeasured) : null
+    batch.ogMeasured !== null && batch.fgMeasured !== null ? calculateABV_simple(batch.ogMeasured, batch.fgMeasured) : null
 
   async function advanceStatus() {
     if (!batchId) return

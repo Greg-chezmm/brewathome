@@ -62,3 +62,18 @@ export function calculateDryYeastGrams(volumeL: number, style: YeastStyle): DryY
   const [minRate, maxRate] = style === 'lager' ? [1.0, 1.5] : [0.75, 1.0]
   return { minGrams: volumeL * minRate, maxGrams: volumeL * maxRate }
 }
+
+/** Cellules viables par gramme de levure sèche, en milliards (specs §8). */
+export const DRY_YEAST_BILLION_CELLS_PER_G = 10
+
+/** Taille usuelle d'un sachet de levure sèche, en grammes. */
+export const DRY_YEAST_SACHET_G = 11.5
+
+/** Levure sèche nécessaire pour un nombre de cellules donné : grammes et nombre de sachets (arrondi au-dessus). */
+export function dryYeastForCells(
+  cellsNeededBillions: number,
+  sachetGrams = DRY_YEAST_SACHET_G,
+): { grams: number; sachets: number } {
+  const grams = cellsNeededBillions / DRY_YEAST_BILLION_CELLS_PER_G
+  return { grams, sachets: Math.max(1, Math.ceil(grams / sachetGrams)) }
+}

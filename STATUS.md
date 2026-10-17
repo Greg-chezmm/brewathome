@@ -8,9 +8,9 @@ Application personnelle de brassage de bière maison (type Brewfather/Little Boc
 
 ### Recettes
 - Créateur de recette complet : fermentescibles, houblons, levures.
-- Calculs en direct : OG, FG, IBU (Tinseth et Rager), SRM, ABV. La température d'empâtage ajuste l'atténuation estimée (≈ 1 point par °C autour de 67 °C : plus chaud = FG plus haute, moins d'alcool).
+- Calculs en direct : OG, FG, IBU (Tinseth et Rager), SRM, ABV. **Moteur aligné sur les specs** (`Specs appli de brassage`) et validé par le cas de référence Pale Ale 23 L (`tests/brew-calc/reference-pale-ale.test.ts`) : volumes calculés à rebours depuis le fermenteur, DI/couleur/IBU sur le volume de fin d'ébullition à froid, IBU Tinseth sur la densité d'ébullition moyenne, premier moût ×1,10, whirlpool selon sa température (Arrhenius), ABV = 131,25 × (DI − DF). La température d'empâtage ajuste l'atténuation estimée (≈ 1 point par °C autour de 67 °C : plus chaud = FG plus haute, moins d'alcool).
 - Matching avec les styles BJCP 2021 (plages OG/FG/IBU/SRM/ABV).
-- Profils d'équipement (cuve, évaporation, pertes, méthode tout-grain/BIAB/extrait) avec calcul des volumes à chaque étape (eau d'empâtage, eau de rinçage @ 76 °C, pré-ébullition, post-ébullition, fermenteur), alerte de débordement de cuve.
+- Profils d'équipement (cuve, évaporation en L/h, pertes cuve d'empâtage / trub / fermenteur, utilisation houblon, méthode tout-grain/BIAB/extrait) avec calcul des volumes à chaque étape (eau d'empâtage, eau de rinçage @ 76 °C, pré-ébullition, post-ébullition, fermenteur), alerte de débordement de cuve.
 - Ancrage du dimensionnement sur le volume final **ou** sur le volume pré-ébullition (utile quand la cuve est le facteur limitant).
 - Import BeerXML (lecture seule) pour récupérer des recettes existantes.
 - **Houblons** : usages first-wort / ébullition / whirlpool / dry hop / empâtage, avec pour le dry hop une durée (jours) et une température cible dédiées.
@@ -49,6 +49,9 @@ Application personnelle de brassage de bière maison (type Brewfather/Little Boc
 - Support Tilt/TiltBridge au-delà de la saisie manuelle.
 - Calculateur de starter de levure.
 - Historique/statistiques multi-brassins, export PDF de fiche de recette.
+- Interfaces pour les calculs déjà prêts dans `src/lib/brew-calc/` : resucrage (`carbonation.ts`), sels minéraux (`water.ts`), sachets de levure sèche (`dryYeastForCells`). Usage des fermentescibles (empâtage/ébullition/fermentation) à exposer en base et dans le formulaire.
+- Migration `0009` (suppression de `evaporation_rate_percent_per_hour`) à appliquer **seulement après** le déploiement du nouveau code (le site en ligne lit encore l'ancienne colonne).
+- Import Brewfather via son API (Edge Function proxy, clé stockée en secret Supabase).
 - IBU Garetz (troisième formule, actuellement non implémentée malgré le type `IBUFormulaName` qui la prévoit).
 - Gestion de stock d'ingrédients (si besoin confirmé un jour).
 - Vérification croisée formelle des calculs (OG/FG/IBU/SRM/ABV/pitch levure) contre un compte Brewfather existant, au-delà des tests unitaires actuels.
