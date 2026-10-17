@@ -77,7 +77,9 @@ describe('brewfatherBatchToImport', () => {
     const { draft, equipment } = brewfatherBatchToImport(barleyWine)
     expect(draft?.name).toBe('Barley wine ( Ma recette ) #31')
     expect(draft?.fermentables.length).toBe(barleyWine.recipe!.fermentables!.length)
-    expect(equipment?.name).toBe(barleyWine.recipe!.equipment!.name)
+    // « Imported » ne distingue pas les équipements : le profil prend le nom de la recette.
+    expect(equipment?.name).toBe(`Équipement de « ${barleyWine.recipe!.name!.trim()} »`)
+    expect(equipment?.boilTimeMin).toBe(120)
   })
 
   it('sans recette, rien à importer', () => {

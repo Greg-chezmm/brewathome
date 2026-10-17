@@ -4,6 +4,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { ChevronDown, ChevronUp, CircleCheck, TriangleAlert } from 'lucide-react'
 import { useAuth } from '@/lib/auth/AuthProvider'
 import { listBrewfatherRecipes } from '@/lib/brewfather/client'
+import { kettleVolumeFromName } from '@/lib/brewfather/mapping'
 import {
   compareWithBrewfather,
   GAP_EXPLANATIONS,
@@ -310,6 +311,11 @@ function BrewfatherRecipeCard({ comparison }: { comparison: BrewfatherComparison
               <input type="checkbox" checked={withEquipment} onChange={(e) => setWithEquipment(e.target.checked)} />
               Importer aussi le profil d’équipement « {equipment.name} »
             </label>
+          )}
+          {equipment && withEquipment && (
+            <p className="-mt-1 text-xs text-slate-500">
+              Cuve d’ébullition : {equipment.boilKettleVolumeL} L de capacité{kettleVolumeFromName(equipment.name) === undefined && ' (estimée : Brewfather ne donne que le volume pré-ébullition, corrigez-la dans le profil)'}.
+            </p>
           )}
           {error && <p className="text-sm text-red-600">{error}</p>}
           <button type="button" onClick={handleImport} disabled={importing} className="btn-primary">

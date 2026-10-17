@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { compareWithBrewfather } from '@/lib/brewfather/compare'
-import { brewfatherEquipmentToProfile, brewfatherRecipeToDraft } from '@/lib/brewfather/mapping'
+import { brewfatherEquipmentToProfile, brewfatherRecipeToDraft, kettleVolumeFromName } from '@/lib/brewfather/mapping'
 import type { BrewfatherRecipe } from '@/lib/brewfather/types'
 
 /** Le cas de référence des specs (Pale Ale 23 L), tel que le renverrait l'API Brewfather. */
@@ -132,6 +132,26 @@ describe('brewfatherEquipmentToProfile', () => {
 
   it('renvoie null sans équipement', () => {
     expect(brewfatherEquipmentToProfile({ ...paleAle, equipment: null })).toBeNull()
+  })
+
+  it('nomme un équipement « Imported » d’après sa recette, et estime la cuve faute de capacité', () => {
+    // Brune forte : Brewfather ne donne que le volume pré-ébullition (15,9 L), pas la taille de la cuve.
+    const profile = brewfatherEquipmentToProfile({
+      ...paleAle,
+      name: 'Brune forte',
+      equipment: { name: 'Imported', batchSize: 12, boilSize: 15.9, boilTime: 60, boilOffPerHr: 2.879 },
+    })
+    expect(profile?.name).toBe('Équipement de « Brune forte »')
+    expect(profile?.boilKettleVolumeL).toBe(20)
+    expect(profile?.evaporationRateLPerHour).toBe(2.879)
+  })
+
+  it('lit la capacité de la cuve dans le nom de l’équipement', () => {
+    const profile = brewfatherEquipmentToProfile({ ...paleAle, equipment: { name: 'Marmite 20L', batchSize: 14, boilSize: 19.3 } })
+    expect(profile?.name).toBe('Marmite 20L')
+    expect(profile?.boilKettleVolumeL).toBe(20)
+    expect(kettleVolumeFromName('Cuve 35 litres')).toBe(35)
+    expect(kettleVolumeFromName('Imported')).toBeUndefined()
   })
 })
 

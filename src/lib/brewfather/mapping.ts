@@ -165,15 +165,30 @@ function percent(value: unknown, fallback: number, fractionBelow = 1): number {
   return v > 0 && v <= fractionBelow ? v * 100 : v
 }
 
-/** Profil d'équipement Brewfather → notre profil. Null si la recette n'en a pas. */
+/** Noms que Brewfather donne à tout équipement importé (BeerXML, autre logiciel) : ils ne le distinguent pas. */
+const GENERIC_EQUIPMENT_NAME = /^\s*(imported|import|default)\s*$/i
+
+/** Capacité écrite dans le nom (« Marmite 20L » → 20) : Brewfather ne stocke pas la taille de la cuve. */
+export function kettleVolumeFromName(name: string | undefined): number | undefined {
+  const match = /(\d+(?:[.,]\d+)?)\s*(?:l|litres?)\b/i.exec(name ?? '')
+  const volume = match ? Number.parseFloat(match[1].replace(',', '.')) : Number.NaN
+  return volume > 0 ? volume : undefined
+}
+
+/**
+ * Profil d'équipement Brewfather → notre profil. Null si la recette n'en a pas.
+ * Brewfather ne connaît que le volume pré-ébullition, pas la capacité de la cuve : à défaut de la lire
+ * dans le nom, on l'estime à 1,2 × pré-ébullition (à corriger dans le profil).
+ */
 export function brewfatherEquipmentToProfile(recipe: BrewfatherRecipe): EquipmentProfile | null {
   const e: BrewfatherEquipment | null | undefined = recipe.equipment
   if (!e) return null
   const batchSize = num(e.batchSize ?? recipe.batchSize, 20)
   const boilSize = num(e.boilSize ?? recipe.boilSize, batchSize * 1.3)
+  const name = e.name?.trim()
   return {
-    name: e.name?.trim() || `Équipement de « ${recipe.name ?? 'recette Brewfather'} »`,
-    boilKettleVolumeL: num(e.boilKettleVolume ?? e.kettleSize, Math.ceil(boilSize * 1.2)),
+    name: name && !GENERIC_EQUIPMENT_NAME.test(name) ? name : `Équipement de « ${recipe.name?.trim() || 'recette Brewfather'} »`,
+    boilKettleVolumeL: num(e.boilKettleVolume ?? e.kettleSize ?? kettleVolumeFromName(name), Math.ceil(boilSize * 1.2)),
     mashTunVolumeL: e.mashTunVolume ? num(e.mashTunVolume) : null,
     targetBatchVolumeL: batchSize,
     boilTimeMin: num(e.boilTime ?? recipe.boilTime, 60),
