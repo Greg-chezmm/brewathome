@@ -14,6 +14,7 @@ import {
   X,
 } from 'lucide-react'
 import { MeasurementsPanel } from '@/components/batches/MeasurementsPanel'
+import { BatchTabs } from '@/components/batches/BatchTabs'
 import { StepCard } from '@/components/brew-day/StepCard'
 import { StepOverview } from '@/components/brew-day/StepOverview'
 import { additionTiming, groupSteps } from '@/components/brew-day/stepMeta'
@@ -221,7 +222,7 @@ export function BrewDay() {
       {/* En-tête */}
       <header className="sticky top-0 z-20 bg-slate-900 px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] text-white lg:static lg:rounded-3xl lg:px-6 lg:py-5">
         <div className="flex items-center gap-2">
-          <Link to={`/batches/${batchId}`} className="-ml-2 rounded-full p-2 text-slate-300 hover:bg-white/10" aria-label="Retour au brassin">
+          <Link to="/batches" className="-ml-2 rounded-full p-2 text-slate-300 hover:bg-white/10" aria-label="Retour aux brassins">
             <ChevronLeft size={22} />
           </Link>
           <div className="min-w-0 flex-1">
@@ -237,6 +238,9 @@ export function BrewDay() {
           >
             <ListChecks size={20} />
           </button>
+        </div>
+        <div className="-mx-1 mt-1">
+          <BatchTabs batchId={batch.id} variant="dark" />
         </div>
         {activeGroup && (
           <div className="mt-3 flex items-center gap-3">
