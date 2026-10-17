@@ -51,6 +51,10 @@ Application personnelle de brassage de bière maison (type Brewfather/Little Boc
 - Renvoi vers le suivi de fermentation une fois toutes les étapes terminées ou passées.
 - Outils intégrés : calcul d'eau de trempe (strike water), correction de densité (dilution/ajout de fermentescible).
 
+### Outils (`/tools`)
+- Page de calculatrices (menu « Outils ») : **quantité de levure** (cellules Mr Malty, sachets secs de 11,5 g ou sachets liquides selon leur âge, starter conseillé au-delà de deux), **sels minéraux** (profil d'eau après gypse, CaCl2, Epsom, sel, bicarbonate ; repères par ion, rapport sulfates/chlorures ; eau de départ mémorisée dans le navigateur), eau d'empâtage, correction de densité, **resucrage** (CO2 résiduel selon la température, préréglages par style, saccharose/dextrose/extrait sec, grammes par bouteille).
+- Depuis un brassin, bouton « Outils » qui pré-remplit volume, DI et levure (`?volume=&og=&yeast=&form=`).
+
 ### Navigation
 - Barre d'onglets en bas sur mobile (Accueil, Recettes, Brassins, Plus), barre latérale sur PC.
 
@@ -73,7 +77,8 @@ Application personnelle de brassage de bière maison (type Brewfather/Little Boc
 - Support Tilt/TiltBridge au-delà de la saisie manuelle.
 - Calculateur de starter de levure.
 - Historique/statistiques multi-brassins, export PDF de fiche de recette.
-- Interfaces pour les calculs déjà prêts dans `src/lib/brew-calc/` : resucrage (`carbonation.ts`), sels minéraux (`water.ts`), sachets de levure sèche (`dryYeastForCells`). Usage des fermentescibles (empâtage/ébullition/fermentation) à exposer en base et dans le formulaire.
+- Usage des fermentescibles (empâtage/ébullition/fermentation) à exposer en base et dans le formulaire.
+- Sels minéraux : proposer les dosages pour viser un profil cible (aujourd'hui on saisit les grammes et on lit le résultat), et pH d'empâtage.
 - Brewfather : utiliser l'atténuation réelle par levure et le rendement mesuré pour ajuster les recettes. Écarts restants connus : IBU des bières fortes (Brewfather prend la densité pré-ébullition, nous la moyenne des specs) et DF (Brewfather ajuste l'atténuation selon l'empâtage et le sucre).
 - IBU Garetz (troisième formule, actuellement non implémentée malgré le type `IBUFormulaName` qui la prévoit).
 - Gestion de stock d'ingrédients (si besoin confirmé un jour).

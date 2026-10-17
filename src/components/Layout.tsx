@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { NavLink, Outlet, useLocation, useMatch } from 'react-router-dom'
-import { ArrowDownUp, Beer, BookOpen, Cpu, Ellipsis, House, Library, LogOut, Wrench, X, type LucideIcon } from 'lucide-react'
+import { ArrowDownUp, Beer, BookOpen, Calculator, Cpu, Ellipsis, House, Library, LogOut, Wrench, X, type LucideIcon } from 'lucide-react'
 import { useAuth } from '@/lib/auth/AuthProvider'
 import { ensureStarterRecipe } from '@/lib/db/queries/starterRecipe'
 import { BrewLogo } from '@/components/BrewLogo'
@@ -22,6 +22,7 @@ const primaryNav: NavItem[] = [
 
 /** Écrans secondaires : menu « Plus » sur mobile. */
 const secondaryNav: NavItem[] = [
+  { to: '/tools', label: 'Outils', icon: Calculator },
   { to: '/equipment-profiles', label: 'Équipement', icon: Wrench },
   { to: '/devices', label: 'Appareils', icon: Cpu },
   { to: '/recipes/brewfather', label: 'Brewfather', icon: ArrowDownUp },

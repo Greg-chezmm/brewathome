@@ -34,6 +34,16 @@ export function BatchOverview() {
   if (!batch) return <p className="text-slate-500">Chargement…</p>
 
   const recipe = batch.recipeSnapshot
+  // Les outils (levure, resucrage…) s'ouvrent pré-remplis avec les valeurs du brassin.
+  const toolsParams = new URLSearchParams()
+  const toolsVolume = batch.volumeMeasuredL ?? recipe.targetVolumeL
+  const toolsOg = batch.ogMeasured ?? recipe.estOg
+  if (toolsVolume) toolsParams.set('volume', String(toolsVolume))
+  if (toolsOg) toolsParams.set('og', String(toolsOg))
+  if (recipe.yeasts[0]) {
+    toolsParams.set('yeast', recipe.yeasts[0].style)
+    toolsParams.set('form', recipe.yeasts[0].type)
+  }
   const actualAbv =
     batch.ogMeasured !== null && batch.fgMeasured !== null ? calculateABV_simple(batch.ogMeasured, batch.fgMeasured) : null
 
@@ -84,6 +94,9 @@ export function BatchOverview() {
         </Link>
         <Link to={`/batches/${batchId}/fermentation`} className="btn-secondary">
           Suivi de fermentation
+        </Link>
+        <Link to={`/tools?${toolsParams}`} className="btn-secondary">
+          Outils (levure, resucrage…)
         </Link>
         {STATUS_FLOW.indexOf(batch.status) < STATUS_FLOW.length - 1 && (
           <button onClick={advanceStatus} className="btn-secondary">

@@ -45,7 +45,7 @@ export function StrikeWaterTool({
           </p>
         </>
       )}
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+      <div className="grid grid-cols-2 items-end gap-2 sm:grid-cols-4">
         <div>
           <FieldLabel hint="La température de palier d'empâtage visée (ex : 67°C pour un empâtage standard).">
             Palier visé (°C)

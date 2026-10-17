@@ -19,6 +19,7 @@ import { RecipeNew } from '@/pages/recipes/RecipeNew'
 import { RecipeValidate } from '@/pages/recipes/RecipeValidate'
 import { RecipesList } from '@/pages/recipes/RecipesList'
 import { StylesList } from '@/pages/styles/StylesList'
+import { Tools } from '@/pages/tools/Tools'
 
 export function App() {
   return (
@@ -43,6 +44,7 @@ export function App() {
           <Route path="/equipment-profiles/:profileId" element={<EquipmentProfileDetail />} />
           <Route path="/styles" element={<StylesList />} />
           <Route path="/devices" element={<DevicesList />} />
+          <Route path="/tools" element={<Tools />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Route>

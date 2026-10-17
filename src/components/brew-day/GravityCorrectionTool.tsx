@@ -51,7 +51,7 @@ export function GravityCorrectionTool({ targetGravity }: { targetGravity?: numbe
       <p className="mb-3 text-sm text-slate-500">
         Si la densité mesurée s'écarte de la cible, calculez la dilution ou l'ajout de matière nécessaire.
       </p>
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+      <div className="grid grid-cols-2 items-end gap-2 sm:grid-cols-4">
         <div>
           <FieldLabel hint="Le volume de moût que vous avez actuellement (dans la cuve ou le fermenteur) au moment de la mesure.">
             Volume actuel (L)
