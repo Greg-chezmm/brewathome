@@ -10,10 +10,21 @@ import {
 import { computeRecipe, DEFAULT_ATTENUATION_PERCENT } from '@/lib/brew-calc/recipe-stats'
 import { SPARGE_WATER_TEMP_C } from '@/lib/brew-calc/volumes'
 import { formatWeightKg } from '@/lib/brew-calc/units'
+import { fermentableUse } from '@/lib/brew-calc/gravity'
+import {
+  dryHopEvents,
+  FERMENTATION_STEP_LABELS,
+  fermentationSchedule,
+  totalFermentationDays,
+} from '@/lib/brew-calc/fermentation-profile'
+import type { YeastAmountUnit } from '@/lib/brew-calc/types'
 import { deleteRecipe, getRecipeWithDetails } from '@/lib/db/queries/recipes'
 import { getEquipmentProfile } from '@/lib/db/queries/equipmentProfiles'
 import { BeerGlass } from '@/components/BeerGlass'
 import { InfoTooltip } from '@/components/InfoTooltip'
+
+const USE_LABELS = { boil: 'ajout à l’ébullition', fermentation: 'ajout en fermentation' } as const
+const YEAST_UNITS: Record<YeastAmountUnit, string> = { pkg: 'sachet(s)', g: 'g', ml: 'ml' }
 
 export function RecipeDetail() {
   const { recipeId } = useParams<{ recipeId: string }>()
@@ -150,6 +161,9 @@ export function RecipeDetail() {
             <li key={i} className="py-1.5">
               <span className="font-medium text-slate-800">{formatWeightKg(f.amountKg)}</span> — {f.name} ({f.type},{' '}
               {f.colorLovibond}°L, {f.yieldPercent}%)
+              {fermentableUse(f) !== 'mash' && (
+                <span className="text-indigo-600"> · {USE_LABELS[fermentableUse(f) as 'boil' | 'fermentation']}</span>
+              )}
             </li>
           ))}
         </ul>
@@ -161,7 +175,11 @@ export function RecipeDetail() {
           {recipe.hops.map((h, i) => (
             <li key={i} className="py-1.5">
               <span className="font-medium text-slate-800">{h.amountG} g</span> — {h.name} ({h.alphaAcidPercent}%
-              AA, {h.timeMin} min, {h.use})
+              AA,{' '}
+              {h.use === 'dry-hop'
+                ? `dry hop jour ${dryHopEvents([h], recipe.fermentationSteps)[0].day}${h.dryHopDays !== undefined ? `, ${h.dryHopDays} j` : ''}`
+                : `${h.timeMin} min, ${h.use}`}
+              )
             </li>
           ))}
         </ul>
@@ -177,6 +195,11 @@ export function RecipeDetail() {
         )}
         {recipe.yeasts.map((y, i) => (
           <p key={i} className="text-sm text-slate-700">
+            {y.amount !== undefined && (
+              <span className="font-medium text-slate-800">
+                {y.amount.toLocaleString('fr-FR')} {YEAST_UNITS[y.amountUnit ?? 'pkg']} —{' '}
+              </span>
+            )}
             {y.name} ({y.type === 'dry' ? 'sèche' : 'liquide'}, {y.style}, atténuation {y.attenuationPercent}%)
           </p>
         ))}
@@ -192,6 +215,35 @@ export function RecipeDetail() {
           </p>
         )}
       </section>
+
+      {(recipe.fermentationSteps.length > 0 || recipe.carbonationVols !== null) && (
+        <section className="card">
+          <h2 className="section-title mb-2">
+            Fermentation
+            {recipe.fermentationSteps.length > 0 && (
+              <span className="ml-2 text-sm font-normal text-slate-500">{totalFermentationDays(recipe.fermentationSteps)} jours</span>
+            )}
+          </h2>
+          <ul className="divide-y divide-slate-100 text-sm text-slate-700">
+            {fermentationSchedule(recipe.fermentationSteps).map((s, i) => (
+              <li key={i} className="flex justify-between gap-3 py-1.5">
+                <span>
+                  <span className="font-medium text-slate-800">{FERMENTATION_STEP_LABELS[s.type]}</span> · {s.tempC} °C ·{' '}
+                  {s.days} j
+                </span>
+                <span className="text-xs text-slate-500">
+                  jour {s.startDay} → {s.endDay}
+                </span>
+              </li>
+            ))}
+          </ul>
+          {recipe.carbonationVols !== null && (
+            <p className="mt-2 text-sm text-slate-700">
+              Carbonatation visée : <span className="font-medium">{recipe.carbonationVols.toLocaleString('fr-FR')} vol. CO₂</span>
+            </p>
+          )}
+        </section>
+      )}
 
       {volumes && (
         <section className={`card ${kettleOverflow || mashTunOverflow ? 'border-red-300 bg-red-50' : ''}`}>

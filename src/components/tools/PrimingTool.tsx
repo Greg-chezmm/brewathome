@@ -19,10 +19,23 @@ const CO2_PRESETS: { label: string; volumes: number }[] = [
 
 const BOTTLES_L = [0.33, 0.75]
 
-export function PrimingTool({ defaultVolumeL }: { defaultVolumeL?: number }) {
-  const [volume, setVolume] = useState(defaultVolumeL ? String(defaultVolumeL) : '20')
-  const [temperature, setTemperature] = useState('20')
-  const [co2, setCo2] = useState('2.4')
+/** Valeurs de départ : celles du brassin quand l'outil est ouvert depuis son suivi. */
+export function PrimingTool({
+  defaultVolumeL,
+  defaultCo2,
+  defaultTempC,
+  note,
+}: {
+  defaultVolumeL?: number
+  defaultCo2?: number
+  defaultTempC?: number
+  /** D'où viennent les valeurs pré-remplies. */
+  note?: string
+}) {
+  const round = (value: number, digits: number) => String(Math.round(value * 10 ** digits) / 10 ** digits)
+  const [volume, setVolume] = useState(defaultVolumeL ? round(defaultVolumeL, 1) : '20')
+  const [temperature, setTemperature] = useState(defaultTempC !== undefined ? round(defaultTempC, 1) : '20')
+  const [co2, setCo2] = useState(defaultCo2 ? round(defaultCo2, 2) : '2.4')
   const [sugar, setSugar] = useState<PrimingSugar>('sucrose')
 
   const volumeL = Number.parseFloat(volume)
@@ -39,6 +52,7 @@ export function PrimingTool({ defaultVolumeL }: { defaultVolumeL?: number }) {
         Sucre à ajouter pour gazéifier en bouteille, compte tenu du CO2 déjà dissous dans la bière en fin de
         fermentation.
       </p>
+      {note && <p className="-mt-2 mb-3 text-xs text-slate-500">{note}</p>}
       <div className="grid grid-cols-2 items-end gap-2 sm:grid-cols-4">
         <div>
           <FieldLabel hint="Volume de bière réellement mis en bouteille (après soutirage, sans le dépôt).">

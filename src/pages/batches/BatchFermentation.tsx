@@ -14,9 +14,11 @@ import {
 } from 'recharts'
 import { listBrewfatherBatchReadings } from '@/lib/brewfather/client'
 import { brewfatherReadingsToImport } from '@/lib/brewfather/readings'
+import { FermentationPlan } from '@/components/batches/FermentationPlan'
 import { MeasurementsPanel } from '@/components/batches/MeasurementsPanel'
+import { PrimingTool } from '@/components/tools/PrimingTool'
 import { ConnectionBadge } from '@/components/devices/ConnectionBadge'
-import { getBatchWithDetails } from '@/lib/db/queries/batches'
+import { getBatchSteps, getBatchWithDetails } from '@/lib/db/queries/batches'
 import { getBrewfatherAccount } from '@/lib/db/queries/brewfather'
 import { listDevices, setDeviceActiveBatch } from '@/lib/db/queries/devices'
 import {
@@ -29,6 +31,7 @@ import {
 import { seriesWithGaps } from '@/lib/fermentation/chart'
 import { plannedMeasurements } from '@/lib/brew-day/measurements'
 import { currentGravity, fermentationProgress } from '@/lib/fermentation/progress'
+import { fermentationStartTime, primingTemperatureC } from '@/lib/fermentation/plan'
 import { gravityStability } from '@/lib/fermentation/stability'
 
 /** Relevés affichés avant « Tout afficher » : un iSpindel en envoie ~100 par jour. */
@@ -65,6 +68,11 @@ export function BatchFermentation() {
     // Avec un iSpindel rattaché, les nouvelles mesures apparaissent d'elles-mêmes.
     refetchInterval: linkedDevices.length > 0 ? 60_000 : false,
   })
+  const { data: batchSteps } = useQuery({
+    queryKey: ['batch-steps', batchId],
+    queryFn: () => getBatchSteps(batchId!),
+    enabled: !!batchId,
+  })
   const { data: brewfatherAccount } = useQuery({
     queryKey: ['brewfather-account'],
     queryFn: getBrewfatherAccount,
@@ -78,6 +86,7 @@ export function BatchFermentation() {
   const [showAll, setShowAll] = useState(false)
   const [importing, setImporting] = useState(false)
   const [importMessage, setImportMessage] = useState<string | null>(null)
+  const [openedAt] = useState(() => Date.now())
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -141,6 +150,19 @@ export function BatchFermentation() {
   const progress = og !== null && gravityNow !== null ? fermentationProgress(og, gravityNow, plannedFg) : null
   const dots = all.length <= CHART_DOTS_MAX ? { r: 2 } : false
   const newestFirst = all.slice().reverse()
+  const fermentationStart = batch ? fermentationStartTime(batchSteps ?? [], batch.brewDate, times[0] ?? null) : null
+  const lastTemperature = newestFirst.find((r) => r.temperatureC !== null)?.temperatureC ?? null
+  const profile = batch?.recipeSnapshot.fermentationSteps ?? []
+  const primingTempC = batch
+    ? primingTemperatureC(
+        batch.measurements.maxFermentationTempC,
+        all.map((r) => r.temperatureC),
+        profile.filter((s) => s.type !== 'cold-crash').map((s) => s.tempC),
+      )
+    : null
+  const primingVolumeL = batch?.measurements.packagingVolumeL ?? batch?.measurements.fermenterVolumeL ?? batch?.recipeSnapshot.targetVolumeL
+  // Relu toutes les 30 s avec les appareils : « aujourd'hui » reste juste sans horloge dédiée.
+  const now = Math.max(devicesUpdatedAt, openedAt)
   const listed = showAll ? newestFirst : newestFirst.slice(0, LIST_PREVIEW)
 
   return (
@@ -177,6 +199,17 @@ export function BatchFermentation() {
             />
           </div>
         </div>
+      )}
+
+      {batch && (
+        <FermentationPlan
+          batchId={batch.id}
+          steps={profile}
+          hops={batch.recipeSnapshot.hops}
+          start={fermentationStart}
+          now={now}
+          currentTempC={lastTemperature}
+        />
       )}
 
       {linkedDevices.map((device) => (
@@ -367,6 +400,28 @@ export function BatchFermentation() {
             </button>
           )}
         </div>
+      )}
+
+      {batch && (batch.status === 'fermentation' || batch.status === 'conditioning') && (
+        <PrimingTool
+          // Les valeurs du brassin arrivent après le premier rendu : la clé réinitialise l'outil quand elles changent.
+          key={`${primingVolumeL}-${primingTempC}-${batch.recipeSnapshot.carbonationVols}`}
+          defaultVolumeL={primingVolumeL}
+          defaultCo2={batch.recipeSnapshot.carbonationVols ?? undefined}
+          defaultTempC={primingTempC ?? undefined}
+          note={[
+            batch.recipeSnapshot.carbonationVols ? `CO₂ visé par la recette : ${batch.recipeSnapshot.carbonationVols.toLocaleString('fr-FR')} vol.` : null,
+            primingTempC !== null
+              ? batch.measurements.maxFermentationTempC !== null
+                ? 'Température : maximum saisi dans les mesures.'
+                : all.some((r) => r.temperatureC !== null)
+                  ? 'Température : la plus haute des relevés.'
+                  : 'Température : la plus haute du profil de fermentation.'
+              : null,
+          ]
+            .filter(Boolean)
+            .join(' ')}
+        />
       )}
     </div>
   )
