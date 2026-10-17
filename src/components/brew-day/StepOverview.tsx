@@ -1,4 +1,5 @@
 import { Check, SkipForward } from 'lucide-react'
+import { formatDuration } from '@/hooks/useBrewTimer'
 import { isStepFinished, type BatchStep } from '@/lib/db/queries/batches'
 import { additionTiming, STEP_ICONS, type StepGroup } from './stepMeta'
 
@@ -29,13 +30,16 @@ export function StepOverview({
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                 {groupIndex + 1} · {group.label}
               </p>
-              <span className="text-xs text-slate-400">
-                {doneCount}/{group.steps.length}
-              </span>
+              {/* Une phase d'une seule étape : son propre état suffit. */}
+              {group.steps.length > 1 && (
+                <span className="text-xs text-slate-400">
+                  {doneCount} / {group.steps.length} étapes
+                </span>
+              )}
             </div>
             <ul className="space-y-1">
               {group.steps.map(({ step, index }) => {
-                const { isDue } = additionTiming(step, boilStep, boilElapsedSeconds)
+                const { isDue, triggerAtSeconds } = additionTiming(step, boilStep, boilElapsedSeconds)
                 const active = index === activeIndex
                 const progress = checklistTotals.get(step.id)
                 return (
@@ -52,15 +56,24 @@ export function StepOverview({
                       }`}
                     >
                       <StatusDot status={step.status} icon={STEP_ICONS[step.stepType]} />
-                      <span
-                        className={`min-w-0 flex-1 ${isStepFinished(step.status) ? 'text-slate-400 line-through decoration-slate-300' : 'text-slate-800'}`}
-                      >
-                        {step.label}
+                      <span className="min-w-0 flex-1">
+                        <span
+                          className={`block ${isStepFinished(step.status) ? 'text-slate-400 line-through decoration-slate-300' : 'text-slate-800'}`}
+                        >
+                          {step.label}
+                        </span>
+                        {triggerAtSeconds !== null && step.status === 'todo' && (
+                          <span className={`block text-xs ${isDue ? 'font-semibold text-red-600' : 'text-slate-500'}`}>
+                            {!boilStep?.actualStartAt
+                              ? `à ${step.triggerTimeMin} min de la fin`
+                              : isDue
+                                ? 'maintenant !'
+                                : `dans ${formatDuration(triggerAtSeconds - boilElapsedSeconds)}`}
+                          </span>
+                        )}
                       </span>
                       {progress && progress.total > 0 && !isStepFinished(step.status) && (
-                        <span className="shrink-0 text-xs tabular-nums text-slate-400">
-                          {progress.done}/{progress.total}
-                        </span>
+                        <ChecklistDots done={progress.done} total={progress.total} />
                       )}
                     </button>
                   </li>
@@ -71,6 +84,18 @@ export function StepOverview({
         )
       })}
     </ol>
+  )
+}
+
+/** Avancement de la checklist de l'étape : un point par case, plein quand elle est cochée. */
+function ChecklistDots({ done, total }: { done: number; total: number }) {
+  const label = `${done} case${done > 1 ? 's' : ''} cochée${done > 1 ? 's' : ''} sur ${total}`
+  return (
+    <span className="flex shrink-0 gap-1" role="img" aria-label={label} title={label}>
+      {Array.from({ length: total }, (_, i) => (
+        <span key={i} className={`h-1.5 w-1.5 rounded-full ${i < done ? 'bg-green-500' : 'bg-slate-300'}`} />
+      ))}
+    </span>
   )
 }
 
