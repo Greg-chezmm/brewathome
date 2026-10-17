@@ -21,8 +21,14 @@ import type {
 
 /** Potentiel du saccharose pur (PPG), référence du rendement en %. */
 const SUCROSE_PPG = 46
+/**
+ * Rendement appliqué par Brewfather à un ingrédient créé sans potentiel (≈ 1.036) :
+ * déduit des DI qu'il annonce pour des recettes contenant de tels malts.
+ */
+export const BREWFATHER_DEFAULT_YIELD_PERCENT = 78
 
 function num(value: unknown, fallback = 0): number {
+  if (value === null || value === undefined || value === '') return fallback
   const n = typeof value === 'string' ? Number.parseFloat(value) : (value as number)
   return typeof n === 'number' && Number.isFinite(n) ? n : fallback
 }
@@ -50,11 +56,11 @@ function mapFermentable(f: BrewfatherFermentable): Fermentable {
   const type = lower(f.type)
   // Le rendement en % est donné directement ; à défaut, on le déduit de la densité potentielle (1.037 → 37 PPG).
   const yieldPercent =
-    f.potentialPercentage !== undefined
+    f.potentialPercentage
       ? num(f.potentialPercentage)
       : f.potential
         ? ((num(f.potential) - 1) * 1000 / SUCROSE_PPG) * 100
-        : 75
+        : BREWFATHER_DEFAULT_YIELD_PERCENT
   return {
     name: f.name?.trim() || 'Fermentescible',
     type: type.includes('extract') ? 'extract' : type === 'sugar' ? 'sugar' : 'grain',
@@ -117,10 +123,10 @@ function mainMashTemp(recipe: BrewfatherRecipe): number | undefined {
   return main ? num(main.stepTemp) : undefined
 }
 
-/** Contraction en % : Brewfather la stocke parfois en fraction (0,04). */
-function shrinkagePercent(value: unknown): number {
-  const v = num(value, 4)
-  return v > 0 && v < 1 ? v * 100 : v
+/** Pourcentage que Brewfather peut stocker en fraction (contraction 0,04 ; utilisation houblon 1 = 100 %). */
+function percent(value: unknown, fallback: number, fractionBelow = 1): number {
+  const v = num(value, fallback)
+  return v > 0 && v <= fractionBelow ? v * 100 : v
 }
 
 /** Profil d'équipement Brewfather → notre profil. Null si la recette n'en a pas. */
@@ -143,9 +149,9 @@ export function brewfatherEquipmentToProfile(recipe: BrewfatherRecipe): Equipmen
     hopAbsorptionL: num(e.trubChillerLoss),
     deadspaceL: 0,
     fermenterLossL: num(e.fermenterLoss),
-    thermalShrinkagePercent: shrinkagePercent(e.coolingShrinkage),
+    thermalShrinkagePercent: percent(e.coolingShrinkage, 4, 0.5),
     mashEfficiencyPercent: num(e.mashEfficiency ?? recipe.mashEfficiency ?? e.efficiency ?? recipe.efficiency, 72),
-    hopUtilizationPercent: num(e.hopUtilization, 100),
+    hopUtilizationPercent: percent(e.hopUtilization, 100, 2),
     method: mapMethod(recipe.type),
   }
 }

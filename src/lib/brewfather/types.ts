@@ -14,8 +14,8 @@ export interface BrewfatherFermentable {
   type?: string
   amount?: number
   color?: number
-  potential?: number
-  potentialPercentage?: number
+  potential?: number | null
+  potentialPercentage?: number | null
   use?: string
 }
 
@@ -26,8 +26,10 @@ export interface BrewfatherHop {
   time?: number
   use?: string
   type?: string
-  temp?: number
+  temp?: number | null
   day?: number
+  /** IBU de cet ajout calculé par Brewfather. */
+  ibu?: number
 }
 
 export interface BrewfatherYeast {
@@ -82,10 +84,15 @@ export interface BrewfatherRecipe {
   efficiency?: number
   mashEfficiency?: number
   og?: number
+  /** DF de la recette : estimation, ou valeur saisie à la main si l'utilisateur l'a remplacée. */
   fg?: number
+  /** DF estimée par Brewfather. */
+  fgEstimated?: number
   ibu?: number
   color?: number
   abv?: number
+  /** Atténuation retenue par Brewfather (fraction, ajustée selon l'empâtage et les fermentescibles). */
+  attenuation?: number
   notes?: string
   style?: {
     name?: string
