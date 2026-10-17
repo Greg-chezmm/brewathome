@@ -10,6 +10,16 @@ import {
   type LibraryYeast,
 } from '@/data/ingredients'
 import type { FermentableContribution } from '@/lib/brew-calc/contributions'
+import {
+  isMashOut,
+  MASH_STEP_LIBRARY,
+  MASH_STEP_ROLE_LABELS,
+  mainMashStep,
+  mashStepRole,
+  mashStepTip,
+  totalMashTimeMin,
+  type MashStep,
+} from '@/lib/brew-calc/mash'
 import type { Fermentable, Hop, HopForm, HopUse, OtherIngredient, Yeast } from '@/lib/brew-calc/types'
 import type { IngredientHistory } from '@/lib/db/queries/ingredientHistory'
 import { InfoTooltip } from '@/components/InfoTooltip'
@@ -113,7 +123,8 @@ function NameRow<T extends { name: string }>({
   onChange: (name: string) => void
   /** Nom choisi parmi les suggestions : reprend ses caractéristiques. */
   onPick: (item: T) => void
-  onRemove: () => void
+  /** Absent : l'élément ne peut pas être retiré (ex. dernier palier d'empâtage). */
+  onRemove?: () => void
   /** Absents en tête (ou en fin) de liste. */
   onMoveUp?: () => void
   onMoveDown?: () => void
@@ -148,14 +159,16 @@ function NameRow<T extends { name: string }>({
           </MoveButton>
         </div>
       )}
-      <button
-        type="button"
-        onClick={onRemove}
-        className="shrink-0 rounded-full p-2 text-slate-400 transition hover:bg-red-50 hover:text-red-600"
-        aria-label="Retirer"
-      >
-        <Trash2 size={18} />
-      </button>
+      {onRemove && (
+        <button
+          type="button"
+          onClick={onRemove}
+          className="shrink-0 rounded-full p-2 text-slate-400 transition hover:bg-red-50 hover:text-red-600"
+          aria-label="Retirer"
+        >
+          <Trash2 size={18} />
+        </button>
+      )}
     </div>
   )
 }
@@ -518,6 +531,66 @@ export function YeastCards({
           <LibraryNote note={findByName(YEAST_LIBRARY, y.name)?.note} />
         </Card>
       ))}
+    </IngredientSection>
+  )
+}
+
+// ——— Empâtage ———
+
+/** Nouveau palier : avant le mash-out s'il y en a un, 5 °C au-dessus du précédent (72 °C au plus). */
+function withNewMashStep(steps: MashStep[]): MashStep[] {
+  const mashOutIndex = steps.findIndex((_, i) => isMashOut(steps, i))
+  const at = mashOutIndex === -1 ? steps.length : mashOutIndex
+  const previous = steps[at - 1]
+  const tempC = previous && Number.isFinite(previous.tempC) ? Math.min(72, previous.tempC + 5) : 67
+  return [...steps.slice(0, at), { name: 'Palier', tempC, timeMin: 15 }, ...steps.slice(at)]
+}
+
+export function MashStepCards({ steps, onChange }: { steps: MashStep[]; onChange: (steps: MashStep[]) => void }) {
+  const update = (index: number, patch: Partial<MashStep>) => onChange(steps.map((s, i) => (i === index ? { ...s, ...patch } : s)))
+  const main = mainMashStep(steps)
+
+  return (
+    <IngredientSection
+      title="Empâtage"
+      hint="Les paliers de température de la maische, dans l'ordre. Le palier principal (le plus long, hors mash-out) décide de la fermentescibilité du moût : c'est lui qui ajuste l'atténuation estimée. Au Brew Day, chaque palier devient une étape minutée."
+      summary={`${steps.length} palier${steps.length > 1 ? 's' : ''} · ${fmt(totalMashTimeMin(steps))} min au total`}
+      addLabel="Ajouter un palier"
+      onAdd={() => onChange(withNewMashStep(steps))}
+      empty="Aucun palier."
+    >
+      {steps.map((s, i) => {
+        const known = Number.isFinite(s.tempC)
+        const role = known ? mashStepRole(s.tempC) : null
+        return (
+          <Card key={i}>
+            <NameRow
+              value={s.name}
+              placeholder="Nom du palier"
+              suggestions={MASH_STEP_LIBRARY}
+              onChange={(name) => update(i, { name })}
+              onPick={({ name, tempC, timeMin }) => update(i, { name, tempC, timeMin })}
+              onRemove={steps.length > 1 ? () => onChange(steps.filter((_, idx) => idx !== i)) : undefined}
+              {...reorder(steps, i, onChange)}
+            />
+            <div className="mt-3 grid grid-cols-2 gap-3">
+              <Field label="Température (°C)" hint="Température à atteindre et à maintenir au cœur de la maische.">
+                <NumberInput value={s.tempC} step="0.5" onChange={(tempC) => update(i, { tempC })} />
+              </Field>
+              <Field label="Durée (min)" hint="Temps de maintien une fois la température atteinte.">
+                <NumberInput value={s.timeMin} step="1" integer onChange={(timeMin) => update(i, { timeMin })} />
+              </Field>
+            </div>
+            {role && (
+              <Chips>
+                <Chip tone={role === 'mash-out' ? 'slate' : 'indigo'}>{MASH_STEP_ROLE_LABELS[role]}</Chip>
+                {s === main && steps.length > 1 && <Chip tone="amber">Palier principal : règle l’atténuation</Chip>}
+              </Chips>
+            )}
+            {known && <LibraryNote note={mashStepTip(s.tempC)} />}
+          </Card>
+        )
+      })}
     </IngredientSection>
   )
 }

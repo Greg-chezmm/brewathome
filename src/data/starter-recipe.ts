@@ -1,3 +1,4 @@
+import { defaultMashSteps } from '@/lib/brew-calc/mash'
 import type { RecipeInput } from '@/lib/db/queries/recipes'
 
 /**
@@ -13,6 +14,7 @@ export const STARTER_RECIPE: RecipeInput = {
   boilTimeMin: 60,
   mashEfficiencyPercent: 72,
   mashTempC: 67,
+  mashSteps: defaultMashSteps(67),
   ibuFormula: 'tinseth',
   equipmentProfileId: null,
   notes:

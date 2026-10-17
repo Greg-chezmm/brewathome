@@ -96,6 +96,31 @@ describe('RecipeForm', () => {
     expect(Math.abs(ibu - 40)).toBeLessThan(1)
   })
 
+  it('édite les paliers d’empâtage ; le palier principal règle l’atténuation', () => {
+    render(<Harness />)
+    const section = screen.getByRole('heading', { name: /^Empâtage/ }).closest('section')!
+    const names = () => within(section).getAllByLabelText('Nom').map((input) => (input as HTMLInputElement).value)
+    expect(names()).toEqual(['Saccharification', 'Mash-out'])
+
+    // Un nouveau palier se place avant le mash-out.
+    fireEvent.click(within(section).getByText('Ajouter un palier'))
+    expect(names()).toEqual(['Saccharification', 'Palier', 'Mash-out'])
+    expect(within(section).getByText(/3 paliers · 85 min au total/)).toBeInTheDocument()
+
+    // Saccharification à 64 °C : l'atténuation retenue suit (81 % + 3 points).
+    const [saccharificationTemp] = within(section).getAllByDisplayValue('67')
+    fireEvent.change(saccharificationTemp, { target: { value: '64' } })
+    expect(screen.getByText(/84,0 % retenus avec un empâtage à 64,0 °C/)).toBeInTheDocument()
+  })
+
+  it('garde toujours au moins un palier', () => {
+    render(<Harness />)
+    const section = screen.getByRole('heading', { name: /^Empâtage/ }).closest('section')!
+    fireEvent.click(within(section).getAllByLabelText('Retirer')[1])
+    expect(within(section).getAllByLabelText('Nom')).toHaveLength(1)
+    expect(within(section).queryByLabelText('Retirer')).toBeNull()
+  })
+
   it('un champ vidé pendant la saisie ne fait pas planter le calcul', () => {
     render(<Harness />)
     fireEvent.change(screen.getByDisplayValue('4.5'), { target: { value: '' } })

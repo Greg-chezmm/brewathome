@@ -1,3 +1,4 @@
+import { effectiveMashSteps, mainMashTempC } from '@/lib/brew-calc/mash'
 import { estimateRecipeStats, REFERENCE_MASH_TEMP_C } from '@/lib/brew-calc/recipe-stats'
 import type { EquipmentProfile } from '@/lib/brew-calc/types'
 import { buildBatchSteps, planBatchStepsUpdate, type NewBatchStep } from '@/lib/brew-day/steps'
@@ -188,6 +189,15 @@ export async function listBatches(): Promise<BatchSummary[]> {
   }))
 }
 
+/**
+ * Snapshot complété pour les brassins plus anciens que certains champs : température
+ * d'empâtage (référence) et paliers (déroulé par défaut autour de cette température).
+ */
+function withMashDefaults(snapshot: RecipeDetails): RecipeDetails {
+  const mashTempC = snapshot.mashTempC ?? REFERENCE_MASH_TEMP_C
+  return { ...snapshot, mashTempC, mashSteps: effectiveMashSteps({ mashSteps: snapshot.mashSteps, mashTempC }) }
+}
+
 export async function getBatchWithDetails(batchId: string): Promise<BatchDetails> {
   const { data, error } = await supabase.from('batches').select('*').eq('id', batchId).single()
   if (error) throw error
@@ -198,8 +208,7 @@ export async function getBatchWithDetails(batchId: string): Promise<BatchDetails
     brewDate: data.brew_date,
     createdAt: data.created_at,
     recipeId: data.recipe_id,
-    // Les brassins créés avant l'ajout de la température d'empâtage n'en ont pas dans leur snapshot.
-    recipeSnapshot: { mashTempC: REFERENCE_MASH_TEMP_C, ...data.recipe_snapshot },
+    recipeSnapshot: withMashDefaults(data.recipe_snapshot),
     ogMeasured: data.og_measured !== null ? Number(data.og_measured) : null,
     fgMeasured: data.fg_measured !== null ? Number(data.fg_measured) : null,
     volumeMeasuredL: data.volume_measured_l !== null ? Number(data.volume_measured_l) : null,
@@ -269,7 +278,7 @@ export async function updateBatchRecipeSnapshot(
   patch: RecipeInput,
 ): Promise<void> {
   const equipment = patch.equipmentProfileId ? await getEquipmentProfile(patch.equipmentProfileId) : null
-  const { og, fg, ibu, srm, abv } = estimateRecipeStats({ ...patch, equipment })
+  const { og, fg, ibu, srm, abv } = estimateRecipeStats({ ...patch, mashTempC: mainMashTempC(patch.mashSteps, patch.mashTempC), equipment })
 
   const snapshot: RecipeDetails = {
     ...currentSnapshot,
@@ -279,7 +288,8 @@ export async function updateBatchRecipeSnapshot(
     targetVolumeL: patch.targetVolumeL,
     boilTimeMin: patch.boilTimeMin,
     mashEfficiencyPercent: patch.mashEfficiencyPercent,
-    mashTempC: patch.mashTempC,
+    mashTempC: mainMashTempC(patch.mashSteps, patch.mashTempC),
+    mashSteps: patch.mashSteps,
     ibuFormula: patch.ibuFormula,
     equipmentProfileId: patch.equipmentProfileId,
     notes: patch.notes,

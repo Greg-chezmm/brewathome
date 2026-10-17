@@ -9,6 +9,7 @@ import type {
   Yeast,
 } from '@/lib/brew-calc/types'
 import { DEFAULT_WHIRLPOOL_TEMP_C } from '@/lib/brew-calc/ibu'
+import { mainMashTempC, type MashStep } from '@/lib/brew-calc/mash'
 import type { ParsedRecipeDraft } from '@/lib/beerxml/types'
 import type {
   BrewfatherEquipment,
@@ -115,12 +116,11 @@ function mapBoilMisc(m: BrewfatherMisc): OtherIngredient {
   }
 }
 
-/** Palier principal = le plus long (la saccharification). */
-function mainMashTemp(recipe: BrewfatherRecipe): number | undefined {
-  const main = [...(recipe.mash?.steps ?? [])]
-    .filter((s) => s.stepTemp !== undefined)
-    .sort((a, b) => num(b.stepTime) - num(a.stepTime))[0]
-  return main ? num(main.stepTemp) : undefined
+/** Paliers d'empâtage de la recette, dans l'ordre (ceux sans température sont ignorés). */
+function mapMashSteps(recipe: BrewfatherRecipe): MashStep[] {
+  return (recipe.mash?.steps ?? [])
+    .filter((s) => s.stepTemp !== undefined && s.stepTemp !== null)
+    .map((s, i) => ({ name: s.name?.trim() || `Palier ${i + 1}`, tempC: num(s.stepTemp), timeMin: num(s.stepTime) }))
 }
 
 /** Pourcentage que Brewfather peut stocker en fraction (contraction 0,04 ; utilisation houblon 1 = 100 %). */
@@ -164,6 +164,7 @@ export function brewfatherEquipmentToProfile(recipe: BrewfatherRecipe): Equipmen
 export function brewfatherRecipeToDraft(recipe: BrewfatherRecipe): ParsedRecipeDraft {
   const hopstandTempC = num(recipe.equipment?.hopstandTemperature, DEFAULT_WHIRLPOOL_TEMP_C)
   const categoryNumber = recipe.style?.categoryNumber
+  const mashSteps = mapMashSteps(recipe)
   return {
     name: recipe.name?.trim() || 'Recette Brewfather',
     type: mapMethod(recipe.type),
@@ -171,7 +172,8 @@ export function brewfatherRecipeToDraft(recipe: BrewfatherRecipe): ParsedRecipeD
     boilVolumeL: recipe.boilSize !== undefined ? num(recipe.boilSize) : undefined,
     boilTimeMin: num(recipe.boilTime, 60),
     mashEfficiencyPercent: num(recipe.mashEfficiency ?? recipe.efficiency, 72),
-    mashTempC: mainMashTemp(recipe),
+    mashSteps: mashSteps.length > 0 ? mashSteps : undefined,
+    mashTempC: mashSteps.length > 0 ? mainMashTempC(mashSteps) : undefined,
     notes: recipe.notes?.trim() || undefined,
     style: recipe.style?.name
       ? {

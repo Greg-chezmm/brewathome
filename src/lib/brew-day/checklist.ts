@@ -1,9 +1,9 @@
-import { REFERENCE_MASH_TEMP_C } from '@/lib/brew-calc/recipe-stats'
+import { effectiveMashSteps, isMashOut, mainMashStep, MASH_OUT_TEMP_C, mashStepTip } from '@/lib/brew-calc/mash'
 import type { BrewMethod } from '@/lib/brew-calc/types'
 import { SPARGE_WATER_TEMP_C, type VolumeBreakdown } from '@/lib/brew-calc/volumes'
 import type { BatchStep } from '@/lib/db/queries/batches'
 import type { RecipeDetails } from '@/lib/db/queries/recipes'
-import { GRAIN_TEMP_C, MASH_OUT_TEMP_C, strikeWaterTempFor } from './steps'
+import { GRAIN_TEMP_C, mashStepLabel, strikeWaterTempFor } from './steps'
 
 export interface ChecklistItem {
   /** Identifiant stable dans l'étape : c'est lui qui est enregistré dans `batch_steps.checked_items`. */
@@ -36,8 +36,16 @@ export function stepGuide(step: BatchStep, ctx: StepGuideContext): StepGuide {
   const { recipe, volumes, method } = ctx
   const grains = recipe.fermentables.filter((f) => f.type === 'grain')
   const totalGrainKg = grains.reduce((sum, f) => sum + f.amountKg, 0)
-  const mashTempC = recipe.mashTempC ?? REFERENCE_MASH_TEMP_C
+  const mashSteps = effectiveMashSteps(recipe)
+  const mainStep = mainMashStep(mashSteps)
+  // L'eau d'empâtage vise le premier palier (un repos protéinique se fait avant la saccharification).
+  const mashTempC = mashSteps[0].tempC
   const strikeTempC = strikeWaterTempFor(mashTempC, totalGrainKg, volumes?.mashWaterL)
+  const iodineTest = {
+    id: 'iodine',
+    label: "Test à l'iode : une goutte de moût + une goutte d'iode, pas de violet/noir = conversion finie",
+    optional: true,
+  }
   const biab = method === 'biab'
   const yeast = recipe.yeasts[0]
   const lager = yeast?.style === 'lager'
@@ -83,8 +91,9 @@ export function stepGuide(step: BatchStep, ctx: StepGuideContext): StepGuide {
         ],
       }
 
-    case 'mash':
-    case 'mash-step':
+    case 'mash': {
+      // Le test à l'iode n'a de sens qu'une fois la saccharification faite.
+      const saccharified = mainStep === mashSteps[0]
       return {
         checklist: [
           ...grains.map((f, i) => ({ id: `grain-${i}`, label: `Verser ${f.amountKg} kg de ${f.name}` })),
@@ -92,27 +101,49 @@ export function stepGuide(step: BatchStep, ctx: StepGuideContext): StepGuide {
           { id: 'check-temp', label: `Après 5 min, vérifier ${mashTempC} °C au cœur de la maische` },
           { id: 'cover', label: 'Couvrir et isoler la cuve' },
           { id: 'mid-check', label: 'À mi-parcours : remuer et revérifier la température', optional: true },
-          { id: 'iodine', label: "Test à l'iode : une goutte de moût + une goutte d'iode, pas de violet/noir = conversion finie", optional: true },
+          ...(saccharified ? [iodineTest] : []),
         ],
         tips: [
-          mashTempTip(mashTempC),
+          mashStepTip(mashTempC),
           "Trop chaud de plus de 2 °C ? Ajoute un peu d'eau froide en remuant. Trop froid ? Un peu d'eau bouillante.",
-          "Test à l'iode violet/noir : il reste de l'amidon, prolonge l'empâtage de 15 min.",
+          ...(saccharified ? ["Test à l'iode violet/noir : il reste de l'amidon, prolonge l'empâtage de 15 min."] : []),
         ],
       }
+    }
 
-    case 'mash-out':
+    case 'mash-step': {
+      const mashStep = mashSteps.find((s) => mashStepLabel(s) === step.label)
+      const target = mashStep ? `${mashStep.tempC} °C` : 'la température du palier'
+      const main = mashStep !== undefined && mashStep === mainStep
+      return {
+        checklist: [
+          { id: 'heat', label: `Monter à ${target} en remuant sans arrêt (chauffe douce)` },
+          { id: 'check-temp', label: `Vérifier ${target} au cœur de la maische, puis lancer le minuteur` },
+          { id: 'hold', label: mashStep ? `Maintenir ${mashStep.timeMin} min, cuve couverte` : 'Maintenir le palier, cuve couverte' },
+          ...(main ? [iodineTest] : []),
+        ],
+        tips: [
+          ...(mashStep ? [mashStepTip(mashStep.tempC)] : []),
+          'Remue pendant toute la chauffe : le grain accroche vite au fond de la cuve et brûle.',
+          'Compte environ 1 °C par minute de montée avec une cuve électrique de brassage amateur.',
+        ],
+      }
+    }
+
+    case 'mash-out': {
+      const mashOut = mashSteps.find((_, i) => isMashOut(mashSteps, i))
       return {
         optional: true,
         checklist: [
-          { id: 'heat', label: `Monter la maische à ${MASH_OUT_TEMP_C} °C (75–78 °C) en remuant` },
-          { id: 'hold', label: 'Maintenir 10 min' },
+          { id: 'heat', label: `Monter la maische à ${mashOut?.tempC ?? MASH_OUT_TEMP_C} °C (75–78 °C) en remuant` },
+          { id: 'hold', label: `Maintenir ${mashOut?.timeMin ?? 10} min` },
         ],
         tips: [
           'Le mash-out bloque les enzymes (le profil de sucres est figé) et fluidifie le moût : la filtration est plus facile.',
           "Facultatif : sans mash-out, enchaîne rapidement sur la filtration pour que l'empâtage ne se prolonge pas.",
         ],
       }
+    }
 
     case 'sparge-water':
       return {
@@ -270,14 +301,6 @@ export function stepGuide(step: BatchStep, ctx: StepGuideContext): StepGuide {
         ],
       }
   }
-}
-
-function mashTempTip(mashTempC: number): string {
-  if (mashTempC >= 68)
-    return `À ${mashTempC} °C, l'enzyme alpha-amylase domine : plus de sucres non fermentescibles, bière plus ronde et en corps, un peu moins d'alcool.`
-  if (mashTempC <= 65)
-    return `À ${mashTempC} °C, l'enzyme bêta-amylase domine : moût très fermentescible, bière sèche et plus alcoolisée.`
-  return `À ${mashTempC} °C, les deux enzymes travaillent : bon équilibre entre corps et fermentescibilité.`
 }
 
 function hopTimingTip(triggerTimeMin: number): string {

@@ -1,3 +1,4 @@
+import { mainMashTempC, type MashStep } from '@/lib/brew-calc/mash'
 import { XMLParser } from 'fast-xml-parser'
 import type { Fermentable, FermentableType, Hop, HopUse, Yeast, YeastType } from '@/lib/brew-calc/types'
 import { ebcToSrm } from '@/lib/brew-calc/units'
@@ -123,14 +124,17 @@ function mapStyle(raw: Record<string, unknown> | undefined): ParsedRecipeDraft['
   }
 }
 
-/** Palier principal = le plus long (la saccharification), les paliers protéiniques/mash-out étant courts. */
-function mapMashTemp(raw: Record<string, unknown> | undefined): number | undefined {
+/** Paliers d'empâtage du fichier, dans l'ordre (ceux sans température sont ignorés). */
+function mapMashSteps(raw: Record<string, unknown> | undefined): MashStep[] {
   const stepsContainer = raw?.MASH_STEPS as { MASH_STEP?: Record<string, unknown> | Record<string, unknown>[] } | undefined
-  const steps = [stepsContainer?.MASH_STEP ?? []].flat()
-  const main = steps
+  return [stepsContainer?.MASH_STEP ?? []]
+    .flat()
     .filter((s) => s.STEP_TEMP !== undefined)
-    .sort((a, b) => toNumber(b.STEP_TIME) - toNumber(a.STEP_TIME))[0]
-  return main ? toNumber(main.STEP_TEMP) : undefined
+    .map((s, i) => ({
+      name: s.NAME ? String(s.NAME).trim() : `Palier ${i + 1}`,
+      tempC: toNumber(s.STEP_TEMP),
+      timeMin: toNumber(s.STEP_TIME),
+    }))
 }
 
 function mapRecipe(raw: Record<string, unknown>): ParsedRecipeDraft {
@@ -141,6 +145,7 @@ function mapRecipe(raw: Record<string, unknown>): ParsedRecipeDraft {
   const fermentables = (fermentablesContainer?.FERMENTABLE ?? []).map(mapFermentable)
   const hops = (hopsContainer?.HOP ?? []).map(mapHop)
   const yeasts = (yeastsContainer?.YEAST ?? []).map(mapYeast)
+  const mashSteps = mapMashSteps(raw.MASH as Record<string, unknown> | undefined)
 
   return {
     name: String(raw.NAME ?? 'Recette importée'),
@@ -149,7 +154,8 @@ function mapRecipe(raw: Record<string, unknown>): ParsedRecipeDraft {
     boilVolumeL: raw.BOIL_SIZE !== undefined ? toNumber(raw.BOIL_SIZE) : undefined,
     boilTimeMin: toNumber(raw.BOIL_TIME, 60),
     mashEfficiencyPercent: toNumber(raw.EFFICIENCY, 72),
-    mashTempC: mapMashTemp(raw.MASH as Record<string, unknown> | undefined),
+    mashSteps: mashSteps.length > 0 ? mashSteps : undefined,
+    mashTempC: mashSteps.length > 0 ? mainMashTempC(mashSteps) : undefined,
     notes: raw.NOTES ? String(raw.NOTES) : undefined,
     style: mapStyle(raw.STYLE as Record<string, unknown> | undefined),
     fermentables,

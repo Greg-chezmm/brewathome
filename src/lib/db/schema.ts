@@ -104,6 +104,8 @@ export const recipes = pgTable('recipes', {
     .default('tinseth'),
   // Température du palier d'empâtage principal : ajuste l'atténuation estimée (FG/ABV).
   mashTempC: numeric('mash_temp_c', { precision: 4, scale: 1 }).notNull().default('67'),
+  // Paliers d'empâtage [{ name, tempC, timeMin }] ; vide = déroulé par défaut (palier principal + mash-out).
+  mashSteps: jsonb('mash_steps').notNull().default([]),
   estOg: numeric('est_og', { precision: 5, scale: 3 }),
   estFg: numeric('est_fg', { precision: 5, scale: 3 }),
   estIbu: numeric('est_ibu', { precision: 5, scale: 1 }),

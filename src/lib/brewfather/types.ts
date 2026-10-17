@@ -48,6 +48,9 @@ export interface BrewfatherMisc {
 }
 
 export interface BrewfatherMashStep {
+  name?: string | null
+  /** Temperature, Infusion, Decoction… */
+  type?: string | null
   stepTemp?: number
   stepTime?: number
 }

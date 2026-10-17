@@ -1,3 +1,4 @@
+import { effectiveMashSteps, isMashOut, type MashStep } from '@/lib/brew-calc/mash'
 import { REFERENCE_MASH_TEMP_C } from '@/lib/brew-calc/recipe-stats'
 import { calculateStrikeWaterTempC, calculateVolumes, SPARGE_WATER_TEMP_C } from '@/lib/brew-calc/volumes'
 import type { EquipmentProfile } from '@/lib/brew-calc/types'
@@ -15,8 +16,17 @@ export function strikeWaterTempFor(mashTempC: number, totalGrainKg: number, mash
 /** Température du grain supposée (pièce), pour le calcul de l'eau d'empâtage. */
 export const GRAIN_TEMP_C = 20
 
-/** Température du mash-out : bloque les enzymes et fluidifie le moût avant filtration. */
-export const MASH_OUT_TEMP_C = 76
+export { MASH_OUT_TEMP_C } from '@/lib/brew-calc/mash'
+
+/** Libellé d'un palier intermédiaire : c'est par lui que le guide du Brew Day retrouve le palier. */
+export function mashStepLabel(step: MashStep): string {
+  return `Palier « ${step.name} » : ${step.tempC} °C pendant ${step.timeMin} min`
+}
+
+/** Température du premier palier : c'est elle que doit atteindre l'eau d'empâtage une fois le grain versé. */
+export function firstMashTempC(recipe: Pick<RecipeDetails, 'mashSteps' | 'mashTempC'>): number {
+  return effectiveMashSteps(recipe)[0]?.tempC ?? REFERENCE_MASH_TEMP_C
+}
 
 /** Le serpentin plonge dans l'ébullition à 15 min de la fin : assez pour le désinfecter. */
 export const CHILLER_SANITIZE_MIN = 15
@@ -43,8 +53,8 @@ export function buildBatchSteps(recipe: RecipeDetails, equipmentProfile: Equipme
   const totalGrainKg = grainFermentables.reduce((sum, f) => sum + f.amountKg, 0)
   const grainList = grainFermentables.map((f) => `${f.amountKg} kg ${f.name}`).join(', ')
   const volumes = equipmentProfile ? calculateVolumes(recipe.targetVolumeL, totalGrainKg, recipe.boilTimeMin, equipmentProfile) : null
-  const mashTempC = recipe.mashTempC ?? REFERENCE_MASH_TEMP_C
-  const strikeTempC = strikeWaterTempFor(mashTempC, totalGrainKg, volumes?.mashWaterL)
+  const mashSteps = effectiveMashSteps(recipe)
+  const strikeTempC = strikeWaterTempFor(firstMashTempC(recipe), totalGrainKg, volumes?.mashWaterL)
 
   add({ stepType: 'preparation', label: 'Préparation : nettoyage, concassage, eau' })
 
@@ -54,12 +64,20 @@ export function buildBatchSteps(recipe: RecipeDetails, equipmentProfile: Equipme
       ? `Chauffer l'eau d'empâtage : ${volumes.mashWaterL.toFixed(1)} L${strikeTempC !== null ? ` à ${strikeTempC.toFixed(0)} °C` : ''}`
       : "Chauffer l'eau d'empâtage",
   })
-  add({
-    stepType: 'mash',
-    label: grainList ? `Empâtage à ${mashTempC} °C — ajouter le grain : ${grainList}` : `Empâtage à ${mashTempC} °C`,
-    plannedDurationMin: 60,
+  // Un palier = une étape minutée : le premier reçoit le grain, le dernier (s'il est chaud) est le mash-out.
+  mashSteps.forEach((mashStep, i) => {
+    if (i === 0) {
+      add({
+        stepType: 'mash',
+        label: grainList ? `Empâtage à ${mashStep.tempC} °C — ajouter le grain : ${grainList}` : `Empâtage à ${mashStep.tempC} °C`,
+        plannedDurationMin: mashStep.timeMin,
+      })
+    } else if (isMashOut(mashSteps, i)) {
+      add({ stepType: 'mash-out', label: `Mash-out à ${mashStep.tempC} °C`, plannedDurationMin: mashStep.timeMin })
+    } else {
+      add({ stepType: 'mash-step', label: mashStepLabel(mashStep), plannedDurationMin: mashStep.timeMin })
+    }
   })
-  add({ stepType: 'mash-out', label: `Mash-out à ${MASH_OUT_TEMP_C} °C`, plannedDurationMin: 10 })
 
   if (volumes && volumes.spargeWaterL > 0) {
     add({

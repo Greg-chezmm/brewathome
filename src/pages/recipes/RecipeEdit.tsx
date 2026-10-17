@@ -23,6 +23,7 @@ export function RecipeEdit() {
           boilTimeMin: r.boilTimeMin,
           mashEfficiencyPercent: r.mashEfficiencyPercent,
           mashTempC: r.mashTempC,
+          mashSteps: r.mashSteps,
           ibuFormula: r.ibuFormula,
           equipmentProfileId: r.equipmentProfileId,
           notes: r.notes ?? '',

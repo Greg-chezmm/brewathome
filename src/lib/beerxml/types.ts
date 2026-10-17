@@ -1,3 +1,4 @@
+import type { MashStep } from '@/lib/brew-calc/mash'
 import type { Fermentable, Hop, OtherIngredient, Yeast } from '@/lib/brew-calc/types'
 
 export interface ParsedRecipeDraft {
@@ -9,6 +10,8 @@ export interface ParsedRecipeDraft {
   mashEfficiencyPercent: number
   /** Température du palier de saccharification (le plus long des paliers d'empâtage), si le fichier en a. */
   mashTempC?: number
+  /** Paliers d'empâtage, dans l'ordre, quand le fichier source les donne. */
+  mashSteps?: MashStep[]
   notes?: string
   style: {
     name: string

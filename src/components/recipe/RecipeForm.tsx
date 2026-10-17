@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import bjcpStyles from '@/data/bjcp-styles-2021.json'
 import { buGuRatio, fermentableContributions } from '@/lib/brew-calc/contributions'
+import { defaultMashSteps, mainMashTempC, type MashStep } from '@/lib/brew-calc/mash'
 import { computeRecipe, REFERENCE_MASH_TEMP_C } from '@/lib/brew-calc/recipe-stats'
 import { matchStyle } from '@/lib/brew-calc/style-matching'
 import { adjustHopForIbu, bitteringHopIndex, scaleFermentablesToOg } from '@/lib/brew-calc/targets'
@@ -11,7 +12,7 @@ import { listEquipmentProfiles } from '@/lib/db/queries/equipmentProfiles'
 import { getIngredientHistory } from '@/lib/db/queries/ingredientHistory'
 import type { RecipeInput } from '@/lib/db/queries/recipes'
 import { FieldLabel, InfoTooltip } from '@/components/InfoTooltip'
-import { FermentableCards, HopCards, OtherIngredientCards, YeastCards } from './IngredientCards'
+import { FermentableCards, HopCards, MashStepCards, OtherIngredientCards, YeastCards } from './IngredientCards'
 import { RecipeStatsBar, RecipeStatsPanel, type StyleRanges } from './RecipeLiveStats'
 import { TargetTool, type TargetFeedback } from './TargetTool'
 
@@ -22,7 +23,9 @@ export interface RecipeFormValue {
   targetVolumeL: number
   boilTimeMin: number
   mashEfficiencyPercent: number
+  /** Température du palier principal : toujours celle de `mashSteps` (synchronisée à chaque modification). */
   mashTempC: number
+  mashSteps: MashStep[]
   ibuFormula: IBUFormulaName
   equipmentProfileId: string | null
   notes: string
@@ -40,6 +43,7 @@ export const EMPTY_RECIPE_FORM: RecipeFormValue = {
   boilTimeMin: 60,
   mashEfficiencyPercent: 72,
   mashTempC: REFERENCE_MASH_TEMP_C,
+  mashSteps: defaultMashSteps(),
   ibuFormula: 'tinseth',
   equipmentProfileId: null,
   notes: '',
@@ -339,20 +343,6 @@ export function RecipeForm({
             />
           </div>
           <div>
-            <FieldLabel hint="Température du palier principal d'empâtage. Plus chaud (68-70 °C) : moût moins fermentescible, bière plus ronde et en corps, un peu moins d'alcool. Plus froid (63-65 °C) : moût très fermentescible, bière plus sèche et plus alcoolisée. 66-67 °C est un bon équilibre.">
-              Température d'empâtage (°C)
-            </FieldLabel>
-            <input
-              type="number"
-              step="0.5"
-              min="60"
-              max="75"
-              value={value.mashTempC}
-              onChange={(e) => set('mashTempC', Number.parseFloat(e.target.value))}
-              className="field-input"
-            />
-          </div>
-          <div>
             <FieldLabel hint="Formule de calcul de l'amertume (IBU). Tinseth est la plus utilisée aujourd'hui (BeerSmith, Brewfather). Rager donne généralement des valeurs un peu plus élevées pour les ajouts longs. Les deux sont des approximations — l'amertume perçue dépend aussi de l'eau et du grain.">
               Formule IBU
             </FieldLabel>
@@ -415,6 +405,10 @@ export function RecipeForm({
           onChange={(yeasts) => set('yeasts', yeasts)}
         />
         <OtherIngredientCards items={value.otherIngredients} onChange={(items) => set('otherIngredients', items)} />
+        <MashStepCards
+          steps={value.mashSteps}
+          onChange={(mashSteps) => onChange({ ...value, mashSteps, mashTempC: mainMashTempC(mashSteps, value.mashTempC) })}
+        />
 
         {/* Volumes d'eau */}
         {selectedEquipment && volumes && (

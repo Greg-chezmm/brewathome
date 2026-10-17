@@ -1,3 +1,4 @@
+import { defaultMashSteps, effectiveMashSteps, mainMashTempC, type MashStep } from '@/lib/brew-calc/mash'
 import { estimateRecipeStats, REFERENCE_MASH_TEMP_C } from '@/lib/brew-calc/recipe-stats'
 import type { Fermentable, Hop, OtherIngredient, Yeast } from '@/lib/brew-calc/types'
 import { resolveBjcpStyleId } from '@/lib/beerxml/mapping'
@@ -23,8 +24,10 @@ export interface RecipeDetails extends RecipeSummary {
   targetVolumeL: number
   boilTimeMin: number
   mashEfficiencyPercent: number
-  /** Température du palier d'empâtage principal (°C). */
+  /** Température du palier d'empâtage principal (°C), déduite des paliers. */
   mashTempC: number
+  /** Paliers d'empâtage, dans l'ordre (jamais vide : déroulé par défaut pour les anciennes recettes). */
+  mashSteps: MashStep[]
   ibuFormula: 'tinseth' | 'rager' | 'garetz'
   equipmentProfileId: string | null
   notes: string | null
@@ -87,6 +90,10 @@ export async function getRecipeWithDetails(recipeId: string): Promise<RecipeDeta
     boilTimeMin: recipe.boil_time_min,
     mashEfficiencyPercent: Number(recipe.mash_efficiency_percent),
     mashTempC: Number(recipe.mash_temp_c ?? REFERENCE_MASH_TEMP_C),
+    mashSteps: effectiveMashSteps({
+      mashSteps: recipe.mash_steps as MashStep[] | null,
+      mashTempC: Number(recipe.mash_temp_c ?? REFERENCE_MASH_TEMP_C),
+    }),
     ibuFormula: recipe.ibu_formula,
     equipmentProfileId: recipe.equipment_profile_id,
     notes: recipe.notes,
@@ -135,8 +142,9 @@ export interface RecipeInput {
   targetVolumeL: number
   boilTimeMin: number
   mashEfficiencyPercent: number
-  /** Température du palier d'empâtage principal (°C). */
+  /** Température du palier d'empâtage principal (°C) : recalculée depuis les paliers à l'enregistrement. */
   mashTempC: number
+  mashSteps: MashStep[]
   ibuFormula: 'tinseth' | 'rager' | 'garetz'
   equipmentProfileId: string | null
   notes: string | null
@@ -218,7 +226,8 @@ async function replaceChildRows(recipeId: string, input: RecipeInput): Promise<v
 
 async function recipeStatsPayload(input: RecipeInput) {
   const equipment = input.equipmentProfileId ? await getEquipmentProfile(input.equipmentProfileId) : null
-  const stats = estimateRecipeStats({ ...input, equipment })
+  const mashTempC = mainMashTempC(input.mashSteps, input.mashTempC)
+  const stats = estimateRecipeStats({ ...input, mashTempC, equipment })
   return {
     name: input.name,
     style_id: input.styleId,
@@ -226,7 +235,8 @@ async function recipeStatsPayload(input: RecipeInput) {
     target_volume_l: input.targetVolumeL,
     boil_time_min: input.boilTimeMin,
     mash_efficiency_percent: input.mashEfficiencyPercent,
-    mash_temp_c: input.mashTempC,
+    mash_temp_c: mashTempC,
+    mash_steps: input.mashSteps,
     ibu_formula: input.ibuFormula,
     equipment_profile_id: input.equipmentProfileId,
     notes: input.notes,
@@ -277,7 +287,8 @@ export function draftToRecipeInput(draft: ParsedRecipeDraft, equipmentProfileId:
     targetVolumeL: draft.targetVolumeL,
     boilTimeMin: draft.boilTimeMin,
     mashEfficiencyPercent: draft.mashEfficiencyPercent,
-    mashTempC: draft.mashTempC ?? REFERENCE_MASH_TEMP_C,
+    mashTempC: draft.mashSteps?.length ? mainMashTempC(draft.mashSteps) : (draft.mashTempC ?? REFERENCE_MASH_TEMP_C),
+    mashSteps: draft.mashSteps?.length ? draft.mashSteps : defaultMashSteps(draft.mashTempC ?? REFERENCE_MASH_TEMP_C),
     ibuFormula: 'tinseth',
     equipmentProfileId,
     notes: draft.notes ?? null,
