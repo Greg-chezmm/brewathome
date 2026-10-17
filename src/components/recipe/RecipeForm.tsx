@@ -4,6 +4,7 @@ import bjcpStyles from '@/data/bjcp-styles-2021.json'
 import { buGuRatio, fermentableContributions } from '@/lib/brew-calc/contributions'
 import { computeRecipe, REFERENCE_MASH_TEMP_C } from '@/lib/brew-calc/recipe-stats'
 import { matchStyle } from '@/lib/brew-calc/style-matching'
+import { adjustHopForIbu, bitteringHopIndex, scaleFermentablesToOg } from '@/lib/brew-calc/targets'
 import { estimateFinalVolumeFromPreBoil, SPARGE_WATER_TEMP_C } from '@/lib/brew-calc/volumes'
 import type { Fermentable, Hop, IBUFormulaName, OtherIngredient, Yeast } from '@/lib/brew-calc/types'
 import { listEquipmentProfiles } from '@/lib/db/queries/equipmentProfiles'
@@ -12,6 +13,7 @@ import type { RecipeInput } from '@/lib/db/queries/recipes'
 import { FieldLabel, InfoTooltip } from '@/components/InfoTooltip'
 import { FermentableCards, HopCards, OtherIngredientCards, YeastCards } from './IngredientCards'
 import { RecipeStatsBar, RecipeStatsPanel, type StyleRanges } from './RecipeLiveStats'
+import { TargetTool, type TargetFeedback } from './TargetTool'
 
 export interface RecipeFormValue {
   name: string
@@ -69,7 +71,8 @@ export function RecipeForm({
   const [styleQuery, setStyleQuery] = useState('')
 
   const selectedEquipment = equipmentProfiles?.find((p) => p.id === value.equipmentProfileId) ?? null
-  const calc = computeRecipe({ ...value, equipment: selectedEquipment })
+  const calcInput = { ...value, equipment: selectedEquipment }
+  const calc = computeRecipe(calcInput)
   const stats = { og: calc.og, fg: calc.fg, ibu: calc.ibu, srm: calc.srm, abv: calc.abv }
   const contributions = useMemo(
     () => fermentableContributions(value.fermentables, value.mashEfficiencyPercent, calc.calculationVolumeL),
@@ -144,6 +147,29 @@ export function RecipeForm({
 
   function set<K extends keyof RecipeFormValue>(key: K, v: RecipeFormValue[K]) {
     onChange({ ...value, [key]: v })
+  }
+
+  function targetOg(target: number): TargetFeedback {
+    const fermentables = scaleFermentablesToOg(calcInput, target)
+    if (!fermentables) return { text: 'Impossible : la recette n’apporte encore aucun sucre (poids ou rendement à 0).', warn: true }
+    set('fermentables', fermentables)
+    return { text: `Grain ajusté pour une DI de ${target.toFixed(3)}, dans les mêmes proportions.` }
+  }
+
+  // L'ajout amérisant (le plus long en ébullition) est celui qu'on dose pour viser un IBU.
+  const bitteringIndex = bitteringHopIndex(value.hops)
+  const bitteringHop = bitteringIndex !== null ? value.hops[bitteringIndex] : null
+  const bitteringName = bitteringHop?.name.trim() || 'houblon amérisant'
+
+  function targetIbu(target: number): TargetFeedback {
+    const result = bitteringIndex !== null ? adjustHopForIbu(calcInput, bitteringIndex, target) : null
+    if (!result || !bitteringHop) return { text: 'Impossible : vérifiez l’alpha et le temps du houblon amérisant.', warn: true }
+    set('hops', result.hops)
+    if (result.unreachable) {
+      return { text: `Les autres houblons donnent déjà plus de ${target} IBU : « ${bitteringName} » passe à 0 g.`, warn: true }
+    }
+    const before = Number.isFinite(bitteringHop.amountG) ? `${bitteringHop.amountG} g → ` : ''
+    return { text: `« ${bitteringName} » : ${before}${result.amountG} g pour ${target} IBU.` }
   }
 
   return (
@@ -341,9 +367,45 @@ export function RecipeForm({
           fermentables={value.fermentables}
           contributions={contributions}
           history={ingredientHistory}
+          tools={
+            value.fermentables.length > 0 && (
+              <TargetTool
+                label="Viser une DI"
+                inputLabel="DI visée"
+                step="0.001"
+                decimals={3}
+                current={calc.og}
+                description="Toutes les quantités changent dans les mêmes proportions : le caractère du grain est conservé."
+                onApply={targetOg}
+              />
+            )
+          }
           onChange={(fermentables) => set('fermentables', fermentables)}
         />
-        <HopCards hops={value.hops} ibuByHop={calc.ibuByHop} history={ingredientHistory} onChange={(hops) => set('hops', hops)} />
+        <HopCards
+          hops={value.hops}
+          ibuByHop={calc.ibuByHop}
+          history={ingredientHistory}
+          tools={
+            value.hops.length > 0 && (
+              <TargetTool
+                label="Viser un IBU"
+                inputLabel="IBU visés"
+                step="1"
+                decimals={0}
+                current={calc.ibu}
+                description={`Seule la dose de « ${bitteringName} »${bitteringHop ? ` (${bitteringHop.use === 'first-wort' ? 'premier moût' : `${bitteringHop.timeMin} min`})` : ''} change : les houblons d’arôme gardent la leur.`}
+                disabledReason={
+                  bitteringHop
+                    ? undefined
+                    : 'Ajoutez un houblon en ébullition ou en premier moût : c’est sa dose qui sera réglée pour atteindre l’amertume visée.'
+                }
+                onApply={targetIbu}
+              />
+            )
+          }
+          onChange={(hops) => set('hops', hops)}
+        />
         <YeastCards
           yeasts={value.yeasts}
           attenuationPercent={calc.attenuationPercent}

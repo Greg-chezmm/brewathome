@@ -63,6 +63,39 @@ describe('RecipeForm', () => {
     expect(within(card).getByText('Arômes, pas d’amertume')).toBeInTheDocument()
   })
 
+  it('réordonne les ingrédients avec les flèches', () => {
+    render(<Harness />)
+    const names = () => screen.getAllByLabelText('Nom').map((input) => (input as HTMLInputElement).value)
+    expect(names().slice(0, 2)).toEqual(['Pale Ale', 'Crystal 60'])
+    const firstCard = screen.getAllByLabelText('Nom')[0].closest('li')!
+    expect(within(firstCard).getByLabelText('Monter')).toBeDisabled()
+    fireEvent.click(within(firstCard).getByLabelText('Descendre'))
+    expect(names().slice(0, 2)).toEqual(['Crystal 60', 'Pale Ale'])
+    // Un seul houblon : pas de flèches.
+    expect(within(screen.getByDisplayValue('Cascade').closest('li')!).queryByLabelText('Monter')).toBeNull()
+  })
+
+  it('ajuste le grain pour viser une DI, en gardant les proportions', () => {
+    render(<Harness />)
+    fireEvent.click(screen.getByText('Viser une DI'))
+    fireEvent.change(screen.getByLabelText('DI visée'), { target: { value: '1.060' } })
+    fireEvent.click(screen.getByText('Appliquer'))
+    expect(screen.getByText(/Grain ajusté pour une DI de 1\.060/)).toBeInTheDocument()
+    expect(screen.queryByDisplayValue('4.5')).toBeNull()
+    expect(screen.getByText('90 % du grain')).toBeInTheDocument()
+  })
+
+  it('dose le houblon amérisant pour viser un IBU', () => {
+    render(<Harness />)
+    fireEvent.click(screen.getByText('Viser un IBU'))
+    expect(screen.getByText(/Seule la dose de « Cascade » \(60 min\)/)).toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText('IBU visés'), { target: { value: '40' } })
+    fireEvent.click(screen.getByText('Appliquer'))
+    expect(screen.getByText(/« Cascade » : 30 g → \d+ g pour 40 IBU/)).toBeInTheDocument()
+    const ibu = Number.parseFloat(screen.getByText(/^[0-9,]+ IBU$/).textContent!.replace(',', '.'))
+    expect(Math.abs(ibu - 40)).toBeLessThan(1)
+  })
+
   it('un champ vidé pendant la saisie ne fait pas planter le calcul', () => {
     render(<Harness />)
     fireEvent.change(screen.getByDisplayValue('4.5'), { target: { value: '' } })

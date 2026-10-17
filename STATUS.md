@@ -1,6 +1,6 @@
 # BrewAtHome — État du projet
 
-_Dernière mise à jour : 2026-10-16_
+_Dernière mise à jour : 2026-10-17_
 
 Application personnelle de brassage de bière maison (type Brewfather/Little Bock), SPA React + TypeScript, backend Supabase, déployée sur GitHub Pages.
 
@@ -17,7 +17,7 @@ Application personnelle de brassage de bière maison (type Brewfather/Little Boc
 - **Houblons** : usages first-wort / ébullition / whirlpool / dry hop / empâtage, avec pour le dry hop une durée (jours) et une température cible dédiées.
 - **Autres ajouts en ébullition** (Whirlfloc, nutriments...) : nom, quantité en texte libre, temps d'ajout — éditables directement dans le formulaire de recette.
 - **Recette offerte** aux nouveaux comptes : une American Pale Ale de 20 L dans toutes les plages du style (`src/data/starter-recipe.ts`), créée à la première connexion si le compte n'a aucune recette ; marqueur `starter_recipe` dans les métadonnées du compte pour ne pas la recréer.
-- **Formulaire de recette** : chiffres clés recalculés à chaque saisie, vert/rouge selon le style — sur écran large, colonne de droite collée en haut avec la position dans chaque plage du style et le BU:GU ; sinon barre fixée au-dessus des onglets (mobile) ou en haut (PC), qui se déplie pour montrer le style ; un ingrédient = une carte aux champs légendés (2 colonnes sur mobile), seuls les champs utiles selon l'usage du houblon (forme pellets/cônes comprise), effet de chaque ingrédient (% du grain, points de densité, part de la couleur ; IBU par houblon ; DF et atténuation retenue pour la levure, `brew-calc/contributions.ts`). Suggestions de noms : vos ingrédients déjà utilisés (avec vos valeurs) puis une bibliothèque d'ingrédients courants (`src/data/ingredients.ts`, valeurs typiques + note d'usage affichée sous la carte).
+- **Formulaire de recette** : chiffres clés recalculés à chaque saisie, vert/rouge selon le style — sur écran large, colonne de droite collée en haut avec la position dans chaque plage du style et le BU:GU ; sinon barre fixée au-dessus des onglets (mobile) ou en haut (PC), qui se déplie pour montrer le style ; un ingrédient = une carte aux champs légendés (2 colonnes sur mobile), seuls les champs utiles selon l'usage du houblon (forme pellets/cônes comprise), effet de chaque ingrédient (% du grain, points de densité, part de la couleur ; IBU par houblon ; DF et atténuation retenue pour la levure, `brew-calc/contributions.ts`). Suggestions de noms : vos ingrédients déjà utilisés (avec vos valeurs) puis une bibliothèque d'ingrédients courants (`src/data/ingredients.ts`, valeurs typiques + note d'usage affichée sous la carte). Flèches ↑/↓ pour réordonner chaque liste (l'ordre est enregistré ; la première levure est celle du calcul). **Viser une DI** : tout le grain est mis à l'échelle en gardant les proportions ; **viser un IBU** : seule la dose du houblon amérisant (le plus long en ébullition, premier moût compris) change (`brew-calc/targets.ts`).
 
 ### Batches (brassins)
 - Validation d'une recette en brassin avec **snapshot figé** (une modification ultérieure de la recette source ne touche pas un brassin déjà lancé) ; la recette du brassin reste éditable indépendamment (`/batches/:id/edit-recipe`). Enregistrer la recette du brassin recalcule ses estimations (avec la formule IBU choisie) et régénère les étapes du Brew Day encore à faire ; les étapes commencées ou terminées gardent leurs minuteurs.
@@ -46,7 +46,7 @@ Application personnelle de brassage de bière maison (type Brewfather/Little Boc
 
 ## Ce qu'il reste à faire
 
-- Formulaire de recette, suite : réordonner les ingrédients, régler la quantité pour viser une DI / un IBU, empâtage à paliers, page « base de connaissances » consultable hors formulaire (empâtage, eau, levures).
+- Formulaire de recette, suite : empâtage à paliers, page « base de connaissances » consultable hors formulaire (empâtage, eau, levures).
 
 - Export BeerXML (actuellement import seulement).
 - Support Tilt/TiltBridge au-delà de la saisie manuelle.

@@ -1,5 +1,5 @@
 import { useId, type ReactNode } from 'react'
-import { Plus, Trash2 } from 'lucide-react'
+import { ArrowDown, ArrowUp, Plus, Trash2 } from 'lucide-react'
 import {
   FERMENTABLE_LIBRARY,
   findByName,
@@ -40,6 +40,7 @@ export function IngredientSection({
   addLabel,
   onAdd,
   empty,
+  tools,
   children,
 }: {
   title: string
@@ -48,6 +49,8 @@ export function IngredientSection({
   addLabel: string
   onAdd: () => void
   empty: string
+  /** Outil affiché sous le titre (ex. viser une DI). */
+  tools?: ReactNode
   children: ReactNode[]
 }) {
   return (
@@ -61,6 +64,7 @@ export function IngredientSection({
           {summary && <p className="text-sm text-slate-500">{summary}</p>}
         </div>
       </div>
+      {tools && <div className="px-1">{tools}</div>}
       {children.length > 0 ? (
         <ul className="space-y-3">{children}</ul>
       ) : (
@@ -78,7 +82,21 @@ function Card({ children }: { children: ReactNode }) {
   return <li className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-900/5">{children}</li>
 }
 
-/** Nom de l'ingrédient, avec les suggestions (vos ingrédients puis la bibliothèque) et la suppression. */
+/** Boutons ↑/↓ d'une carte : déplace l'élément d'un cran (l'ordre est celui enregistré). */
+function reorder<T>(list: T[], index: number, onChange: (list: T[]) => void) {
+  const moveTo = (to: number) => () => {
+    const next = [...list]
+    const [item] = next.splice(index, 1)
+    next.splice(to, 0, item)
+    onChange(next)
+  }
+  return {
+    onMoveUp: index > 0 ? moveTo(index - 1) : undefined,
+    onMoveDown: index < list.length - 1 ? moveTo(index + 1) : undefined,
+  }
+}
+
+/** Nom de l'ingrédient, avec les suggestions (vos ingrédients puis la bibliothèque), le déplacement et la suppression. */
 function NameRow<T extends { name: string }>({
   value,
   placeholder,
@@ -86,6 +104,8 @@ function NameRow<T extends { name: string }>({
   onChange,
   onPick,
   onRemove,
+  onMoveUp,
+  onMoveDown,
 }: {
   value: string
   placeholder: string
@@ -94,6 +114,9 @@ function NameRow<T extends { name: string }>({
   /** Nom choisi parmi les suggestions : reprend ses caractéristiques. */
   onPick: (item: T) => void
   onRemove: () => void
+  /** Absents en tête (ou en fin) de liste. */
+  onMoveUp?: () => void
+  onMoveDown?: () => void
 }) {
   const listId = useId()
   return (
@@ -115,6 +138,16 @@ function NameRow<T extends { name: string }>({
           <option key={s.name} value={s.name} />
         ))}
       </datalist>
+      {(onMoveUp || onMoveDown) && (
+        <div className="flex shrink-0">
+          <MoveButton onClick={onMoveUp} label="Monter">
+            <ArrowUp size={16} />
+          </MoveButton>
+          <MoveButton onClick={onMoveDown} label="Descendre">
+            <ArrowDown size={16} />
+          </MoveButton>
+        </div>
+      )}
       <button
         type="button"
         onClick={onRemove}
@@ -124,6 +157,21 @@ function NameRow<T extends { name: string }>({
         <Trash2 size={18} />
       </button>
     </div>
+  )
+}
+
+function MoveButton({ onClick, label, children }: { onClick?: () => void; label: string; children: ReactNode }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={!onClick}
+      aria-label={label}
+      title={label}
+      className="rounded-full p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 disabled:opacity-30 disabled:hover:bg-transparent"
+    >
+      {children}
+    </button>
   )
 }
 
@@ -196,11 +244,13 @@ export function FermentableCards({
   fermentables,
   contributions,
   history,
+  tools,
   onChange,
 }: {
   fermentables: Fermentable[]
   contributions: FermentableContribution[]
   history: IngredientHistory | undefined
+  tools?: ReactNode
   onChange: (fermentables: Fermentable[]) => void
 }) {
   const suggestions = mergeSuggestions<LibraryFermentable>(history?.fermentables, FERMENTABLE_LIBRARY)
@@ -216,6 +266,7 @@ export function FermentableCards({
       addLabel="Ajouter un fermentescible"
       onAdd={() => onChange([...fermentables, { ...EMPTY_FERMENTABLE }])}
       empty="Aucun fermentescible : commencez par un malt de base (Pilsner, Pale Ale…)."
+      tools={tools}
     >
       {fermentables.map((f, i) => {
         const c = contributions[i]
@@ -228,6 +279,7 @@ export function FermentableCards({
               onChange={(name) => update(i, { name })}
               onPick={({ name, type, colorLovibond, yieldPercent }) => update(i, { name, type, colorLovibond, yieldPercent })}
               onRemove={() => onChange(fermentables.filter((_, idx) => idx !== i))}
+              {...reorder(fermentables, i, onChange)}
             />
             <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
               <Field label="Poids (kg)">
@@ -268,12 +320,14 @@ export function HopCards({
   hops,
   ibuByHop,
   history,
+  tools,
   onChange,
 }: {
   hops: Hop[]
   /** IBU de chaque houblon (vide si la formule ne donne pas le détail). */
   ibuByHop: number[]
   history: IngredientHistory | undefined
+  tools?: ReactNode
   onChange: (hops: Hop[]) => void
 }) {
   const suggestions = mergeSuggestions<LibraryHop>(history?.hops, HOP_LIBRARY)
@@ -288,6 +342,7 @@ export function HopCards({
       addLabel="Ajouter un houblon"
       onAdd={() => onChange([...hops, { ...EMPTY_HOP }])}
       empty="Aucun houblon."
+      tools={tools}
     >
       {hops.map((h, i) => {
         const ibu = ibuByHop[i]
@@ -300,6 +355,7 @@ export function HopCards({
               onChange={(name) => update(i, { name })}
               onPick={({ name, alphaAcidPercent }) => update(i, { name, alphaAcidPercent })}
               onRemove={() => onChange(hops.filter((_, idx) => idx !== i))}
+              {...reorder(hops, i, onChange)}
             />
             <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-6">
               <Field label="Poids (g)">
@@ -426,6 +482,7 @@ export function YeastCards({
             onChange={(name) => update(i, { name })}
             onPick={({ name, type, style, attenuationPercent: attenuation }) => update(i, { name, type, style, attenuationPercent: attenuation })}
             onRemove={() => onChange(yeasts.filter((_, idx) => idx !== i))}
+            {...reorder(yeasts, i, onChange)}
           />
           <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
             <Field label="Type">
@@ -455,7 +512,7 @@ export function YeastCards({
                 )}
               </>
             ) : (
-              <Chip tone="slate">Seule la première levure compte dans le calcul</Chip>
+              <Chip tone="slate">Seule la première levure compte dans le calcul (↑ pour la choisir)</Chip>
             )}
           </Chips>
           <LibraryNote note={findByName(YEAST_LIBRARY, y.name)?.note} />
@@ -494,6 +551,7 @@ export function OtherIngredientCards({
             onChange={(name) => update(i, { name })}
             onPick={() => undefined}
             onRemove={() => onChange(items.filter((_, idx) => idx !== i))}
+            {...reorder(items, i, onChange)}
           />
           <div className="mt-3 grid grid-cols-2 gap-3">
             <Field label="Quantité">
