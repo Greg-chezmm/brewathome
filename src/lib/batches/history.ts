@@ -1,5 +1,11 @@
-import { calculateABV_simple } from '@/lib/brew-calc/abv'
-import { apparentAttenuation, brewhouseEfficiencyPercent, mashEfficiencyPercent, plannedMeasurements } from '@/lib/brew-day/measurements'
+import {
+  apparentAttenuation,
+  brewhouseEfficiencyPercent,
+  effectiveOg,
+  mashEfficiencyPercent,
+  measuredAbv,
+  plannedMeasurements,
+} from '@/lib/brew-day/measurements'
 import type { BatchDetails } from '@/lib/db/queries/batches'
 
 /** Un brassin dans l'historique : ce que prévoyait sa recette et ce qui a été mesuré. */
@@ -13,8 +19,11 @@ export interface BatchHistoryRow {
   og: number | null
   plannedFg: number | null
   fg: number | null
+  /** Alcool prévu et mesuré, sucres ajoutés en fermentation compris (voir `measuredAbv`). */
   plannedAbv: number | null
   abv: number | null
+  /** Part de l'alcool mesuré due aux ajouts en fermentation (% vol.) ; null sans ajout. */
+  fermentationAbv: number | null
   /** Atténuation apparente prévue (levure ajustée par l'empâtage) et mesurée, en %. */
   plannedAttenuation: number | null
   attenuation: number | null
@@ -28,7 +37,7 @@ export interface BatchHistoryRow {
   mashPh: number | null
 }
 
-const both = (a: number | null, b: number | null, f: (a: number, b: number) => number | null) => (a !== null && b !== null ? f(a, b) : null)
+const both = <T>(a: number | null, b: number | null, f: (a: number, b: number) => T): T | null => (a !== null && b !== null ? f(a, b) : null)
 
 export function batchHistoryRow(batch: BatchDetails): BatchHistoryRow {
   const recipe = batch.recipeSnapshot
@@ -37,6 +46,10 @@ export function batchHistoryRow(batch: BatchDetails): BatchHistoryRow {
   const og = m.og ?? batch.ogMeasured
   const fg = m.fg ?? batch.fgMeasured
   const fermenterVolumeL = m.fermenterVolumeL ?? batch.volumeMeasuredL
+  // Alcool et atténuation depuis la DI effective : le sucre ajouté en fermentation, absent de la DI
+  // mesurée, est bien fermenté (la DI prévue en est privée de la même façon, voir plannedMeasurements).
+  const plannedAbv = both(planned.og, planned.fg, (o, f) => measuredAbv(recipe, o, f, planned.fermenterVolumeL))
+  const actualAbv = both(og, fg, (o, f) => measuredAbv(recipe, o, f, fermenterVolumeL))
   return {
     id: batch.id,
     name: batch.name,
@@ -46,10 +59,11 @@ export function batchHistoryRow(batch: BatchDetails): BatchHistoryRow {
     og,
     plannedFg: planned.fg,
     fg,
-    plannedAbv: both(planned.og, planned.fg, calculateABV_simple),
-    abv: both(og, fg, calculateABV_simple),
-    plannedAttenuation: both(planned.og, planned.fg, apparentAttenuation),
-    attenuation: both(og, fg, apparentAttenuation),
+    plannedAbv: plannedAbv?.abv ?? null,
+    abv: actualAbv?.abv ?? null,
+    fermentationAbv: actualAbv && actualAbv.fermentationAbv > 0 ? actualAbv.fermentationAbv : null,
+    plannedAttenuation: both(planned.og, planned.fg, (o, f) => apparentAttenuation(effectiveOg(recipe, o, planned.fermenterVolumeL), f)),
+    attenuation: both(og, fg, (o, f) => apparentAttenuation(effectiveOg(recipe, o, fermenterVolumeL), f)),
     yeastName: recipe.yeasts[0]?.name ?? null,
     plannedMashEfficiency: recipe.mashEfficiencyPercent,
     mashEfficiency: both(m.preBoilGravity, m.preBoilVolumeL, (g, v) => mashEfficiencyPercent(recipe, g, v)),

@@ -1,5 +1,5 @@
 import { calculateABV_simple } from '@/lib/brew-calc/abv'
-import { extractPointsLiters } from '@/lib/brew-calc/gravity'
+import { extractPointsLiters, fermentationAdditionsGravity } from '@/lib/brew-calc/gravity'
 import { mainMashTempC } from '@/lib/brew-calc/mash'
 import { computeRecipe } from '@/lib/brew-calc/recipe-stats'
 import type { EquipmentProfile } from '@/lib/brew-calc/types'
@@ -50,7 +50,11 @@ export const MEASUREMENTS: Record<MeasurementKey, MeasurementMeta> = {
 /** Contraction du moût en refroidissant, quand le profil d'équipement ne la donne pas. */
 const DEFAULT_SHRINKAGE_PERCENT = 4
 
-/** Valeurs prévues par la recette du brassin (et son équipement, pour les volumes). */
+/**
+ * Valeurs prévues par la recette du brassin (et son équipement, pour les volumes).
+ * La DI prévue est celle qu'on mesurera au Brew Day : sans les ajouts en fermentation (sucre,
+ * miel…), que la DI estimée de la recette inclut. Ils reviennent dans l'alcool via `measuredAbv`.
+ */
 export function plannedMeasurements(recipe: RecipeDetails, equipment: EquipmentProfile | null | undefined): MeasurementValues {
   const calculation = computeRecipe({
     ...recipe,
@@ -66,7 +70,8 @@ export function plannedMeasurements(recipe: RecipeDetails, equipment: EquipmentP
     postBoilGravity: calculation.postBoilGravity,
     fermenterTopUpL: 0,
     fermenterVolumeL: recipe.targetVolumeL,
-    og: recipe.estOg ?? calculation.og,
+    // computeRecipe dilue les ajouts en fermentation dans son volume de calcul : on les retire de même.
+    og: (recipe.estOg ?? calculation.og) - fermentationAdditionsGravity(recipe.fermentables, calculation.calculationVolumeL),
     fg: recipe.estFg ?? calculation.fg,
     packagingVolumeL: equipment ? recipe.targetVolumeL - equipment.fermenterLossL : null,
     maxFermentationTempC: null,
@@ -139,15 +144,70 @@ export function mashEfficiencyPercent(
   return (((preBoilGravity - 1) * 1000 * preBoilVolumeHotL * (1 - shrinkagePercent / 100)) / potential) * 100
 }
 
-/** Efficacité de la brasserie (%) : extrait arrivé dans le fermenteur rapporté au potentiel de tous les fermentables. */
+/**
+ * Efficacité de la brasserie (%) : extrait arrivé dans le fermenteur (DI mesurée × volume) rapporté
+ * au potentiel des fermentables d'empâtage et d'ébullition — les ajouts en fermentation, absents de
+ * la DI mesurée, n'entrent pas dans le calcul.
+ */
 export function brewhouseEfficiencyPercent(
   recipe: Pick<RecipeDetails, 'fermentables'>,
   og: number,
   fermenterVolumeL: number,
 ): number | null {
-  const potential = extractPointsLiters(recipe.fermentables, 100)
+  const potential = extractPointsLiters(recipe.fermentables, 100, ['mash', 'boil'])
   if (potential <= 0) return null
   return (((og - 1) * 1000 * fermenterVolumeL) / potential) * 100
+}
+
+/** Recette réduite à ce qu'il faut pour tenir compte des ajouts en fermentation. */
+type FermentationAdditionsRecipe = Pick<RecipeDetails, 'fermentables' | 'targetVolumeL'>
+
+export interface MeasuredAbv {
+  /** Alcool (% vol.) entre la DI effective et la DF. */
+  abv: number
+  /** DI effective : DI mesurée + hausse due aux ajouts en fermentation. */
+  effectiveOg: number
+  /** Part de l'alcool due aux ajouts en fermentation (% vol.) ; 0 sans ajout. */
+  fermentationAbv: number
+}
+
+/**
+ * DI effective d'un brassin : la DI mesurée au Brew Day plus la hausse de densité qu'apportent les
+ * fermentables ajoutés en fermentation, dilués dans le volume en fermenteur mesuré (à défaut prévu).
+ * Voir `fermentationAdditionsGravity`.
+ */
+export function effectiveOg(recipe: FermentationAdditionsRecipe, og: number, fermenterVolumeL: number | null): number {
+  return og + batchFermentationAdditionsGravity(recipe, fermenterVolumeL)
+}
+
+/** Hausse de densité (SG) due aux ajouts en fermentation d'un brassin, sur son volume en fermenteur mesuré (à défaut prévu). */
+export function batchFermentationAdditionsGravity(recipe: FermentationAdditionsRecipe, fermenterVolumeL: number | null): number {
+  const volumeL = fermenterVolumeL !== null && fermenterVolumeL > 0 ? fermenterVolumeL : recipe.targetVolumeL
+  return fermentationAdditionsGravity(recipe.fermentables, volumeL)
+}
+
+/**
+ * Alcool réel d'un brassin. La DI se mesure avant l'ensemencement, donc sans le sucre ajouté en
+ * fermentation, que la levure fermente pourtant : calculer l'alcool sur (DI, DF) seules le
+ * sous-estimerait (200 g dans 10 L : ≈ +1 % pour du saccharose, ≈ +0,8 % pour du sucre candi). On part donc de la DI effective.
+ * Sans ajout en fermentation, c'est exactement `calculateABV_simple(og, fg)`.
+ */
+export function measuredAbv(
+  recipe: FermentationAdditionsRecipe,
+  og: number,
+  fg: number,
+  fermenterVolumeL: number | null,
+): MeasuredAbv {
+  const effective = effectiveOg(recipe, og, fermenterVolumeL)
+  const abv = calculateABV_simple(effective, fg)
+  return { abv, effectiveOg: effective, fermentationAbv: abv - calculateABV_simple(og, fg) }
+}
+
+/** Mention courte signalant la part d'alcool due aux ajouts en fermentation (null sans ajout notable). */
+export function fermentationAbvNote(fermentationAbv: number | null | undefined): string | null {
+  if (fermentationAbv == null || fermentationAbv < 0.05) return null
+  const value = fermentationAbv.toLocaleString('fr-FR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })
+  return `dont +${value} % de sucre ajouté en fermentation`
 }
 
 export interface SummaryRow {
@@ -156,6 +216,8 @@ export interface SummaryRow {
   decimals: number
   planned: number | null
   actual: number | null
+  /** Précision affichée sous le libellé (ex. part d'alcool due aux ajouts en fermentation). */
+  note?: string | null
 }
 
 /**
@@ -177,8 +239,13 @@ export function batchSummary(
   const actualLosses = both(measured.postBoilVolumeL, measured.fermenterVolumeL, (post, fermenter) =>
     post * (1 - shrinkage / 100) + (measured.fermenterTopUpL ?? 0) - fermenter,
   )
-  const abv = (og: number | null, fg: number | null) => both(og, fg, calculateABV_simple)
-  const attenuation = (og: number | null, fg: number | null) => both(og, fg, apparentAttenuation)
+  // Alcool et atténuation se calculent depuis la DI effective (ajouts en fermentation compris).
+  const abvOf = (og: number | null, fg: number | null, volume: number | null) =>
+    og !== null && fg !== null ? measuredAbv(recipe, og, fg, volume) : null
+  const plannedAbv = abvOf(planned.og, planned.fg, planned.fermenterVolumeL)
+  const actualAbv = abvOf(measured.og, measured.fg, measured.fermenterVolumeL)
+  const attenuation = (og: number | null, fg: number | null, volume: number | null) =>
+    both(og, fg, (o, f) => apparentAttenuation(effectiveOg(recipe, o, volume), f))
   const mashEfficiency = (gravity: number | null, volume: number | null) =>
     both(gravity, volume, (g, v) => mashEfficiencyPercent(recipe, g, v, shrinkage))
   const brewhouseEfficiency = (og: number | null, volume: number | null) =>
@@ -207,13 +274,20 @@ export function batchSummary(
     { label: "Densité fin d'ébullition", unit: '', decimals: 3, planned: planned.postBoilGravity, actual: measured.postBoilGravity },
     { label: 'Densité initiale', unit: '', decimals: 3, planned: planned.og, actual: measured.og },
     { label: 'Densité finale', unit: '', decimals: 3, planned: planned.fg, actual: measured.fg },
-    { label: 'Alcool', unit: '%', decimals: 1, planned: abv(planned.og, planned.fg), actual: abv(measured.og, measured.fg) },
+    {
+      label: 'Alcool',
+      unit: '%',
+      decimals: 1,
+      planned: plannedAbv?.abv ?? null,
+      actual: actualAbv?.abv ?? null,
+      note: fermentationAbvNote((actualAbv ?? plannedAbv)?.fermentationAbv),
+    },
     {
       label: 'Atténuation apparente',
       unit: '%',
       decimals: 1,
-      planned: attenuation(planned.og, planned.fg),
-      actual: attenuation(measured.og, measured.fg),
+      planned: attenuation(planned.og, planned.fg, planned.fermenterVolumeL),
+      actual: attenuation(measured.og, measured.fg, measured.fermenterVolumeL),
     },
     {
       label: "Efficacité de l'empâtage",

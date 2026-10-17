@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { currentGravity, fermentationProgress } from '@/lib/fermentation/progress'
+import type { BatchStepStatus, BatchStepType } from '@/lib/db/queries/batches'
+import { currentGravity, fermentationAdditionsAddedAt, fermentationProgress } from '@/lib/fermentation/progress'
 
 describe('Progression de la fermentation', () => {
   it('densité actuelle : médiane des 4 derniers relevés, dans l’ordre du temps', () => {
@@ -33,5 +34,25 @@ describe('Progression de la fermentation', () => {
 
   it('une densité au-dessus de la DI (mesure bruitée) ne donne pas d’alcool négatif', () => {
     expect(fermentationProgress(1.05, 1.051, null)).toEqual({ abv: 0, attenuation: 0, progressPercent: null })
+  })
+})
+
+describe('Ajouts en fermentation dans le fermenteur', () => {
+  const step = (status: BatchStepStatus, actualEndAt: string | null = null, stepType: BatchStepType = 'fermentation-addition') => ({
+    stepType,
+    status,
+    actualEndAt,
+  })
+
+  it('aucun ajout, ou un ajout pas encore fait : rien à compter', () => {
+    expect(fermentationAdditionsAddedAt([step('done', '2026-01-01T10:00:00Z', 'pitch')])).toBeNull()
+    expect(fermentationAdditionsAddedAt([step('done', '2026-01-03T10:00:00Z'), step('todo')])).toBeNull()
+  })
+
+  it('tous faits : à partir du plus tardif, depuis toujours s’ils ne sont pas datés', () => {
+    expect(fermentationAdditionsAddedAt([step('done', '2026-01-03T10:00:00Z'), step('done', '2026-01-05T10:00:00Z')])).toBe(
+      new Date('2026-01-05T10:00:00Z').getTime(),
+    )
+    expect(fermentationAdditionsAddedAt([step('done')])).toBe(-Infinity)
   })
 })

@@ -2,12 +2,14 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { BatchSummaryTable } from '@/components/batches/BatchSummaryTable'
 import { MeasurementsPanel } from '@/components/batches/MeasurementsPanel'
-import { calculateABV_simple } from '@/lib/brew-calc/abv'
 import { calculateFG } from '@/lib/brew-calc/gravity'
 import {
   MEASUREMENTS,
   apparentAttenuation,
   batchSummary,
+  effectiveOg,
+  fermentationAbvNote,
+  measuredAbv,
   plannedMeasurements,
   type MeasurementKey,
 } from '@/lib/brew-day/measurements'
@@ -58,12 +60,22 @@ export function BatchOverview() {
     toolsParams.set('form', recipe.yeasts[0].type)
   }
   const planned = plannedMeasurements(recipe, equipmentProfile)
-  const { og, fg } = batch.measurements
-  // DI mesurée sans DF : degré attendu en gardant l'atténuation prévue par la recette.
-  const projectedAbv =
+  const { og, fg, fermenterVolumeL } = batch.measurements
+  // DI mesurée sans DF : degré attendu en gardant l'atténuation prévue par la recette,
+  // depuis la DI effective (sucre ajouté en fermentation compris).
+  const projected =
     og !== null && fg === null && planned.og !== null && planned.fg !== null
-      ? calculateABV_simple(og, calculateFG(og, apparentAttenuation(planned.og, planned.fg)))
+      ? measuredAbv(
+          recipe,
+          og,
+          calculateFG(
+            effectiveOg(recipe, og, fermenterVolumeL),
+            apparentAttenuation(effectiveOg(recipe, planned.og, planned.fermenterVolumeL), planned.fg),
+          ),
+          fermenterVolumeL,
+        )
       : null
+  const projectedNote = fermentationAbvNote(projected?.fermentationAbv)
 
   async function advanceStatus() {
     if (!batchId) return
@@ -137,9 +149,10 @@ export function BatchOverview() {
           indispensables ; volumes et densités intermédiaires donnent les efficacités réelles.
         </p>
         <BatchSummaryTable rows={batchSummary(recipe, equipmentProfile, batch.measurements)} />
-        {projectedAbv !== null && (
+        {projected !== null && (
           <p className="mt-3 text-sm text-slate-600">
-            Avec la DI mesurée, alcool attendu : <strong>{projectedAbv.toFixed(1)} %</strong> (atténuation de la recette).
+            Avec la DI mesurée, alcool attendu : <strong>{projected.abv.toFixed(1)} %</strong> (atténuation de la recette
+            {projectedNote && `, ${projectedNote}`}).
           </p>
         )}
       </section>

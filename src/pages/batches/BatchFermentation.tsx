@@ -29,8 +29,8 @@ import {
   type FermentationReading,
 } from '@/lib/db/queries/fermentation'
 import { seriesWithGaps } from '@/lib/fermentation/chart'
-import { plannedMeasurements } from '@/lib/brew-day/measurements'
-import { currentGravity, fermentationProgress } from '@/lib/fermentation/progress'
+import { batchFermentationAdditionsGravity, plannedMeasurements } from '@/lib/brew-day/measurements'
+import { currentGravity, fermentationAdditionsAddedAt, fermentationProgress } from '@/lib/fermentation/progress'
 import { fermentationStartTime, primingTemperatureC } from '@/lib/fermentation/plan'
 import { gravityStability } from '@/lib/fermentation/stability'
 
@@ -140,14 +140,27 @@ export function BatchFermentation() {
   const temperatureSeries = seriesWithGaps(all.map((r, i) => ({ time: times[i], value: r.temperatureC })))
   // Seulement pendant la fermentation : une fois le brassin conditionné, l'alerte n'a plus d'objet.
   const stability = batch?.status === 'fermentation' ? gravityStability(all.map((r, i) => ({ time: times[i], gravity: r.gravity }))) : null
+  // Sucre ajouté en fermentation : absent de la DI, il est fermenté. Une fois l'étape « Ajout en
+  // fermentation » faite, on part de la DI effective (DI + sa hausse de densité) pour l'alcool.
+  const additionsAddedAt = fermentationAdditionsAddedAt(batchSteps ?? [])
+  const additionGravity =
+    batch && additionsAddedAt !== null
+      ? batchFermentationAdditionsGravity(batch.recipeSnapshot, batch.measurements.fermenterVolumeL ?? batch.volumeMeasuredL)
+      : 0
+  const withAdditions = (gravity: number, time = Infinity) =>
+    additionsAddedAt !== null && time >= additionsAddedAt ? gravity + additionGravity : gravity
   const apparentAttenuation =
-    stability && batch?.ogMeasured ? ((batch.ogMeasured - stability.gravity) / (batch.ogMeasured - 1)) * 100 : null
-  // Alcool déjà produit : depuis la DI mesurée, à défaut celle prévue par la recette.
-  const og = batch?.measurements.og ?? batch?.recipeSnapshot.estOg ?? null
+    stability && batch?.ogMeasured
+      ? ((withAdditions(batch.ogMeasured) - stability.gravity) / (withAdditions(batch.ogMeasured) - 1)) * 100
+      : null
+  // Alcool déjà produit : depuis la DI mesurée, à défaut celle prévue par la recette (sans les ajouts en fermentation).
+  const ogBase = batch ? (batch.measurements.og ?? plannedMeasurements(batch.recipeSnapshot, null).og) : null
+  const og = ogBase !== null ? withAdditions(ogBase) : null
   const ogIsMeasured = batch?.measurements.og != null
   const gravityNow = currentGravity(all.map((r, i) => ({ time: times[i], gravity: r.gravity })))
   const plannedFg = batch?.recipeSnapshot.estFg ?? null
   const progress = og !== null && gravityNow !== null ? fermentationProgress(og, gravityNow, plannedFg) : null
+  const ogAt = (time: number) => (ogBase !== null ? withAdditions(ogBase, time) : null)
   const dots = all.length <= CHART_DOTS_MAX ? { r: 2 } : false
   const newestFirst = all.slice().reverse()
   const fermentationStart = batch ? fermentationStartTime(batchSteps ?? [], batch.brewDate, times[0] ?? null) : null
@@ -288,7 +301,7 @@ export function BatchFermentation() {
         </button>
       </form>
 
-      {progress && og !== null && gravityNow !== null && (
+      {progress && ogBase !== null && gravityNow !== null && (
         <div className="card">
           <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <div>
@@ -319,7 +332,10 @@ export function BatchFermentation() {
             )}
           </dl>
           <p className="mt-3 text-xs text-slate-500">
-            Calculé depuis la DI {ogIsMeasured ? 'mesurée' : 'prévue par la recette (pas encore saisie)'} : {og.toFixed(3)}
+            Calculé depuis la DI {ogIsMeasured ? 'mesurée' : 'prévue par la recette (pas encore saisie)'} : {ogBase.toFixed(3)}
+            {additionsAddedAt !== null &&
+              additionGravity > 0 &&
+              `, + ${Math.round(additionGravity * 1000)} points de sucre ajouté en fermentation`}
             {progress.progressPercent !== null && progress.progressPercent > 100 && ' · plus sèche que prévu'}.
           </p>
         </div>
@@ -354,7 +370,7 @@ export function BatchFermentation() {
                 tick={{ fontSize: 11, fill: TEMPERATURE_COLOR }}
                 stroke={TEMPERATURE_COLOR}
               />
-              <Tooltip content={({ active, label }) => (active ? <ReadingTooltip reading={nearestReading(all, times, Number(label))} og={og} /> : null)} />
+              <Tooltip content={({ active, label }) => (active ? <ReadingTooltip reading={nearestReading(all, times, Number(label))} ogAt={ogAt} /> : null)} />
               <Legend />
               <Line yAxisId="gravity" type="monotone" data={gravitySeries} dataKey="value" name="Densité" stroke={GRAVITY_COLOR} strokeWidth={2} dot={dots} isAnimationActive={false} />
               <Line yAxisId="temperature" type="monotone" data={temperatureSeries} dataKey="value" name="Température" stroke={TEMPERATURE_COLOR} dot={dots} isAnimationActive={false} />
@@ -440,8 +456,10 @@ function nearestReading(readings: FermentationReading[], times: number[], time: 
   return lo > 0 && time - times[lo - 1] < times[lo] - time ? readings[lo - 1] : readings[lo]
 }
 
-function ReadingTooltip({ reading, og }: { reading: FermentationReading | undefined; og: number | null }) {
+function ReadingTooltip({ reading, ogAt }: { reading: FermentationReading | undefined; ogAt: (time: number) => number | null }) {
   if (!reading) return null
+  // DI effective à l'instant du relevé : le sucre ajouté en fermentation ne compte qu'après son ajout.
+  const og = ogAt(new Date(reading.recordedAt).getTime())
   const abv = og !== null && reading.gravity !== null ? fermentationProgress(og, reading.gravity, null).abv : null
   return (
     <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs shadow-sm">

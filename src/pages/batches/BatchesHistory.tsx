@@ -163,6 +163,11 @@ export function BatchesHistory() {
                       </td>
                       <td className="whitespace-nowrap px-3 py-3">
                         <Measured value={r.abv} planned={r.plannedAbv} digits={1} suffix=" %" />
+                        {r.fermentationAbv !== null && (
+                          <span className="block text-xs text-slate-400" title="Sucre ajouté en fermentation : absent de la DI mesurée, mais fermenté">
+                            dont {fmt(r.fermentationAbv, 1, ' %')} de sucre
+                          </span>
+                        )}
                       </td>
                       <td className="whitespace-nowrap px-3 py-3">
                         <Measured value={r.attenuation} planned={r.plannedAttenuation} digits={0} suffix=" %" />

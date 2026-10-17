@@ -1,4 +1,17 @@
 import { calculateABV_simple } from '@/lib/brew-calc/abv'
+import type { BatchStep } from '@/lib/db/queries/batches'
+
+/**
+ * Instant (ms) où les ajouts en fermentation (sucre, miel…) sont dans le fermenteur : une fois toutes
+ * les étapes « Ajout en fermentation » faites, la plus tardive de leurs dates de fin (-Infinity si
+ * aucune n'est datée : on les compte alors depuis le début). null s'il n'y en a pas ou qu'il en reste
+ * à faire : la densité relevée ne les contient pas encore, l'alcool se calcule sur la DI seule.
+ */
+export function fermentationAdditionsAddedAt(steps: Pick<BatchStep, 'stepType' | 'status' | 'actualEndAt'>[]): number | null {
+  const additions = steps.filter((s) => s.stepType === 'fermentation-addition')
+  if (additions.length === 0 || additions.some((s) => s.status !== 'done')) return null
+  return Math.max(...additions.map((s) => (s.actualEndAt ? new Date(s.actualEndAt).getTime() : -Infinity)))
+}
 
 export interface GravityReading {
   time: number

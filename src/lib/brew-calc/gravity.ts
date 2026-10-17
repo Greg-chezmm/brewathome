@@ -43,6 +43,20 @@ export function extractPointsLiters(
     }, 0)
 }
 
+/**
+ * Hausse de densité (en SG, ex. 0,0077 pour 7,7 points) qu'apportent les fermentables ajoutés
+ * en fermentation (sucre, miel…) une fois dissous dans `volumeL` litres de bière :
+ * Σ masse × rendement → points·L, sans efficacité d'empâtage (le sucre se dissout en entier), ÷ volume.
+ *
+ * La DI mesurée au Brew Day (avant ensemencement) ne voit pas ces sucres, mais la levure les
+ * fermente : « DI effective » = DI mesurée + cette hausse, base de l'alcool et de l'atténuation réels.
+ * 0 sans ajout en fermentation ou sans volume exploitable.
+ */
+export function fermentationAdditionsGravity(fermentables: Fermentable[], volumeL: number): number {
+  if (!Number.isFinite(volumeL) || volumeL <= 0) return 0
+  return extractPointsLiters(fermentables, 100, ['fermentation']) / volumeL / 1000
+}
+
 /** Densité finale (FG) estimée à partir de l'OG et de l'atténuation apparente de la levure. */
 export function calculateFG(og: number, attenuationPercent: number): number {
   return og - (og - 1) * (attenuationPercent / 100)

@@ -1,9 +1,14 @@
 import { describe, expect, it } from 'vitest'
+import { calculateABV_simple } from '@/lib/brew-calc/abv'
+import { fermentationAdditionsGravity } from '@/lib/brew-calc/gravity'
+import { computeRecipe } from '@/lib/brew-calc/recipe-stats'
 import {
   batchSummary,
   brewhouseEfficiencyPercent,
   compareGravity,
+  effectiveOg,
   mashEfficiencyPercent,
+  measuredAbv,
   plannedMeasurements,
   type MeasurementValues,
 } from '@/lib/brew-day/measurements'
@@ -108,6 +113,16 @@ describe('Mesures du brassin', () => {
     expect(rows["Efficacité de l'empâtage"].planned).toBe(75)
   })
 
+  it('sans ajout en fermentation, l’alcool reste celui de (DI, DF) et la DI prévue celle de la recette', () => {
+    expect(measuredAbv(barleyWine, 1.105, 1.017, 10.8)).toEqual({
+      abv: calculateABV_simple(1.105, 1.017),
+      effectiveOg: 1.105,
+      fermentationAbv: 0,
+    })
+    const alcohol = batchSummary(barleyWine, equipment, measured).find((row) => row.label === 'Alcool')!
+    expect(alcohol.note).toBeNull()
+  })
+
   it('compare une densité : tolérance de 2 points, conseil au-delà', () => {
     expect(compareGravity('og', 1.05, 1.052)).toEqual({ points: 2, verdict: 'ok', advice: null })
     const low = compareGravity('preBoilGravity', 1.074, 1.063)
@@ -115,5 +130,73 @@ describe('Mesures du brassin', () => {
     expect(low.verdict).toBe('low')
     expect(low.advice).toMatch(/prolonger l'ébullition/)
     expect(compareGravity('fg', 1.012, 1.02).advice).toMatch(/pas finie/)
+  })
+})
+
+describe('Alcool mesuré : sucre ajouté en fermentation', () => {
+  /** Blonde de 10 L : 200 g de sucre candi (rendement 78 %) ajoutés en fermentation. */
+  const blonde: RecipeDetails = {
+    ...barleyWine,
+    name: 'Blonde',
+    targetVolumeL: 10,
+    boilTimeMin: 60,
+    estOg: 1.05,
+    estFg: 1.01,
+    fermentables: [
+      { name: 'Pilsner', type: 'grain', amountKg: 2.2, colorLovibond: 2, yieldPercent: 80 },
+      { name: 'Sucre candi clair', type: 'sugar', amountKg: 0.2, colorLovibond: 1, yieldPercent: 78, use: 'fermentation' },
+    ],
+  }
+  const grainOnly: RecipeDetails = { ...blonde, fermentables: blonde.fermentables.slice(0, 1) }
+  const blondeMeasured: MeasurementValues = { ...measured, og: 1.045, fg: 1.008, fermenterVolumeL: 10, preBoilGravity: null }
+
+  it('hausse de densité : masse × rendement, sans efficacité, diluée dans le volume', () => {
+    // 0,2 kg × 78 % × 46 PPG × 8,345 → 59,9 points·L, soit 6 points dans 10 L.
+    expect(fermentationAdditionsGravity(blonde.fermentables, 10)).toBeCloseTo(0.005988, 5)
+    expect(fermentationAdditionsGravity(grainOnly.fermentables, 10)).toBe(0)
+    expect(fermentationAdditionsGravity(blonde.fermentables, 0)).toBe(0)
+  })
+
+  it('200 g de sucre dans 10 L : l’alcool mesuré monte d’environ 0,7-0,8 %', () => {
+    const withoutCorrection = calculateABV_simple(1.045, 1.008)
+    const result = measuredAbv(blonde, 1.045, 1.008, 10)
+    expect(result.abv - withoutCorrection).toBeGreaterThan(0.7)
+    expect(result.abv - withoutCorrection).toBeLessThan(0.8)
+    expect(result.fermentationAbv).toBeCloseTo(result.abv - withoutCorrection, 10)
+    expect(result.effectiveOg).toBeCloseTo(1.050988, 5)
+    // Saccharose pur (rendement 100 %) : ≈ +1 %.
+    const sucrose = { ...blonde, fermentables: [blonde.fermentables[0], { ...blonde.fermentables[1], yieldPercent: 100 }] }
+    expect(measuredAbv(sucrose, 1.045, 1.008, 10).fermentationAbv).toBeCloseTo(1.01, 2)
+  })
+
+  it('dilue le sucre dans le volume en fermenteur mesuré, à défaut prévu', () => {
+    expect(effectiveOg(blonde, 1.045, 8) - 1.045).toBeCloseTo(0.005988 * (10 / 8), 5)
+    expect(effectiveOg(blonde, 1.045, null)).toBeCloseTo(effectiveOg(blonde, 1.045, 10), 10)
+  })
+
+  it('DI prévue sans le sucre (celle qu’on mesurera), alcool prévu inchangé', () => {
+    const planned = plannedMeasurements(blonde, null)
+    expect(planned.og).toBeCloseTo(1.05 - 0.005988, 5)
+    expect(planned.fg).toBe(1.01)
+    const rows = Object.fromEntries(batchSummary(blonde, null, blondeMeasured).map((row) => [row.label, row]))
+    expect(rows['Alcool'].planned).toBeCloseTo(calculateABV_simple(1.05, 1.01), 5)
+    // Sans DI enregistrée, la DI prévue est la densité de fin d'ébullition calculée.
+    const computed = plannedMeasurements({ ...blonde, estOg: null, estFg: null }, null)
+    expect(computed.og).toBeCloseTo(computeRecipe({ ...blonde, equipment: null }).postBoilGravity, 10)
+  })
+
+  it('résumé : alcool et atténuation depuis la DI effective, mention du sucre', () => {
+    const rows = Object.fromEntries(batchSummary(blonde, null, blondeMeasured).map((row) => [row.label, row]))
+    expect(rows['Alcool'].actual).toBeCloseTo(calculateABV_simple(1.050988, 1.008), 3)
+    expect(rows['Alcool'].note).toBe('dont +0,8 % de sucre ajouté en fermentation')
+    expect(rows['Atténuation apparente'].actual).toBeCloseTo(((1.050988 - 1.008) / 0.050988) * 100, 1)
+    // Sans ajout en fermentation : mêmes mesures, alcool brut et pas de mention.
+    const plain = Object.fromEntries(batchSummary(grainOnly, null, blondeMeasured).map((row) => [row.label, row]))
+    expect(plain['Alcool'].actual).toBeCloseTo(calculateABV_simple(1.045, 1.008), 10)
+    expect(plain['Alcool'].note).toBeNull()
+  })
+
+  it('efficacité de la brasserie : le sucre ajouté en fermentation n’entre pas dans le potentiel', () => {
+    expect(brewhouseEfficiencyPercent(blonde, 1.045, 10)).toBeCloseTo(brewhouseEfficiencyPercent(grainOnly, 1.045, 10)!, 10)
   })
 })

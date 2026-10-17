@@ -31,7 +31,10 @@ export function BatchSummaryTable({ rows }: { rows: SummaryRow[] }) {
             const visibleDelta = delta !== null && Math.abs(delta) >= (row.decimals === 3 ? 0.0005 : 0.5 * 10 ** -row.decimals)
             return (
               <tr key={row.label} className="border-t border-slate-100">
-                <td className="py-1.5 pr-2 text-slate-700">{row.label}</td>
+                <td className="py-1.5 pr-2 text-slate-700">
+                  {row.label}
+                  {row.note && <span className="block text-xs text-slate-400">{row.note}</span>}
+                </td>
                 <td className="py-1.5 text-right text-slate-500">{row.planned !== null ? withUnit(row.planned, row) : '—'}</td>
                 <td className="py-1.5 text-right font-medium text-slate-900">
                   {row.actual !== null ? withUnit(row.actual, row) : <span className="font-normal text-slate-400">—</span>}
