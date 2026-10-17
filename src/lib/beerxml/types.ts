@@ -1,4 +1,4 @@
-import type { Fermentable, Hop, Yeast } from '@/lib/brew-calc/types'
+import type { Fermentable, Hop, OtherIngredient, Yeast } from '@/lib/brew-calc/types'
 
 export interface ParsedRecipeDraft {
   name: string
@@ -20,6 +20,8 @@ export interface ParsedRecipeDraft {
   fermentables: Fermentable[]
   hops: Hop[]
   yeasts: Yeast[]
+  /** Autres ajouts en ébullition (clarifiant, nutriment...), si la source en a. */
+  otherIngredients?: OtherIngredient[]
   /** Valeurs annoncées par le fichier source, pour comparaison avec nos calculs. */
   sourceEstimates: {
     og?: number

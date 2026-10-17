@@ -8,9 +8,12 @@ export function RecipesList() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-3xl font-bold tracking-tight text-slate-900">Mes recettes</h1>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <Link to="/recipes/brewfather" className="btn-secondary">
+            Brewfather
+          </Link>
           <Link to="/recipes/import" className="btn-secondary">
             Importer un BeerXML
           </Link>

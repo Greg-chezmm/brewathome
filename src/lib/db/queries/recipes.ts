@@ -268,81 +268,31 @@ export async function deleteRecipe(recipeId: string): Promise<void> {
   if (error) throw error
 }
 
-/** Crée une recette à partir d'une recette BeerXML importée (voir src/lib/beerxml). */
-export async function createRecipeFromDraft(userId: string, draft: ParsedRecipeDraft): Promise<string> {
-  const mashTempC = draft.mashTempC ?? REFERENCE_MASH_TEMP_C
-  const stats = estimateRecipeStats({ ...draft, mashTempC, ibuFormula: 'tinseth' })
-  const styleId = resolveBjcpStyleId(draft.style)
-
-  const { data: recipe, error } = await supabase
-    .from('recipes')
-    .insert({
-      user_id: userId,
-      name: draft.name,
-      style_id: styleId,
-      type: draft.type,
-      target_volume_l: draft.targetVolumeL,
-      boil_time_min: draft.boilTimeMin,
-      mash_efficiency_percent: draft.mashEfficiencyPercent,
-      mash_temp_c: mashTempC,
-      ibu_formula: 'tinseth',
-      est_og: stats.og,
-      est_fg: stats.fg,
-      est_ibu: stats.ibu,
-      est_srm: stats.srm,
-      est_abv: stats.abv,
-      notes: draft.notes ?? null,
-    })
-    .select('id')
-    .single()
-  if (error) throw error
-
-  const recipeId = recipe.id as string
-
-  if (draft.fermentables.length > 0) {
-    const { error: fErr } = await supabase.from('recipe_fermentables').insert(
-      draft.fermentables.map((f, i) => ({
-        recipe_id: recipeId,
-        name: f.name,
-        type: f.type,
-        amount_kg: f.amountKg,
-        color_lovibond: f.colorLovibond,
-        yield_percent: f.yieldPercent,
-        sort_order: i,
-      })),
-    )
-    if (fErr) throw fErr
+/** Convertit une recette importée (BeerXML, Brewfather) en données de formulaire de recette. */
+export function draftToRecipeInput(draft: ParsedRecipeDraft, equipmentProfileId: string | null = null): RecipeInput {
+  return {
+    name: draft.name,
+    styleId: resolveBjcpStyleId(draft.style),
+    type: draft.type,
+    targetVolumeL: draft.targetVolumeL,
+    boilTimeMin: draft.boilTimeMin,
+    mashEfficiencyPercent: draft.mashEfficiencyPercent,
+    mashTempC: draft.mashTempC ?? REFERENCE_MASH_TEMP_C,
+    ibuFormula: 'tinseth',
+    equipmentProfileId,
+    notes: draft.notes ?? null,
+    fermentables: draft.fermentables,
+    hops: draft.hops,
+    yeasts: draft.yeasts,
+    otherIngredients: draft.otherIngredients ?? [],
   }
+}
 
-  if (draft.hops.length > 0) {
-    const { error: hErr } = await supabase.from('recipe_hops').insert(
-      draft.hops.map((h, i) => ({
-        recipe_id: recipeId,
-        name: h.name,
-        amount_g: h.amountG,
-        alpha_acid_percent: h.alphaAcidPercent,
-        time_min: h.timeMin,
-        use: h.use,
-        form: h.form ?? 'pellet',
-        sort_order: i,
-      })),
-    )
-    if (hErr) throw hErr
-  }
-
-  if (draft.yeasts.length > 0) {
-    const { error: yErr } = await supabase.from('recipe_yeasts').insert(
-      draft.yeasts.map((y, i) => ({
-        recipe_id: recipeId,
-        name: y.name,
-        type: y.type,
-        style: y.style,
-        attenuation_percent: y.attenuationPercent,
-        sort_order: i,
-      })),
-    )
-    if (yErr) throw yErr
-  }
-
-  return recipeId
+/** Crée une recette à partir d'une recette importée (voir src/lib/beerxml et src/lib/brewfather). */
+export async function createRecipeFromDraft(
+  userId: string,
+  draft: ParsedRecipeDraft,
+  equipmentProfileId: string | null = null,
+): Promise<string> {
+  return createRecipe(userId, draftToRecipeInput(draft, equipmentProfileId))
 }

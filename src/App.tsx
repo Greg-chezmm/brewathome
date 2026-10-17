@@ -11,6 +11,7 @@ import { Dashboard } from '@/pages/Dashboard'
 import { DevicesList } from '@/pages/devices/DevicesList'
 import { EquipmentProfileDetail } from '@/pages/equipment-profiles/EquipmentProfileDetail'
 import { EquipmentProfilesList } from '@/pages/equipment-profiles/EquipmentProfilesList'
+import { BrewfatherImport } from '@/pages/recipes/BrewfatherImport'
 import { RecipeDetail } from '@/pages/recipes/RecipeDetail'
 import { RecipeEdit } from '@/pages/recipes/RecipeEdit'
 import { RecipeImport } from '@/pages/recipes/RecipeImport'
@@ -29,6 +30,7 @@ export function App() {
           <Route path="/recipes" element={<RecipesList />} />
           <Route path="/recipes/new" element={<RecipeNew />} />
           <Route path="/recipes/import" element={<RecipeImport />} />
+          <Route path="/recipes/brewfather" element={<BrewfatherImport />} />
           <Route path="/recipes/:recipeId" element={<RecipeDetail />} />
           <Route path="/recipes/:recipeId/edit" element={<RecipeEdit />} />
           <Route path="/recipes/:recipeId/validate" element={<RecipeValidate />} />

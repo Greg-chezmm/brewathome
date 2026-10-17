@@ -13,6 +13,7 @@ Application personnelle de brassage de bière maison (type Brewfather/Little Boc
 - Profils d'équipement (cuve, évaporation en L/h, pertes cuve d'empâtage / trub / fermenteur, utilisation houblon, méthode tout-grain/BIAB/extrait) avec calcul des volumes à chaque étape (eau d'empâtage, eau de rinçage @ 76 °C, pré-ébullition, post-ébullition, fermenteur), alerte de débordement de cuve.
 - Ancrage du dimensionnement sur le volume final **ou** sur le volume pré-ébullition (utile quand la cuve est le facteur limitant).
 - Import BeerXML (lecture seule) pour récupérer des recettes existantes.
+- **Brewfather** (`/recipes/brewfather`) : connexion par identifiant + clé API (droit recipes.read, enregistrés dans `brewfather_accounts`, RLS), liste de toutes les recettes du compte, **comparaison de nos calculs** (DI, DF, ABV, IBU, couleur, volume pré-ébullition) avec ceux de Brewfather recalculés sur l'équipement de la recette, import de la recette et de son profil d'équipement. Appels directs depuis le navigateur (l'API Brewfather autorise le CORS), quota 500 appels/heure.
 - **Houblons** : usages first-wort / ébullition / whirlpool / dry hop / empâtage, avec pour le dry hop une durée (jours) et une température cible dédiées.
 - **Autres ajouts en ébullition** (Whirlfloc, nutriments...) : nom, quantité en texte libre, temps d'ajout — éditables directement dans le formulaire de recette.
 
@@ -51,10 +52,9 @@ Application personnelle de brassage de bière maison (type Brewfather/Little Boc
 - Historique/statistiques multi-brassins, export PDF de fiche de recette.
 - Interfaces pour les calculs déjà prêts dans `src/lib/brew-calc/` : resucrage (`carbonation.ts`), sels minéraux (`water.ts`), sachets de levure sèche (`dryYeastForCells`). Usage des fermentescibles (empâtage/ébullition/fermentation) à exposer en base et dans le formulaire.
 - Migration `0009` (suppression de `evaporation_rate_percent_per_hour`) à appliquer **seulement après** le déploiement du nouveau code (le site en ligne lit encore l'ancienne colonne).
-- Import Brewfather via son API (Edge Function proxy, clé stockée en secret Supabase).
+- Brewfather : valider la conversion sur des recettes réelles (unité de la couleur, champs d'équipement) ; import des brassins et de l'inventaire si utile.
 - IBU Garetz (troisième formule, actuellement non implémentée malgré le type `IBUFormulaName` qui la prévoit).
 - Gestion de stock d'ingrédients (si besoin confirmé un jour).
-- Vérification croisée formelle des calculs (OG/FG/IBU/SRM/ABV/pitch levure) contre un compte Brewfather existant, au-delà des tests unitaires actuels.
 - Le bundle JS dépasse 500 kB après minification (avertissement Vite) — découpage en chunks à envisager si le temps de chargement devient gênant.
 
 ## Comment vérifier l'état du code

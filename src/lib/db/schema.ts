@@ -273,3 +273,15 @@ export const devices = pgTable('devices', {
   activeBatchId: uuid('active_batch_id').references(() => batches.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })
+
+// Accès à l'API Brewfather (lecture des recettes) : un compte par utilisateur.
+// La clé est générée par l'utilisateur dans Brewfather (Paramètres → API, droit
+// recipes.read) ; RLS : chacun ne voit que la sienne.
+export const brewfatherAccounts = pgTable('brewfather_accounts', {
+  userId: uuid('user_id')
+    .primaryKey()
+    .references(() => authUsers.id, { onDelete: 'cascade' }),
+  brewfatherUserId: text('brewfather_user_id').notNull(),
+  apiKey: text('api_key').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+})
