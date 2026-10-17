@@ -1,28 +1,17 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import bjcpStyles from '@/data/bjcp-styles-2021.json'
-import { estimateRecipeStats, REFERENCE_MASH_TEMP_C } from '@/lib/brew-calc/recipe-stats'
+import { buGuRatio, fermentableContributions } from '@/lib/brew-calc/contributions'
+import { computeRecipe, REFERENCE_MASH_TEMP_C } from '@/lib/brew-calc/recipe-stats'
 import { matchStyle } from '@/lib/brew-calc/style-matching'
-import { calculateVolumes, estimateFinalVolumeFromPreBoil, SPARGE_WATER_TEMP_C } from '@/lib/brew-calc/volumes'
-import type { Fermentable, Hop, HopUse, IBUFormulaName, OtherIngredient, Yeast } from '@/lib/brew-calc/types'
+import { estimateFinalVolumeFromPreBoil, SPARGE_WATER_TEMP_C } from '@/lib/brew-calc/volumes'
+import type { Fermentable, Hop, IBUFormulaName, OtherIngredient, Yeast } from '@/lib/brew-calc/types'
 import { listEquipmentProfiles } from '@/lib/db/queries/equipmentProfiles'
+import { getIngredientHistory } from '@/lib/db/queries/ingredientHistory'
 import type { RecipeInput } from '@/lib/db/queries/recipes'
-import { BeerGlass } from '@/components/BeerGlass'
-import { FieldLabel } from '@/components/InfoTooltip'
-
-const HOP_USES: HopUse[] = ['first-wort', 'boil', 'whirlpool', 'dry-hop', 'mash']
-const HOP_USE_LABELS: Record<HopUse, string> = {
-  'first-wort': 'First wort',
-  boil: 'Ébullition',
-  whirlpool: 'Whirlpool',
-  'dry-hop': 'Dry hop',
-  mash: 'Empâtage',
-}
-
-const emptyFermentable: Fermentable = { name: '', type: 'grain', amountKg: 1, colorLovibond: 3, yieldPercent: 80 }
-const emptyHop: Hop = { name: '', amountG: 10, alphaAcidPercent: 10, timeMin: 60, use: 'boil', form: 'pellet' }
-const emptyYeast: Yeast = { name: '', type: 'dry', style: 'ale', attenuationPercent: 75 }
-const emptyOther: OtherIngredient = { name: '', amount: '', timeMin: 10 }
+import { FieldLabel, InfoTooltip } from '@/components/InfoTooltip'
+import { FermentableCards, HopCards, OtherIngredientCards, YeastCards } from './IngredientCards'
+import { RecipeStatsBar, StyleRangeBars, type StyleRanges } from './RecipeLiveStats'
 
 export interface RecipeFormValue {
   name: string
@@ -75,10 +64,18 @@ export function RecipeForm({
     queryKey: ['equipment-profiles'],
     queryFn: listEquipmentProfiles,
   })
+  // Ingrédients déjà utilisés dans vos recettes : proposés en premier, avec vos valeurs.
+  const { data: ingredientHistory } = useQuery({ queryKey: ['ingredient-history'], queryFn: getIngredientHistory })
   const [styleQuery, setStyleQuery] = useState('')
 
   const selectedEquipment = equipmentProfiles?.find((p) => p.id === value.equipmentProfileId) ?? null
-  const stats = estimateRecipeStats({ ...value, equipment: selectedEquipment })
+  const calc = computeRecipe({ ...value, equipment: selectedEquipment })
+  const stats = { og: calc.og, fg: calc.fg, ibu: calc.ibu, srm: calc.srm, abv: calc.abv }
+  const contributions = useMemo(
+    () => fermentableContributions(value.fermentables, value.mashEfficiencyPercent, calc.calculationVolumeL),
+    [value.fermentables, value.mashEfficiencyPercent, calc.calculationVolumeL],
+  )
+  const buGu = buGuRatio(calc.ibu, calc.og)
 
   const selectedStyle = bjcpStyles.find((s) => s.id === value.styleId) ?? null
   const styleMatch = selectedStyle
@@ -91,12 +88,22 @@ export function RecipeForm({
       })
     : null
 
+  const styleRanges: StyleRanges | null = selectedStyle
+    ? {
+        name: selectedStyle.name,
+        og: [selectedStyle.ogMin, selectedStyle.ogMax],
+        fg: [selectedStyle.fgMin, selectedStyle.fgMax],
+        ibu: [selectedStyle.ibuMin, selectedStyle.ibuMax],
+        srm: [selectedStyle.srmMin, selectedStyle.srmMax],
+        abv: [selectedStyle.abvMin, selectedStyle.abvMax],
+      }
+    : null
+
   const filteredStyles = styleQuery
     ? bjcpStyles.filter((s) => s.name.toLowerCase().includes(styleQuery.toLowerCase())).slice(0, 15)
     : []
 
-  const totalGrainKg = value.fermentables.filter((f) => f.type === 'grain').reduce((sum, f) => sum + f.amountKg, 0)
-  const volumes = selectedEquipment ? calculateVolumes(value.targetVolumeL, totalGrainKg, value.boilTimeMin, selectedEquipment) : null
+  const volumes = calc.volumes
   const kettleOverflow =
     selectedEquipment && volumes ? volumes.preBoilVolumeL > selectedEquipment.boilKettleVolumeL + 0.05 : false
   // En BIAB, la cuve d'empâtage est la même que la cuve d'ébullition : le
@@ -139,28 +146,17 @@ export function RecipeForm({
     onChange({ ...value, [key]: v })
   }
 
-  function updateFermentable(index: number, patch: Partial<Fermentable>) {
-    const list = value.fermentables.map((f, i) => (i === index ? { ...f, ...patch } : f))
-    set('fermentables', list)
-  }
-  function updateHop(index: number, patch: Partial<Hop>) {
-    set('hops', value.hops.map((h, i) => (i === index ? { ...h, ...patch } : h)))
-  }
-  function updateYeast(index: number, patch: Partial<Yeast>) {
-    set('yeasts', value.yeasts.map((y, i) => (i === index ? { ...y, ...patch } : y)))
-  }
-  function updateOther(index: number, patch: Partial<OtherIngredient>) {
-    set('otherIngredients', value.otherIngredients.map((o, i) => (i === index ? { ...o, ...patch } : o)))
-  }
-
   return (
     <form
       onSubmit={(e) => {
         e.preventDefault()
         onSubmit()
       }}
-      className="space-y-8"
+      // Sur mobile, la barre des chiffres clés est fixée au-dessus des onglets : on réserve sa place.
+      className="space-y-6 pb-16 lg:pb-0"
     >
+      <RecipeStatsBar stats={stats} styleMatch={styleMatch} buGu={buGu} />
+
       <div className="card grid gap-4 sm:grid-cols-2">
         <div className="sm:col-span-2">
           <FieldLabel>Nom de la recette</FieldLabel>
@@ -339,60 +335,31 @@ export function RecipeForm({
         </div>
       </div>
 
-      {/* Stats calculées en direct */}
-      <div className="card-tinted">
-        <h2 className="section-title mb-3">Statistiques calculées</h2>
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-          <BeerGlass srm={stats.srm} size={64} />
-          <div className="grid flex-1 grid-cols-2 gap-2 text-sm sm:grid-cols-5">
-            <Stat
-              label="OG"
-              value={stats.og.toFixed(3)}
-              ok={styleMatch?.og}
-              hint="Densité initiale avant fermentation : indique la quantité de sucres fermentescibles dissous. Plus l'OG est élevée, plus l'alcool potentiel (ABV) est important."
-            />
-            <Stat
-              label="FG"
-              value={stats.fg.toFixed(3)}
-              ok={styleMatch?.fg}
-              hint="Densité finale après fermentation, calculée à partir de l'atténuation de la levure. Une FG plus basse = bière plus sèche, plus haute = bière plus ronde/sucrée."
-            />
-            <Stat
-              label="IBU"
-              value={stats.ibu.toFixed(0)}
-              ok={styleMatch?.ibu}
-              hint="International Bitterness Units : mesure de l'amertume apportée par les houblons amérisants, calculée selon la formule choisie ci-dessus."
-            />
-            <Stat
-              label="SRM"
-              value={stats.srm.toFixed(1)}
-              ok={styleMatch?.srm}
-              hint="Standard Reference Method : couleur de la bière, de très claire (2-3) à noire opaque (40+). Calculée à partir de la couleur et la quantité des fermentescibles."
-            />
-            <Stat
-              label="ABV"
-              value={`${stats.abv.toFixed(1)}%`}
-              ok={styleMatch?.abv}
-              hint="Pourcentage d'alcool par volume, calculé à partir de l'écart entre OG et FG."
-            />
-          </div>
-        </div>
-        {selectedStyle && (
-          <p className={`mt-3 text-sm font-medium ${styleMatch?.allMatch ? 'text-green-700' : 'text-orange-600'}`}>
-            {styleMatch?.allMatch ? '✓ Conforme au style ' : '⚠ Hors plage pour certains critères du style '}
-            {selectedStyle.name} (OG {selectedStyle.ogMin}-{selectedStyle.ogMax}, IBU {selectedStyle.ibuMin}-
-            {selectedStyle.ibuMax}, SRM {selectedStyle.srmMin}-{selectedStyle.srmMax}, ABV {selectedStyle.abvMin}-
-            {selectedStyle.abvMax}%)
-          </p>
-        )}
-      </div>
+      {styleRanges && <StyleRangeBars stats={stats} style={styleRanges} buGu={buGu} />}
+
+      <FermentableCards
+        fermentables={value.fermentables}
+        contributions={contributions}
+        history={ingredientHistory}
+        onChange={(fermentables) => set('fermentables', fermentables)}
+      />
+      <HopCards hops={value.hops} ibuByHop={calc.ibuByHop} history={ingredientHistory} onChange={(hops) => set('hops', hops)} />
+      <YeastCards
+        yeasts={value.yeasts}
+        attenuationPercent={calc.attenuationPercent}
+        fg={calc.fg}
+        mashTempC={value.mashTempC}
+        history={ingredientHistory}
+        onChange={(yeasts) => set('yeasts', yeasts)}
+      />
+      <OtherIngredientCards items={value.otherIngredients} onChange={(items) => set('otherIngredients', items)} />
 
       {/* Volumes d'eau */}
       {selectedEquipment && volumes && (
         <div className={`card ${kettleOverflow || mashTunOverflow ? 'border-red-300 bg-red-50' : ''}`}>
           <div className="mb-2 flex items-center gap-1.5">
             <h2 className="section-title">Eau &amp; volumes</h2>
-            <InlineHint text="Calculé à partir du profil d'équipement sélectionné : évaporation, absorption du grain, pertes de cuve et contraction thermique. Permet de savoir combien d'eau prévoir et si votre cuve est assez grande." />
+            <InfoTooltip text="Calculé à partir du profil d'équipement sélectionné : évaporation, absorption du grain, pertes de cuve et contraction thermique. Permet de savoir combien d'eau prévoir et si votre cuve est assez grande." />
           </div>
           <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-3">
             <VolumeStat label="Eau d'empâtage" value={volumes.mashWaterL} />
@@ -439,147 +406,6 @@ export function RecipeForm({
         </p>
       )}
 
-      {/* Fermentables */}
-      <RowSection
-        title="Fermentescibles"
-        hint="Les ingrédients qui apportent les sucres fermentescibles (malts, extraits, sucres). Le type, le poids, la couleur (°L) et le rendement de chacun influencent directement l'OG et le SRM de la recette."
-        rows={value.fermentables}
-        onAdd={() => set('fermentables', [...value.fermentables, { ...emptyFermentable }])}
-        onRemove={(i) => set('fermentables', value.fermentables.filter((_, idx) => idx !== i))}
-        headers={['Nom', 'Type', 'Poids (kg)', 'Couleur (°L)', 'Rendement (%)']}
-        headerHints={[
-          undefined,
-          "Grain (à empâter), extrait de malt, ou sucre pur (candi, dextrose...).",
-          'Quantité utilisée dans la recette — impacte directement l’OG et le prix.',
-          "Couleur du malt en degrés Lovibond (°L). Plus la valeur est élevée, plus la bière sera foncée (voir SRM).",
-          'Part du potentiel sucre réellement extractible de cet ingrédient (46 PPG = 100% pour un sucre pur). Donné par le maltier ou une valeur type.',
-        ]}
-        renderRow={(f, i) => (
-          <>
-            <input value={f.name} onChange={(e) => updateFermentable(i, { name: e.target.value })} placeholder="Nom" className="col-span-2 field-input" />
-            <select value={f.type} onChange={(e) => updateFermentable(i, { type: e.target.value as Fermentable['type'] })} className="field-input">
-              <option value="grain">Grain</option>
-              <option value="extract">Extrait</option>
-              <option value="sugar">Sucre</option>
-            </select>
-            <input type="number" step="0.01" value={f.amountKg} onChange={(e) => updateFermentable(i, { amountKg: Number.parseFloat(e.target.value) })} placeholder="kg" className="field-input" />
-            <input type="number" step="0.1" value={f.colorLovibond} onChange={(e) => updateFermentable(i, { colorLovibond: Number.parseFloat(e.target.value) })} placeholder="°L" className="field-input" />
-            <input type="number" step="0.1" value={f.yieldPercent} onChange={(e) => updateFermentable(i, { yieldPercent: Number.parseFloat(e.target.value) })} placeholder="Rendement %" className="field-input" />
-          </>
-        )}
-        columns="2fr 1fr 1fr 1fr 1fr"
-      />
-
-      {/* Houblons */}
-      <RowSection
-        title="Houblons"
-        hint="Apportent l'amertume (IBU), l'arôme et le goût. Le moment d'ajout (temps restant en ébullition) et le mode d'utilisation déterminent si le houblon contribue surtout à l'amertume (ajout long) ou à l'arôme (ajout court/whirlpool/dry hop)."
-        rows={value.hops}
-        onAdd={() => set('hops', [...value.hops, { ...emptyHop }])}
-        onRemove={(i) => set('hops', value.hops.filter((_, idx) => idx !== i))}
-        headers={['Nom', 'Poids (g)', 'Acide alpha (%AA)', 'Temps (min)', 'Usage', 'Dry hop (jours)', 'Temp. (°C)']}
-        headerHints={[
-          undefined,
-          'Quantité de houblon ajoutée, en grammes.',
-          "Teneur en acides alpha de ce houblon (indiquée sur l'emballage) — plus elle est élevée, plus l'amertume potentielle est forte.",
-          "Temps restant en ébullition au moment de l'ajout. Un ajout à 60 min en ébullition de 60 min = ajout en début d'ébullition (amertume maximale) ; un ajout à 5 min = arôme, peu d'amertume. Sans effet pour un houblon Dry hop.",
-          "First wort (ajouté dès le remplissage de la cuve), Ébullition, Whirlpool (après coupure du feu), Dry hop (dans le fermenteur, sans ébullition) ou Empâtage.",
-          "Dry hop uniquement : durée du contact du houblon avec la bière après fermentation, en jours.",
-          "Whirlpool : température du moût pendant l'infusion (80 °C par défaut ; plus chaud = plus d'amertume). Dry hop : température visée pendant le contact.",
-        ]}
-        renderRow={(h, i) => (
-          <>
-            <input value={h.name} onChange={(e) => updateHop(i, { name: e.target.value })} placeholder="Nom" className="col-span-2 field-input" />
-            <input type="number" step="1" value={h.amountG} onChange={(e) => updateHop(i, { amountG: Number.parseFloat(e.target.value) })} placeholder="g" className="field-input" />
-            <input type="number" step="0.1" value={h.alphaAcidPercent} onChange={(e) => updateHop(i, { alphaAcidPercent: Number.parseFloat(e.target.value) })} placeholder="%AA" className="field-input" />
-            <input type="number" step="1" value={h.timeMin} onChange={(e) => updateHop(i, { timeMin: Number.parseInt(e.target.value, 10) })} placeholder="min" className="field-input" disabled={h.use === 'dry-hop'} />
-            <select value={h.use} onChange={(e) => updateHop(i, { use: e.target.value as HopUse })} className="field-input">
-              {HOP_USES.map((u) => (
-                <option key={u} value={u}>
-                  {HOP_USE_LABELS[u]}
-                </option>
-              ))}
-            </select>
-            <input
-              type="number"
-              step="1"
-              value={h.dryHopDays ?? ''}
-              onChange={(e) => updateHop(i, { dryHopDays: e.target.value === '' ? undefined : Number.parseInt(e.target.value, 10) })}
-              placeholder="jours"
-              className="field-input"
-              disabled={h.use !== 'dry-hop'}
-            />
-            <input
-              type="number"
-              step="0.5"
-              value={(h.use === 'whirlpool' ? h.temperatureC : h.dryHopTempC) ?? ''}
-              onChange={(e) => {
-                const temp = e.target.value === '' ? undefined : Number.parseFloat(e.target.value)
-                updateHop(i, h.use === 'whirlpool' ? { temperatureC: temp } : { dryHopTempC: temp })
-              }}
-              placeholder={h.use === 'whirlpool' ? '80' : '°C'}
-              className="field-input"
-              disabled={h.use !== 'dry-hop' && h.use !== 'whirlpool'}
-            />
-          </>
-        )}
-        columns="2fr 1fr 1fr 1fr 1fr 1fr 1fr"
-      />
-
-      {/* Autres ajouts (ébullition) */}
-      <RowSection
-        title="Autres ajouts (ébullition)"
-        hint="Ajouts divers pendant l'ébullition : clarifiant (Whirlfloc, Irish moss), nutriment levure, etc. La quantité est en texte libre (ex : « 1 pastille », « 5 g ») car ces produits n'ont pas d'unité commune. Le temps suit la même convention que les houblons : minutes restantes en ébullition au moment de l'ajout."
-        rows={value.otherIngredients}
-        onAdd={() => set('otherIngredients', [...value.otherIngredients, { ...emptyOther }])}
-        onRemove={(i) => set('otherIngredients', value.otherIngredients.filter((_, idx) => idx !== i))}
-        headers={['Nom', 'Quantité', 'Temps (min)']}
-        headerHints={[
-          undefined,
-          'Quantité en texte libre (ex : 1 pastille, 5 g, 1 c. à café).',
-          "Temps restant en ébullition au moment de l'ajout.",
-        ]}
-        renderRow={(o, i) => (
-          <>
-            <input value={o.name} onChange={(e) => updateOther(i, { name: e.target.value })} placeholder="Nom" className="col-span-2 field-input" />
-            <input value={o.amount} onChange={(e) => updateOther(i, { amount: e.target.value })} placeholder="Quantité" className="field-input" />
-            <input type="number" step="1" value={o.timeMin} onChange={(e) => updateOther(i, { timeMin: Number.parseInt(e.target.value, 10) })} placeholder="min" className="field-input" />
-          </>
-        )}
-        columns="2fr 1fr 1fr"
-      />
-
-      {/* Levures */}
-      <RowSection
-        title="Levures"
-        hint="La levure transforme les sucres en alcool et CO₂. Son type (sèche/liquide), son style (ale/lager) et son atténuation (% de sucres qu'elle consomme) déterminent la FG finale et donc l'ABV."
-        rows={value.yeasts}
-        onAdd={() => set('yeasts', [...value.yeasts, { ...emptyYeast }])}
-        onRemove={(i) => set('yeasts', value.yeasts.filter((_, idx) => idx !== i))}
-        headers={['Nom', 'Type', 'Style', 'Atténuation (%)']}
-        headerHints={[
-          undefined,
-          'Levure sèche (sachet) ou liquide (vial/pack) — impacte le calcul de quantité recommandée.',
-          'Ale (fermentation haute, ~18-22°C) ou Lager (fermentation basse, ~8-13°C) — influence le taux de pitch recommandé.',
-          "Pourcentage de sucres fermentescibles que la levure consomme. Plus l'atténuation est élevée, plus la FG sera basse (bière plus sèche).",
-        ]}
-        renderRow={(y, i) => (
-          <>
-            <input value={y.name} onChange={(e) => updateYeast(i, { name: e.target.value })} placeholder="Nom" className="col-span-2 field-input" />
-            <select value={y.type} onChange={(e) => updateYeast(i, { type: e.target.value as Yeast['type'] })} className="field-input">
-              <option value="dry">Sèche</option>
-              <option value="liquid">Liquide</option>
-            </select>
-            <select value={y.style} onChange={(e) => updateYeast(i, { style: e.target.value as Yeast['style'] })} className="field-input">
-              <option value="ale">Ale</option>
-              <option value="lager">Lager</option>
-            </select>
-            <input type="number" step="0.1" value={y.attenuationPercent} onChange={(e) => updateYeast(i, { attenuationPercent: Number.parseFloat(e.target.value) })} placeholder="Atténuation %" className="field-input" />
-          </>
-        )}
-        columns="2fr 1fr 1fr 1fr"
-      />
-
       <div>
         <FieldLabel>Notes</FieldLabel>
         <textarea value={value.notes} onChange={(e) => set('notes', e.target.value)} rows={3} className="field-input" />
@@ -592,131 +418,11 @@ export function RecipeForm({
   )
 }
 
-function InlineHint({ text }: { text: string }) {
-  return (
-    <span className="relative inline-flex">
-      <InlineHintButton text={text} />
-    </span>
-  )
-}
-
-function InlineHintButton({ text }: { text: string }) {
-  const [open, setOpen] = useState(false)
-  return (
-    <span className="relative inline-flex">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-slate-200 text-[10px] font-bold text-slate-600 hover:bg-indigo-100 hover:text-indigo-700"
-        aria-label="Aide"
-      >
-        ?
-      </button>
-      {open && (
-        <div className="absolute left-0 top-full z-30 mt-2 w-72 rounded-lg border border-slate-700 bg-slate-900 p-3 text-xs font-normal leading-relaxed text-slate-100 shadow-xl">
-          {text}
-        </div>
-      )}
-    </span>
-  )
-}
-
-function Stat({ label, value, ok, hint }: { label: string; value: string; ok?: boolean; hint?: string }) {
-  return (
-    <div className={`rounded-xl border px-2.5 py-1.5 ${ok === undefined ? 'border-slate-200 bg-white' : ok ? 'border-green-300 bg-green-50' : 'border-red-300 bg-red-50'}`}>
-      <div className="flex items-center text-xs text-slate-500">
-        {label}
-        {hint && <InfoTooltipInline text={hint} />}
-      </div>
-      <div className="font-semibold text-slate-800">{value}</div>
-    </div>
-  )
-}
-
-function InfoTooltipInline({ text }: { text: string }) {
-  const [open, setOpen] = useState(false)
-  return (
-    <span className="relative inline-flex">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        className="ml-1 inline-flex h-3.5 w-3.5 items-center justify-center rounded-full bg-slate-200 text-[9px] font-bold text-slate-600 hover:bg-indigo-100 hover:text-indigo-700"
-        aria-label="Aide"
-      >
-        ?
-      </button>
-      {open && (
-        <div className="absolute left-1/2 top-full z-30 mt-2 w-56 -translate-x-1/2 rounded-lg border border-slate-700 bg-slate-900 p-2.5 text-xs font-normal leading-relaxed text-slate-100 shadow-xl">
-          {text}
-        </div>
-      )}
-    </span>
-  )
-}
-
 function VolumeStat({ label, value, warn }: { label: string; value: number; warn?: boolean }) {
   return (
     <div className={`rounded-xl border px-2.5 py-1.5 ${warn ? 'border-red-300 bg-red-100' : 'border-slate-200 bg-white'}`}>
       <div className="text-xs text-slate-500">{label}</div>
       <div className={`font-semibold ${warn ? 'text-red-700' : 'text-slate-800'}`}>{value.toFixed(1)} L</div>
-    </div>
-  )
-}
-
-function RowSection<T>({
-  title,
-  hint,
-  rows,
-  onAdd,
-  onRemove,
-  renderRow,
-  columns,
-  headers,
-  headerHints,
-}: {
-  title: string
-  hint?: string
-  rows: T[]
-  onAdd: () => void
-  onRemove: (index: number) => void
-  renderRow: (row: T, index: number) => React.ReactNode
-  columns: string
-  headers?: string[]
-  headerHints?: Array<string | undefined>
-}) {
-  return (
-    <div className="card">
-      <div className="mb-3 flex items-center justify-between">
-        <div className="flex items-center gap-1.5">
-          <h2 className="section-title">{title}</h2>
-          {hint && <InlineHintButton text={hint} />}
-        </div>
-        <button type="button" onClick={onAdd} className="btn-secondary btn-sm">
-          + Ajouter
-        </button>
-      </div>
-      {headers && rows.length > 0 && (
-        <div className="mb-1 hidden gap-2 sm:grid" style={{ gridTemplateColumns: `${columns} auto` }}>
-          {headers.map((h, i) => (
-            <div key={h} className="flex items-center text-xs font-semibold uppercase tracking-wide text-slate-500">
-              {h}
-              {headerHints?.[i] && <InfoTooltipInline text={headerHints[i]!} />}
-            </div>
-          ))}
-          <span />
-        </div>
-      )}
-      <div className="space-y-2">
-        {rows.map((row, i) => (
-          <div key={i} className="grid items-center gap-2" style={{ gridTemplateColumns: `${columns} auto` }}>
-            {renderRow(row, i)}
-            <button type="button" onClick={() => onRemove(i)} className="text-xs text-red-600 hover:underline">
-              Retirer
-            </button>
-          </div>
-        ))}
-        {rows.length === 0 && <p className="text-sm text-slate-400">Aucune ligne.</p>}
-      </div>
     </div>
   )
 }
