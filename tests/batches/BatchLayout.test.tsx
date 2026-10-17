@@ -18,6 +18,7 @@ function renderAt(path: string) {
             <Route index element={<p>Page aperçu</p>} />
             <Route path="fermentation" element={<p>Page fermentation</p>} />
             <Route path="edit-recipe" element={<p>Page recette</p>} />
+            <Route path="brew-day" element={<p>Page brew day</p>} />
           </Route>
         </Routes>
       </MemoryRouter>
@@ -41,5 +42,8 @@ describe('Onglets du brassin', () => {
     expect(screen.getByText('Page aperçu')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('link', { name: 'Recette' }))
     expect(screen.getByText('Page recette')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('link', { name: 'Brew Day' }))
+    expect(screen.getByText('Page brew day')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Barley wine' })).toBeInTheDocument()
   })
 })

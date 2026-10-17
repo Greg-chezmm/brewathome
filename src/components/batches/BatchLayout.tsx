@@ -7,7 +7,7 @@ import { BATCH_STATUS_LABELS, getBatchWithDetails } from '@/lib/db/queries/batch
 /**
  * En-tête commun aux pages d'un brassin : nom, statut, date, et onglets pour passer
  * de l'aperçu au suivi de fermentation ou à la recette sans revenir en arrière.
- * Le Brew Day, plein écran, reprend les mêmes onglets dans son propre en-tête.
+ * Le Brew Day est un onglet comme les autres (sa barre d'actions remplace les onglets du bas sur mobile).
  */
 export function BatchLayout() {
   const { batchId } = useParams<{ batchId: string }>()

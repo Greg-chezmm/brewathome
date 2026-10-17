@@ -14,7 +14,6 @@ import {
   X,
 } from 'lucide-react'
 import { MeasurementsPanel } from '@/components/batches/MeasurementsPanel'
-import { BatchTabs } from '@/components/batches/BatchTabs'
 import { StepCard } from '@/components/brew-day/StepCard'
 import { StepOverview } from '@/components/brew-day/StepOverview'
 import { additionTiming, groupSteps } from '@/components/brew-day/stepMeta'
@@ -167,7 +166,7 @@ export function BrewDay() {
     setOverviewOpen(false)
   }
 
-  if (!batch || !steps || !recipe) return <p className="p-4 text-slate-500">Chargement…</p>
+  if (!batch || !steps || !recipe) return <p className="text-slate-500">Chargement…</p>
 
   const groups = groupSteps(steps)
   const activeStep = activeIndex !== null ? steps[activeIndex] : undefined
@@ -208,7 +207,7 @@ export function BrewDay() {
         setSoundEnabled(true)
       }}
       className={`flex items-center gap-1.5 rounded-full px-3 py-2 text-sm font-medium ${
-        soundEnabled ? 'bg-green-500/15 text-green-600 lg:text-green-700' : 'bg-white/10 text-slate-200 lg:bg-slate-100 lg:text-slate-600'
+        soundEnabled ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-600'
       }`}
       aria-label={soundEnabled ? 'Couper les alertes sonores' : 'Activer les alertes sonores'}
     >
@@ -218,33 +217,12 @@ export function BrewDay() {
   )
 
   return (
-    <div className="flex min-h-dvh flex-col lg:min-h-0">
-      {/* En-tête */}
-      <header className="sticky top-0 z-20 bg-slate-900 px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] text-white lg:static lg:rounded-3xl lg:px-6 lg:py-5">
-        <div className="flex items-center gap-2">
-          <Link to="/batches" className="-ml-2 rounded-full p-2 text-slate-300 hover:bg-white/10" aria-label="Retour aux brassins">
-            <ChevronLeft size={22} />
-          </Link>
-          <div className="min-w-0 flex-1">
-            <p className="text-xs font-medium uppercase tracking-wide text-indigo-300">Brew Day</p>
-            <h1 className="truncate font-bold">{batch.name}</h1>
-          </div>
-          {soundButton}
-          <button
-            type="button"
-            onClick={() => setOverviewOpen(true)}
-            className="rounded-full bg-white/10 p-2 text-slate-200 lg:hidden"
-            aria-label="Voir toutes les étapes"
-          >
-            <ListChecks size={20} />
-          </button>
-        </div>
-        <div className="-mx-1 mt-1">
-          <BatchTabs batchId={batch.id} variant="dark" />
-        </div>
+    <div className="flex flex-col">
+      {/* Phase en cours, alertes sonores, liste des étapes (sous les onglets du brassin) */}
+      <div className="flex items-center gap-3">
         {activeGroup && (
-          <div className="mt-3 flex items-center gap-3">
-            <p className="shrink-0 text-sm font-semibold">
+          <div className="flex min-w-0 flex-1 items-center gap-3">
+            <p className="shrink-0 text-sm font-semibold text-slate-800">
               {activeGroup.icon} {activeGroup.label}
               <span className="font-normal text-slate-400">
                 {' '}
@@ -259,12 +237,12 @@ export function BrewDay() {
                   onClick={() => setActiveIndex(index)}
                   className={`h-1.5 flex-1 rounded-full ${
                     index === activeIndex
-                      ? 'bg-indigo-400'
+                      ? 'bg-indigo-500'
                       : step.status === 'done'
                         ? 'bg-green-500'
                         : step.status === 'skipped'
-                          ? 'bg-slate-500'
-                          : 'bg-white/20'
+                          ? 'bg-slate-400'
+                          : 'bg-slate-200'
                   }`}
                   aria-label={step.label}
                 />
@@ -272,10 +250,21 @@ export function BrewDay() {
             </div>
           </div>
         )}
-      </header>
+        <div className="ml-auto flex shrink-0 items-center gap-2">
+          {soundButton}
+          <button
+            type="button"
+            onClick={() => setOverviewOpen(true)}
+            className="rounded-full bg-slate-100 p-2 text-slate-600 lg:hidden"
+            aria-label="Voir toutes les étapes"
+          >
+            <ListChecks size={20} />
+          </button>
+        </div>
+      </div>
 
       {/* Bandeaux : ajouts à faire maintenant, ébullition en cours ailleurs */}
-      <div className="space-y-2 px-4 pt-3 lg:px-0 lg:pt-4">
+      <div className="space-y-2 pt-3">
         {dueSteps.map(({ step, index }) => (
           <button
             key={step.id}
@@ -305,7 +294,7 @@ export function BrewDay() {
         {error && <p className="rounded-2xl bg-red-50 px-4 py-2 text-sm text-red-700">{error}</p>}
       </div>
 
-      <div className="flex-1 px-4 py-4 lg:grid lg:grid-cols-[320px_1fr] lg:gap-6 lg:px-0">
+      <div className="flex-1 py-4 lg:grid lg:grid-cols-[320px_1fr] lg:gap-6">
         {/* Vue d'ensemble permanente — PC */}
         <aside className="hidden lg:block">
           <div className="sticky top-6 max-h-[calc(100dvh-3rem)] overflow-y-auto rounded-3xl border border-slate-200 bg-white p-4">
@@ -369,7 +358,7 @@ export function BrewDay() {
 
       {/* Barre d'actions : collée en bas sur mobile, sous la carte sur PC */}
       {activeStep && activeIndex !== null && (
-        <div className="sticky bottom-0 z-10 border-t border-slate-200 bg-white/95 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur lg:ml-[344px] lg:rounded-3xl lg:border lg:pb-3">
+        <div className="sticky bottom-0 z-10 -mx-4 border-t border-slate-200 bg-white/95 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur sm:-mx-6 sm:px-6 lg:mx-0 lg:mb-4 lg:ml-[344px] lg:rounded-3xl lg:border lg:px-4 lg:pb-3">
           <div className="flex items-center gap-2">
             <button
               type="button"

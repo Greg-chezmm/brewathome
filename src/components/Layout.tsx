@@ -44,7 +44,7 @@ export function Layout() {
       })
       .catch((err) => console.warn('Recette d’exemple non créée :', err))
   }, [user, queryClient])
-  // Le Brew Day occupe tout l'écran sur mobile (sa propre barre d'actions remplace les onglets).
+  // Pendant le Brew Day, sa barre d'actions (Terminer, étape précédente/suivante) remplace les onglets du bas sur mobile.
   const immersive = useMatch('/batches/:batchId/brew-day') !== null
   const secondaryActive = secondaryNav.some((item) => location.pathname.startsWith(item.to))
   // Une entrée plus précise (Brewfather sous /recipes) prend la main : « Recettes » ne s'allume pas avec elle.
@@ -91,17 +91,15 @@ export function Layout() {
 
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Barre du haut — mobile */}
-        {!immersive && (
-          <header className="sticky top-0 z-20 flex items-center gap-2 bg-slate-900 px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] text-white shadow-sm lg:hidden">
-            <BrewLogo size={24} />
-            <span className="font-bold tracking-tight">BrewAtHome</span>
-          </header>
-        )}
+        <header className="sticky top-0 z-20 flex items-center gap-2 bg-slate-900 px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] text-white shadow-sm lg:hidden">
+          <BrewLogo size={24} />
+          <span className="font-bold tracking-tight">BrewAtHome</span>
+        </header>
 
         <main
           className={
             immersive
-              ? 'mx-auto w-full max-w-6xl lg:px-8 lg:py-8'
+              ? 'mx-auto w-full max-w-5xl px-4 pt-5 sm:px-6 lg:px-8 lg:pt-10'
               : 'mx-auto w-full max-w-5xl px-4 pb-[calc(5.5rem+env(safe-area-inset-bottom))] pt-5 sm:px-6 lg:px-8 lg:py-10'
           }
         >

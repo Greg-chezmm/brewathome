@@ -41,8 +41,8 @@ export function App() {
             <Route index element={<BatchOverview />} />
             <Route path="fermentation" element={<BatchFermentation />} />
             <Route path="edit-recipe" element={<BatchEditRecipe />} />
+            <Route path="brew-day" element={<BrewDay />} />
           </Route>
-          <Route path="/batches/:batchId/brew-day" element={<BrewDay />} />
           <Route path="/equipment-profiles" element={<EquipmentProfilesList />} />
           <Route path="/equipment-profiles/:profileId" element={<EquipmentProfileDetail />} />
           <Route path="/styles" element={<StylesList />} />
