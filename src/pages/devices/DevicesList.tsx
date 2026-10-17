@@ -6,12 +6,19 @@ import {
   deleteDevice,
   listDevices,
   setDeviceActiveBatch,
+  updateDeviceSettings,
+  type Device,
   type DeviceType,
+  type ISpindelSettings,
 } from '@/lib/db/queries/devices'
 import { listBatches } from '@/lib/db/queries/batches'
 import { FieldLabel, InfoTooltip } from '@/components/InfoTooltip'
 
-const SUPABASE_FUNCTIONS_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ispindel`
+// L'iSpindel (service « HTTPS Post », firmware 7.2+) demande l'adresse du serveur et le chemin dans deux champs.
+const ISPINDEL_SERVER = import.meta.env.VITE_SUPABASE_URL as string
+const ISPINDEL_PATH = '/functions/v1/ispindel'
+const FIRMWARE_VERSION = '7.3.3'
+const FIRMWARE_URL = `https://github.com/universam1/iSpindel/releases/download/${FIRMWARE_VERSION}/firmware.bin`
 
 export function DevicesList() {
   const { user } = useAuth()
@@ -21,7 +28,7 @@ export function DevicesList() {
   const [name, setName] = useState('')
   const [type, setType] = useState<DeviceType>('ispindel')
   const [creating, setCreating] = useState(false)
-  const [copiedId, setCopiedId] = useState<string | null>(null)
+  const [copiedKey, setCopiedKey] = useState<string | null>(null)
 
   const activeBatches = batches?.filter((b) => b.status !== 'completed') ?? []
 
@@ -49,10 +56,10 @@ export function DevicesList() {
     queryClient.invalidateQueries({ queryKey: ['devices'] })
   }
 
-  async function handleCopy(url: string, deviceId: string) {
-    await navigator.clipboard.writeText(url)
-    setCopiedId(deviceId)
-    setTimeout(() => setCopiedId(null), 2000)
+  async function handleCopy(text: string, key: string) {
+    await navigator.clipboard.writeText(text)
+    setCopiedKey(key)
+    setTimeout(() => setCopiedKey(null), 2000)
   }
 
   return (
@@ -72,40 +79,61 @@ export function DevicesList() {
         <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm text-slate-700">
           <li>
             Ci-dessous, ajoutez un appareil de type <strong>iSpindel</strong> et donnez-lui un nom (ex : « iSpindel
-            cuisine »).
-          </li>
-          <li>
-            Une URL unique apparaît sous l'appareil, avec un token qui lui est propre — copiez-la en entier (bouton
-            « Copier »).
+            cuisine »). Ses champs de configuration apparaissent sous l'appareil, avec un token qui lui est propre.
           </li>
           <li>
             Sur l'iSpindel : maintenez le bouton reset pour le faire entrer en mode configuration Wi-Fi (il crée son
-            propre point d'accès, ex. <code>iSpindel-XXXX</code>), connectez-vous dessus avec votre téléphone/PC.
+            propre point d'accès, ex. <code>iSpindel-XXXX</code>), connectez-vous dessus avec votre téléphone et ouvrez{' '}
+            <code>192.168.4.1</code>.
           </li>
           <li>
-            Dans le portail de configuration qui s'ouvre : choisissez votre réseau Wi-Fi habituel, puis dans la
-            champ <strong>Service Type</strong>, sélectionnez <strong>HTTPS Post</strong> (pas « HTTP » : le serveur
-            n'accepte que l'HTTPS et l'iSpindel ne suit pas la redirection). Collez l'URL copiée à l'étape 2 dans le
-            champ URL du serveur et laissez « Token » vide. Enregistrez — l'iSpindel redémarre.
+            Ouvrez la page <strong>Info</strong> et lisez la version du firmware. Il faut la <strong>7.2 ou plus</strong>{' '}
+            pour le service « HTTPS Post » : le serveur n'accepte que l'HTTPS, et en simple « HTTP » l'iSpindel ne suit
+            pas la redirection, les mesures sont perdues.
           </li>
           <li>
-            Pas de « HTTPS Post » dans la liste ? Le firmware est trop ancien : mettez-le à jour (version 7 ou plus).
-            L'iSpindel n'envoie qu'à un seul service : il ne transmettra plus à Brewfather ou ailleurs.
+            Firmware plus ancien (ex. 6.5.1) : mettez-le à jour.
+            <ol className="mt-1 list-[lower-alpha] space-y-1 pl-5">
+              <li>
+                Recopiez d'abord vos réglages dans le bloc <strong>Réglages de l'iSpindel</strong> de l'appareil
+                ci-dessous (polynôme, facteur batterie, intervalle) : le passage en version 7 efface toute la
+                configuration. Notez aussi l'angle (tilt) affiché sur la page Info, iSpindel dans l'eau du robinet.
+              </li>
+              <li>
+                Téléchargez le firmware {FIRMWARE_VERSION} <strong>pendant que le téléphone est encore sur votre Wi-Fi
+                habituel</strong> (sur le point d'accès de l'iSpindel, il n'a plus Internet) :{' '}
+                <a href={FIRMWARE_URL} className="font-medium text-indigo-600 underline">
+                  firmware.bin
+                </a>{' '}
+                (environ 580 Ko).
+              </li>
+              <li>
+                Reconnectez-vous au portail, page <strong>Maintenance</strong> : choisissez <code>firmware.bin</code>{' '}
+                dans le formulaire « Firmware Update », puis <strong>update</strong>. Ne débranchez rien jusqu'au
+                redémarrage. Le lien « github.com/universam1 » de cette page n'est qu'un lien vers le projet.
+              </li>
+              <li>
+                Après la mise à jour, la page Info doit afficher {FIRMWARE_VERSION}. Remesurez l'angle dans la même
+                eau : s'il a bougé de plus de 0,5°, la calibration est à refaire.
+              </li>
+            </ol>
           </li>
           <li>
-            Plongez l'iSpindel dans le fermenteur, puis sur la page Appareils ci-dessous, choisissez le{' '}
-            <strong>brassin à suivre</strong> dans le menu déroulant de l'appareil.
+            Dans <strong>Configuration</strong> : choisissez votre réseau Wi-Fi, ressaisissez vos réglages, puis
+            remplissez <strong>Service Type</strong>, <strong>Server Address</strong> et <strong>Path / URI</strong>{' '}
+            avec les valeurs affichées sous l'appareil (boutons « Copier ») et laissez <strong>Token</strong> vide.
+            Enregistrez (save) — l'iSpindel redémarre.
+          </li>
+          <li>L'iSpindel n'envoie qu'à un seul service : il ne transmettra plus à Brewfather ou ailleurs.</li>
+          <li>
+            Plongez l'iSpindel dans le fermenteur, puis choisissez le <strong>brassin suivi</strong> dans le menu
+            déroulant de l'appareil : sans brassin, les mesures reçues sont ignorées.
           </li>
           <li>
             Les mesures arrivent automatiquement (toutes les ~15 min par défaut) dans le graphique de la page{' '}
             <strong>Suivi de fermentation</strong> du brassin.
           </li>
         </ol>
-        <p className="mt-3 text-xs text-slate-500">
-          Important : ceci ne fonctionne que si l'Edge Function Supabase <code>ispindel</code> a été déployée côté
-          serveur (une seule fois, voir la documentation technique) — sans ça, l'URL ne répondra pas et aucune
-          mesure ne sera enregistrée.
-        </p>
       </details>
 
       <form onSubmit={handleCreate} className="card flex flex-wrap items-end gap-3">
@@ -137,50 +165,56 @@ export function DevicesList() {
         {devices?.map((device) => (
           <li key={device.id} className="card">
             <div className="flex items-start justify-between gap-4">
-              <div className="min-w-0">
-                <h2 className="font-semibold text-slate-900">
-                  {device.name} <span className="badge ml-1">{device.type}</span>
-                </h2>
-                {device.type === 'ispindel' && (
-                  <div className="mt-2 space-y-1 text-xs text-slate-500">
-                    <div className="flex items-center">
-                      <span className="font-medium text-slate-600">URL à configurer sur l'iSpindel</span>
-                      <InfoTooltip text="Dans la config Wi-Fi de l'iSpindel (portail au démarrage) : Service Type = HTTPS Post, et collez cette URL complète dans le champ URL (Token vide). Le token identifie l'appareil, pas besoin d'en-tête d'authentification." />
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <code className="block flex-1 overflow-x-auto rounded bg-slate-100 px-2 py-1">
-                        {SUPABASE_FUNCTIONS_URL}?token={device.apiToken}
-                      </code>
-                      <button
-                        type="button"
-                        onClick={() => handleCopy(`${SUPABASE_FUNCTIONS_URL}?token=${device.apiToken}`, device.id)}
-                        className="btn-secondary btn-sm shrink-0"
-                      >
-                        {copiedId === device.id ? 'Copié ✓' : 'Copier'}
-                      </button>
-                    </div>
-                  </div>
-                )}
-                <div className="mt-3 flex items-center gap-2">
-                  <FieldLabel>Brassin suivi</FieldLabel>
-                </div>
-                <select
-                  value={device.activeBatchId ?? ''}
-                  onChange={(e) => handleAssign(device.id, e.target.value)}
-                  className="field-input mt-1 max-w-xs"
-                >
-                  <option value="">— Aucun —</option>
-                  {activeBatches.map((b) => (
-                    <option key={b.id} value={b.id}>
-                      {b.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <h2 className="font-semibold text-slate-900">
+                {device.name} <span className="badge ml-1">{device.type}</span>
+              </h2>
               <button onClick={() => handleDelete(device.id)} className="btn-danger shrink-0">
                 Supprimer
               </button>
             </div>
+
+            {device.type === 'ispindel' && (
+              <div className="mt-3">
+                <div className="flex items-center">
+                  <span className="text-xs font-medium text-slate-600">À remplir dans la configuration de l'iSpindel</span>
+                  <InfoTooltip text="Portail de l'iSpindel (192.168.4.1) → Configuration. Le token dans le chemin identifie l'appareil : gardez-le pour vous." />
+                </div>
+                <dl className="mt-1 divide-y divide-slate-100 rounded-xl border border-slate-200 text-sm">
+                  <ConfigRow label="Service Type" value="HTTPS Post" />
+                  <ConfigRow
+                    label="Server Address"
+                    value={ISPINDEL_SERVER}
+                    copied={copiedKey === `${device.id}:server`}
+                    onCopy={() => handleCopy(ISPINDEL_SERVER, `${device.id}:server`)}
+                  />
+                  <ConfigRow
+                    label="Path / URI"
+                    value={`${ISPINDEL_PATH}?token=${device.apiToken}`}
+                    copied={copiedKey === `${device.id}:path`}
+                    onCopy={() => handleCopy(`${ISPINDEL_PATH}?token=${device.apiToken}`, `${device.id}:path`)}
+                  />
+                  <ConfigRow label="Token" value="(laisser vide)" muted />
+                </dl>
+              </div>
+            )}
+
+            <div className="mt-4">
+              <FieldLabel>Brassin suivi</FieldLabel>
+              <select
+                value={device.activeBatchId ?? ''}
+                onChange={(e) => handleAssign(device.id, e.target.value)}
+                className="field-input max-w-xs"
+              >
+                <option value="">— Aucun —</option>
+                {activeBatches.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {device.type === 'ispindel' && <ISpindelSettingsForm device={device} />}
           </li>
         ))}
         {devices && devices.length === 0 && (
@@ -188,5 +222,138 @@ export function DevicesList() {
         )}
       </ul>
     </div>
+  )
+}
+
+function ConfigRow({
+  label,
+  value,
+  muted,
+  copied,
+  onCopy,
+}: {
+  label: string
+  value: string
+  muted?: boolean
+  copied?: boolean
+  onCopy?: () => void
+}) {
+  return (
+    <div className="flex items-center gap-3 px-3 py-2">
+      <dt className="w-28 shrink-0 text-xs font-semibold text-slate-500">{label}</dt>
+      <dd className={`min-w-0 flex-1 break-all font-mono text-xs ${muted ? 'text-slate-400' : 'text-slate-800'}`}>
+        {value}
+      </dd>
+      {onCopy && (
+        <button type="button" onClick={onCopy} className="btn-secondary btn-sm shrink-0" aria-label={`Copier ${label}`}>
+          {copied ? 'Copié ✓' : 'Copier'}
+        </button>
+      )}
+    </div>
+  )
+}
+
+type SettingsForm = Record<keyof ISpindelSettings, string>
+
+function toForm(s: ISpindelSettings): SettingsForm {
+  const str = (v: string | number | undefined) => (v === undefined ? '' : String(v))
+  return {
+    firmware: str(s.firmware),
+    polynomial: str(s.polynomial),
+    batteryFactor: str(s.batteryFactor),
+    intervalS: str(s.intervalS),
+    tiltInWater: str(s.tiltInWater),
+  }
+}
+
+function fromForm(f: SettingsForm): ISpindelSettings {
+  // Virgule acceptée : le portail de l'iSpindel affiche « 191,80 ».
+  const num = (v: string) => {
+    const n = Number.parseFloat(v.replace(',', '.'))
+    return Number.isFinite(n) ? n : undefined
+  }
+  const text = (v: string) => v.trim() || undefined
+  return {
+    firmware: text(f.firmware),
+    polynomial: text(f.polynomial),
+    batteryFactor: num(f.batteryFactor),
+    intervalS: num(f.intervalS),
+    tiltInWater: num(f.tiltInWater),
+  }
+}
+
+/** Mémo des réglages saisis dans le portail : la mise à jour du firmware les efface. */
+function ISpindelSettingsForm({ device }: { device: Device }) {
+  const queryClient = useQueryClient()
+  const [form, setForm] = useState(() => toForm(device.settings))
+  const [saving, setSaving] = useState(false)
+  const [message, setMessage] = useState<string | null>(null)
+  const set = (key: keyof ISpindelSettings) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    setForm({ ...form, [key]: e.target.value })
+    setMessage(null)
+  }
+
+  async function handleSave(e: React.FormEvent) {
+    e.preventDefault()
+    setSaving(true)
+    try {
+      await updateDeviceSettings(device.id, fromForm(form))
+      setMessage('Réglages enregistrés ✓')
+      queryClient.invalidateQueries({ queryKey: ['devices'] })
+    } catch (err) {
+      setMessage((err as Error).message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <details className="mt-4 rounded-xl border border-slate-200" open={!!device.settings.polynomial}>
+      <summary className="cursor-pointer px-3 py-2 text-sm font-semibold text-slate-700">
+        Réglages de l'iSpindel (mémo)
+      </summary>
+      <form onSubmit={handleSave} className="space-y-3 px-3 pb-3">
+        <p className="text-xs text-slate-500">
+          Recopiez ici les valeurs de la page Configuration de l'iSpindel : une mise à jour du firmware les efface, il
+          suffira de les ressaisir.
+        </p>
+        <div>
+          <FieldLabel hint="Champ « Polynominal » (Gravity conversion) : la calibration angle → densité de votre iSpindel. À recopier tel quel.">
+            Polynôme
+          </FieldLabel>
+          <input value={form.polynomial} onChange={set('polynomial')} aria-label="Polynôme" className="field-input font-mono text-sm" />
+        </div>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div>
+            <FieldLabel hint="Version affichée sur la page Info du portail.">Firmware</FieldLabel>
+            <input value={form.firmware} onChange={set('firmware')} aria-label="Firmware" placeholder={FIRMWARE_VERSION} className="field-input" />
+          </div>
+          <div>
+            <FieldLabel hint="« Battery conversion factor » : calibre l'affichage de la tension de la batterie (191,8 par défaut).">
+              Facteur batterie
+            </FieldLabel>
+            <input value={form.batteryFactor} onChange={set('batteryFactor')} aria-label="Facteur batterie" inputMode="decimal" className="field-input" />
+          </div>
+          <div>
+            <FieldLabel hint="« Update Interval » : secondes entre deux mesures (900 = 15 min). Plus court use la batterie plus vite.">
+              Intervalle (s)
+            </FieldLabel>
+            <input value={form.intervalS} onChange={set('intervalS')} aria-label="Intervalle (s)" inputMode="numeric" className="field-input" />
+          </div>
+          <div>
+            <FieldLabel hint="Angle (tilt) affiché sur la page Info, iSpindel dans l'eau du robinet. Après une mise à jour du firmware, remesurez : plus de 0,5° d'écart = calibration à refaire.">
+              Angle dans l'eau (°)
+            </FieldLabel>
+            <input value={form.tiltInWater} onChange={set('tiltInWater')} aria-label="Angle dans l'eau (°)" inputMode="decimal" className="field-input" />
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <button type="submit" disabled={saving} className="btn-primary btn-sm">
+            {saving ? 'Enregistrement…' : 'Enregistrer les réglages'}
+          </button>
+          {message && <span className="text-sm text-slate-600">{message}</span>}
+        </div>
+      </form>
+    </details>
   )
 }

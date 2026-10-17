@@ -56,7 +56,7 @@ Application personnelle de brassage de bière maison (type Brewfather/Little Boc
 
 ### Fermentation
 - Saisie manuelle de lectures (densité, température, commentaire) + graphique.
-- Ingestion automatique iSpindel (Edge Function Supabase).
+- Ingestion automatique iSpindel (Edge Function Supabase). Page Appareils : champs à recopier dans le portail de l'iSpindel (service **HTTPS Post**, firmware 7.2 minimum ; en simple HTTP Supabase redirige vers HTTPS et les mesures sont perdues), marche à suivre de mise à jour du firmware, et mémo des réglages de l'appareil (polynôme, facteur batterie, intervalle, angle dans l'eau) enregistré dans `devices.calibration_coefficients`.
 
 ### Infra
 - Auth Supabase, RLS sur toutes les tables, déploiement GitHub Pages via GitHub Actions, PWA installable (icône : cuve fumante et cône de houblon, `public/favicon.svg` ; PNG 192/512 rendus depuis ce SVG).

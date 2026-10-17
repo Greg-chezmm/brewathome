@@ -272,7 +272,8 @@ export const devices = pgTable('devices', {
   type: text('type', { enum: ['ispindel', 'tilt'] }).notNull(),
   name: text('name').notNull(),
   apiToken: text('api_token').notNull().unique(),
-  // Coefficients du polynôme de calibration angle -> densité spécifique propre au device.
+  // Réglages recopiés de l'iSpindel (polynôme de calibration, facteur batterie, intervalle…) : mémo pour
+  // pouvoir les ressaisir après une mise à jour du firmware, qui efface sa configuration.
   calibrationCoefficients: jsonb('calibration_coefficients'),
   // Brassin actuellement suivi par ce device : l'Edge Function d'ingestion y
   // rattache les lectures reçues. NULL = device inactif / non assigné.
