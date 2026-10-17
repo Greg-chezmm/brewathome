@@ -8,6 +8,7 @@ export const L_PER_GAL = 3.785411784
 export const GAL_PER_L = 1 / L_PER_GAL
 export const G_PER_OZ = 28.349523125
 export const OZ_PER_G = 1 / G_PER_OZ
+export const M_PER_FT = 0.3048
 
 export function kgToLb(kg: number): number {
   return kg * LB_PER_KG

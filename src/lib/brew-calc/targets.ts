@@ -50,22 +50,41 @@ export interface HopTargetResult {
   unreachable: boolean
 }
 
+/** Nombre maximal de pas de sécante pour viser un IBU (Garetz converge en 3 ou 4). */
+const MAX_SECANT_STEPS = 20
+
 /**
  * Règle la quantité d'un houblon pour viser un IBU, les autres restant tels quels.
- * L'IBU d'un houblon est proportionnel à sa quantité (Tinseth comme Rager), à densité
- * d'ébullition donnée : deux calculs suffisent pour trouver la pente.
+ * L'IBU d'un houblon est proportionnel à sa quantité en Tinseth et Rager, à densité
+ * d'ébullition donnée : deux calculs donnent la pente, le premier pas tombe juste.
+ * En Garetz, le facteur d'amertume (HF) rend l'IBU croissant mais pas proportionnel :
+ * on affine par la méthode de la sécante.
  */
 export function adjustHopForIbu(input: RecipeStatsInput, hopIndex: number, targetIbu: number): HopTargetResult | null {
   const hop = input.hops[hopIndex]
   if (!hop || !(targetIbu >= 0)) return null
   const withAmount = (amountG: number) =>
     input.hops.map((h, i) => ({ ...h, amountG: i === hopIndex ? amountG : safe(h.amountG) }))
-  const ibuWithout = computeRecipe({ ...input, hops: withAmount(0) }).ibu
-  const ibuPerGram = (computeRecipe({ ...input, hops: withAmount(100) }).ibu - ibuWithout) / 100
-  if (!(ibuPerGram > 0)) return null
-  const exact = (targetIbu - ibuWithout) / ibuPerGram
+  const ibuAt = (amountG: number) => computeRecipe({ ...input, hops: withAmount(amountG) }).ibu
+  const ibuWithout = ibuAt(0)
+  // Deux points (quantité, IBU) de la sécante.
+  let x0 = 0
+  let y0 = ibuWithout
+  let x1 = 100
+  let y1 = ibuAt(100)
+  if (!(y1 - y0 > 0)) return null
+  let exact = x1 + ((targetIbu - y1) * (x1 - x0)) / (y1 - y0)
+  for (let step = 0; step < MAX_SECANT_STEPS && exact > 0; step++) {
+    const y = ibuAt(exact)
+    if (!(Math.abs(y - targetIbu) > 1e-6) || y === y1) break
+    x0 = x1
+    y0 = y1
+    x1 = exact
+    y1 = y
+    exact = x1 + ((targetIbu - y1) * (x1 - x0)) / (y1 - y0)
+  }
   const amountG = Math.max(0, round(exact, HOP_DECIMALS))
-  return { hops: withAmount(amountG), amountG, unreachable: exact < 0 }
+  return { hops: withAmount(amountG), amountG, unreachable: targetIbu < ibuWithout }
 }
 
 function round(value: number, decimals: number): number {

@@ -50,7 +50,7 @@ describe('houblon amérisant', () => {
 })
 
 describe('viser un IBU', () => {
-  it.each(['tinseth', 'rager'] as const)('atteint l’IBU visé en ne touchant que l’amérisant (%s)', (ibuFormula) => {
+  it.each(['tinseth', 'rager', 'garetz'] as const)('atteint l’IBU visé en ne touchant que l’amérisant (%s)', (ibuFormula) => {
     const base = { ...input, ibuFormula }
     const result = adjustHopForIbu(base, 0, 45)!
     expect(result.unreachable).toBe(false)

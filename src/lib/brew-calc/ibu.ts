@@ -1,11 +1,11 @@
 import type { Hop } from './types'
-import { gToOz, litersToGallons } from './units'
+import { M_PER_FT } from './units'
 
 function contributingHops(hops: Hop[]): Hop[] {
-  // Modèle classique (Tinseth/Rager/Garetz d'origine) : seuls les ajouts en
-  // ébullition et "first wort" isomérisent de l'acide alpha de façon
-  // significative. Le whirlpool est géré séparément par calculateIBU_Tinseth
-  // (facteur de température) ; dry-hop/empâtage n'isomérisent quasiment rien.
+  // Modèle classique (Rager d'origine) : seuls les ajouts en ébullition et
+  // "first wort" isomérisent de l'acide alpha de façon significative. Tinseth
+  // et Garetz gèrent en plus le whirlpool (facteur de température) ;
+  // dry-hop/empâtage n'isomérisent quasiment rien.
   return hops.filter((h) => h.use === 'boil' || h.use === 'first-wort')
 }
 
@@ -154,48 +154,145 @@ export function calculateIBU_Rager(
   }, 0)
 }
 
-export interface GaretzParams {
-  boilGravity: number
-  preBoilVolumeL: number
-  finalVolumeL: number
-  batchVolumeL: number
-  /** Altitude du lieu de brassage, en pieds (0 = niveau de la mer). */
-  altitudeFt?: number
+/**
+ * Table d'utilisation de Garetz, en % d'acide alpha isomérisé selon la durée
+ * d'ébullition : chaque palier [borne haute en min, %] couvre les durées
+ * jusqu'à sa borne incluse (0–5 min : 0 %, 6–10 min : 0 %, 11–15 min : 2 %…).
+ * Au-delà de 90 min, l'utilisation plafonne à 23 %.
+ * Source : Mark Garetz, Using Hops (1994), table reproduite par Michael L. Hall,
+ * « Brew by the Numbers », Zymurgy (1995) — valeurs non revérifiées sur
+ * l'ouvrage original. Garetz donne peu d'amertume aux ajouts courts (moins de
+ * 10 min ne compte pas du tout), d'où des IBU en général plus bas que Tinseth.
+ */
+export const GARETZ_UTILIZATION_TABLE: ReadonlyArray<readonly [maxMin: number, percent: number]> = [
+  [5, 0],
+  [10, 0],
+  [15, 2],
+  [20, 5],
+  [25, 8],
+  [30, 11],
+  [35, 14],
+  [40, 16],
+  [45, 18],
+  [50, 19],
+  [60, 20],
+  [70, 21],
+  [80, 22],
+  [90, 23],
+]
+
+/** Utilisation de base de Garetz (fraction, pas %) pour une durée d'ébullition en minutes. */
+export function garetzUtilization(timeMin: number): number {
+  // Champ en cours de saisie : comme Tinseth, on propage NaN plutôt que de choisir un palier.
+  if (Number.isNaN(timeMin)) return Number.NaN
+  const step = GARETZ_UTILIZATION_TABLE.find(([maxMin]) => timeMin <= maxMin)
+  const percent = step ? step[1] : GARETZ_UTILIZATION_TABLE[GARETZ_UTILIZATION_TABLE.length - 1][1]
+  return percent / 100
+}
+
+/** Garetz : +2 % de correction par tranche de 550 pieds d'altitude (ébullition plus froide), ici en mètres. */
+const GARETZ_ALTITUDE_STEP_M = 550 * M_PER_FT
+
+export interface GaretzOptions {
+  /** Durée d'ébullition : temps de contact des houblons « premier moût ». Absente : leur propre `timeMin`. */
+  boilTimeMin?: number
+  /** Facteur correcteur de l'équipement pour les ajouts en ébullition, en % (100 par défaut). */
+  hopUtilizationPercent?: number
+  /** Température des whirlpools sans température propre (`Hop.temperatureC`), en °C. */
+  hopstandTempC?: number
   /**
-   * IBU visés de la recette, utilisés pour le "Hopping Rate Factor".
-   * Le calcul de Garetz est circulaire par construction (HF dépend de l'IBU
-   * visé) ; si non fourni, HF est neutralisé (= 1), ce qui dégrade la
-   * précision de cette formule déjà la moins solidement sourcée des trois.
+   * Volume d'ébullition (L), pour le facteur de concentration CF = volume final / volume
+   * d'ébullition. Absent (ou ≤ 0) : égal au volume final, CF = 1.
    */
-  desiredIBU?: number
+  boilVolumeL?: number
+  /** Altitude du lieu de brassage, en mètres. 0 par défaut : TF = 1. */
+  altitudeM?: number
+  /**
+   * IBU visés, pour le facteur d'amertume HF comme dans le livre (le brasseur y saisit
+   * sa cible). Absents : HF est calculé sur les IBU obtenus eux-mêmes (point fixe).
+   */
+  desiredIbu?: number
 }
 
 /**
- * IBU — formule de Garetz.
- * Source : Mark Garetz, Using Hops (1994). Implémentation la moins fiable
- * des trois (constantes non vérifiées contre l'ouvrage original) — à traiter
- * comme un calcul "best effort".
+ * IBU de chaque ajout selon Garetz, dans l'ordre de `hops`.
+ *
+ * IBU = U(t) × f × α × g × 1000 / (V × CA), mêmes unités que Tinseth (g, L, α en %
+ * ramené en fraction ; 1000 est l'équivalent métrique du 0,749 de la formule
+ * impériale, où U et α sont en %). U(t) vient de la table de Garetz
+ * (`GARETZ_UTILIZATION_TABLE`), V est le volume final (fin d'ébullition) et le
+ * facteur combiné CA = GF × HF × TF :
+ * - CF (concentration) = volume final / volume d'ébullition ;
+ * - GF (gravité) = (densité d'ébullition − 1,050) / 0,2 + 1, ramené à 1 en dessous de
+ *   1,050 (pas de bonus d'amertume pour un moût léger, comme Rager). La densité
+ *   d'ébullition est celle fournie par l'appelant (moyenne pré-ébullition / fin
+ *   d'ébullition dans `computeRecipe`) et non recalculée depuis la DI × CF comme
+ *   dans le livre, par cohérence avec Tinseth et Rager ;
+ * - HF (taux de houblonnage) = CF × IBU / 260 + 1 : plus on houblonne, moins
+ *   l'acide alpha se dissout. HF dépend des IBU qu'il sert à calculer : le livre
+ *   part des IBU visés et itère. Sans cible, on prend le point fixe de cette
+ *   itération, I × (1 + CF × I / 260) = R (R = total avant HF), résolu exactement
+ *   par I = 2R / (1 + √(1 + 4 × CF × R / 260)) ;
+ * - TF (température / altitude) = altitude en pieds / 550 × 0,02 + 1, donc 1 par défaut.
+ *
+ * Le facteur f suit les conventions de Tinseth dans l'appli : utilisation de
+ * l'équipement en ébullition, × 1,10 en premier moût (t = durée d'ébullition), facteur
+ * de température (Arrhenius) en whirlpool, 0 en dry hop / empâtage ; × 1,10 pour les
+ * pellets. Pas de prolongation de l'isomérisation des ajouts en ébullition pendant le
+ * hopstand : c'est le modèle cinétique (exponentiel) de Tinseth, sans équivalent dans
+ * une table par paliers.
+ * HF étant commun à tous les ajouts, chaque houblon reçoit sa part au prorata.
  */
-export function calculateIBU_Garetz(hops: Hop[], params: GaretzParams): number {
-  const { boilGravity, preBoilVolumeL, finalVolumeL, batchVolumeL, altitudeFt = 0, desiredIBU } =
-    params
+export function garetzContributions(
+  hops: Hop[],
+  boilGravity: number,
+  finalVolumeL: number,
+  options: GaretzOptions = {},
+): number[] {
+  const concentrationFactor =
+    options.boilVolumeL !== undefined && options.boilVolumeL > 0 ? finalVolumeL / options.boilVolumeL : 1
+  const gravityFactor = Math.max(1, (boilGravity - 1.05) / 0.2 + 1)
+  const temperatureFactor = ((options.altitudeM ?? 0) / GARETZ_ALTITUDE_STEP_M) * 0.02 + 1
 
-  const concentrationFactor = finalVolumeL / preBoilVolumeL
-  const boilGravityAdjusted = concentrationFactor * (boilGravity - 1) + 1
-  const gravityFactor = (boilGravityAdjusted - 1.05) / 0.2 + 1
-  const hoppingRateFactor =
-    desiredIBU !== undefined ? (concentrationFactor * desiredIBU) / 260 + 1 : 1
-  const temperatureAltitudeFactor = (altitudeFt / 550) * 0.02 + 1
-  const combinedAdjustment = gravityFactor * hoppingRateFactor * temperatureAltitudeFactor
+  // IBU de chaque ajout avant les facteurs de correction (CA = 1).
+  const raw = hops.map((hop) => {
+    let hopUtilization: number
+    switch (hop.use) {
+      case 'boil':
+        hopUtilization = garetzUtilization(hop.timeMin) * ((options.hopUtilizationPercent ?? 100) / 100)
+        break
+      case 'first-wort':
+        hopUtilization = garetzUtilization(options.boilTimeMin ?? hop.timeMin) * FIRST_WORT_HOP_FACTOR
+        break
+      case 'whirlpool':
+        hopUtilization =
+          garetzUtilization(hop.timeMin) *
+          hopstandUtilizationFactor(hop.temperatureC ?? options.hopstandTempC ?? DEFAULT_WHIRLPOOL_TEMP_C)
+        break
+      default:
+        return 0
+    }
+    const formFactor = hop.form === 'pellet' ? PELLET_UTILIZATION_FACTOR : 1
+    return (hopUtilization * formFactor * (hop.alphaAcidPercent / 100) * hop.amountG * 1000) / finalVolumeL
+  })
 
-  const volumeGal = litersToGallons(batchVolumeL)
+  // Total corrigé de GF et TF, avant le facteur d'amertume.
+  const beforeHoppingRate = raw.reduce((sum, ibu) => sum + ibu, 0) / (gravityFactor * temperatureFactor)
+  const referenceIbu =
+    options.desiredIbu ??
+    (2 * beforeHoppingRate) / (1 + Math.sqrt(1 + (4 * concentrationFactor * beforeHoppingRate) / 260))
+  const hoppingRateFactor = (concentrationFactor * referenceIbu) / 260 + 1
+  const combinedAdjustment = gravityFactor * hoppingRateFactor * temperatureFactor
 
-  return contributingHops(hops).reduce((total, hop) => {
-    const utilizationPercent = 7.2994 + 15.0746 * Math.tanh((hop.timeMin - 21.86) / 24.71)
-    const aaDecimal = hop.alphaAcidPercent / 100
-    const weightOz = gToOz(hop.amountG)
-    const ibu =
-      ((utilizationPercent / 100) * aaDecimal * weightOz * 0.749) / (volumeGal * combinedAdjustment)
-    return total + ibu
-  }, 0)
+  return raw.map((ibu) => ibu / combinedAdjustment)
+}
+
+/** IBU total selon Garetz : somme des ajouts (voir `garetzContributions`). */
+export function calculateIBU_Garetz(
+  hops: Hop[],
+  boilGravity: number,
+  finalVolumeL: number,
+  options: GaretzOptions = {},
+): number {
+  return garetzContributions(hops, boilGravity, finalVolumeL, options).reduce((sum, ibu) => sum + ibu, 0)
 }

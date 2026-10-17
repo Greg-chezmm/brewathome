@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { calculateIBU_Rager, calculateIBU_Tinseth } from '@/lib/brew-calc/ibu'
+import { calculateIBU_Garetz, calculateIBU_Rager, calculateIBU_Tinseth } from '@/lib/brew-calc/ibu'
 import {
   adjustAttenuationForMashTemp,
+  computeRecipe,
   estimateRecipeStats,
   REFERENCE_MASH_TEMP_C,
   type RecipeStatsInput,
@@ -26,6 +27,20 @@ describe('estimateRecipeStats', () => {
     const stats = estimateRecipeStats({ ...base, ibuFormula: 'rager' })
     expect(stats.ibu).toBeCloseTo(calculateIBU_Rager(base.hops, stats.og, base.targetVolumeL), 10)
     expect(stats.ibu).not.toBeCloseTo(estimateRecipeStats(base).ibu, 1)
+  })
+
+  it('utilise Garetz quand la recette le demande, avec le détail par houblon', () => {
+    const input: RecipeStatsInput = {
+      ...base,
+      ibuFormula: 'garetz',
+      hops: [...base.hops, { name: 'Cascade', amountG: 20, alphaAcidPercent: 6, timeMin: 15, use: 'boil' }],
+    }
+    const calc = computeRecipe(input)
+    // Sans équipement : volume d'ébullition inconnu, CF = 1.
+    expect(calc.ibu).toBeCloseTo(calculateIBU_Garetz(input.hops, calc.og, base.targetVolumeL), 10)
+    expect(calc.ibuByHop).toHaveLength(2)
+    expect(calc.ibuByHop[0] + calc.ibuByHop[1]).toBeCloseTo(calc.ibu, 10)
+    expect(calc.ibu).toBeLessThan(computeRecipe({ ...input, ibuFormula: 'tinseth' }).ibu)
   })
 
   it('falls back to 75 % attenuation without yeast', () => {

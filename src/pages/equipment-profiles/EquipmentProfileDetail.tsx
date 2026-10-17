@@ -96,7 +96,7 @@ const FIELDS: Array<{ key: keyof EquipmentProfile; label: string; step?: string;
     key: 'hopUtilizationPercent',
     label: 'Utilisation houblon (%)',
     step: '1',
-    hint: "Facteur correcteur de l'amertume des houblons en ébullition. 100 % = formule de Tinseth telle quelle. Baissez-le si vos bières sont régulièrement moins amères que prévu (sac à houblon, cuve étroite…).",
+    hint: "Facteur correcteur de l'amertume des houblons en ébullition. 100 % = formule (Tinseth ou Garetz) telle quelle. Baissez-le si vos bières sont régulièrement moins amères que prévu (sac à houblon, cuve étroite…).",
   },
 ]
 

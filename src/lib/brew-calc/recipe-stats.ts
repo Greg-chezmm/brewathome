@@ -1,7 +1,7 @@
 import { calculateABV_simple } from './abv'
 import { calculateSRM } from './color'
 import { calculateFG, extractPointsLiters } from './gravity'
-import { calculateIBU_Rager, tinsethContributions } from './ibu'
+import { calculateIBU_Rager, garetzContributions, tinsethContributions } from './ibu'
 import type { EquipmentProfile, Fermentable, Hop, IBUFormulaName, RecipeStats, Yeast } from './types'
 import { srmToEbc } from './units'
 import { calculateVolumes, type VolumeBreakdown } from './volumes'
@@ -40,7 +40,7 @@ export interface RecipeCalculation extends RecipeStats {
   boilGravity: number
   /** Couleur en EBC (§3). */
   ebc: number
-  /** IBU de chaque houblon, dans l'ordre de la recette (§4, Tinseth ; vide en Rager). */
+  /** IBU de chaque houblon, dans l'ordre de la recette (§4, Tinseth ou Garetz ; vide en Rager). */
   ibuByHop: number[]
   /** Atténuation retenue (%), après ajustement éventuel par la température d'empâtage. */
   attenuationPercent: number
@@ -78,7 +78,6 @@ export function adjustAttenuationForMashTemp(attenuationPercent: number, mashTem
 /**
  * Moteur de calcul d'une recette, dans l'ordre des specs :
  * §1 volumes → §2 densités → §3 couleur → §4 amertume → §5 DF et ABV.
- * Garetz demande des paramètres absents ici : Tinseth est utilisé en repli.
  */
 export function computeRecipe(input: RecipeStatsInput): RecipeCalculation {
   const { fermentables, hops, yeasts, targetVolumeL, mashEfficiencyPercent, ibuFormula, equipment } = input
@@ -101,14 +100,17 @@ export function computeRecipe(input: RecipeStatsInput): RecipeCalculation {
   // §3 — Couleur (Morey).
   const srm = calculateSRM(fermentables, calculationVolumeL)
 
-  // §4 — Amertume.
+  // §4 — Amertume. Garetz : CF = fin d'ébullition / pré-ébullition (1 sans équipement).
+  const hopOptions = { boilTimeMin, hopUtilizationPercent: equipment?.hopUtilizationPercent }
   const ibuByHop =
     ibuFormula === 'rager'
       ? []
-      : tinsethContributions(hops, boilGravity, calculationVolumeL, {
-          boilTimeMin,
-          hopUtilizationPercent: equipment?.hopUtilizationPercent,
-        })
+      : ibuFormula === 'garetz'
+        ? garetzContributions(hops, boilGravity, calculationVolumeL, {
+            ...hopOptions,
+            boilVolumeL: volumes?.preBoilVolumeL,
+          })
+        : tinsethContributions(hops, boilGravity, calculationVolumeL, hopOptions)
   const ibu =
     ibuFormula === 'rager'
       ? calculateIBU_Rager(hops, boilGravity, calculationVolumeL)

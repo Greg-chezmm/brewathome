@@ -348,12 +348,13 @@ export function RecipeForm({
             />
           </div>
           <div>
-            <FieldLabel hint="Formule de calcul de l'amertume (IBU). Tinseth est la plus utilisée aujourd'hui (BeerSmith, Brewfather). Rager donne généralement des valeurs un peu plus élevées pour les ajouts longs. Les deux sont des approximations — l'amertume perçue dépend aussi de l'eau et du grain.">
+            <FieldLabel hint="Formule de calcul de l'amertume (IBU). Tinseth est la plus utilisée aujourd'hui (BeerSmith, Brewfather). Rager donne généralement des valeurs un peu plus élevées pour les ajouts longs. Garetz donne en général les valeurs les plus basses : il ignore les ajouts de moins de 10 min et réduit l'amertume des moûts denses ou très houblonnés. Toutes sont des approximations — l'amertume perçue dépend aussi de l'eau et du grain.">
               Formule IBU
             </FieldLabel>
             <select value={value.ibuFormula} onChange={(e) => set('ibuFormula', e.target.value as IBUFormulaName)} className="field-input">
               <option value="tinseth">Tinseth</option>
               <option value="rager">Rager</option>
+              <option value="garetz">Garetz</option>
             </select>
           </div>
         </div>
