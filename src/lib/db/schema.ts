@@ -278,6 +278,8 @@ export const devices = pgTable('devices', {
   // Brassin actuellement suivi par ce device : l'Edge Function d'ingestion y
   // rattache les lectures reçues. NULL = device inactif / non assigné.
   activeBatchId: uuid('active_batch_id').references(() => batches.id, { onDelete: 'set null' }),
+  // Dernier envoi reçu (token valide), même sans brassin suivi : sert à afficher « connecté ».
+  lastSeenAt: timestamp('last_seen_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })
 

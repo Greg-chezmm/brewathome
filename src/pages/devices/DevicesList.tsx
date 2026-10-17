@@ -19,11 +19,31 @@ const ISPINDEL_SERVER = import.meta.env.VITE_SUPABASE_URL as string
 const ISPINDEL_PATH = '/functions/v1/ispindel'
 const FIRMWARE_VERSION = '7.3.3'
 const FIRMWARE_URL = `https://github.com/universam1/iSpindel/releases/download/${FIRMWARE_VERSION}/firmware.bin`
+const DEFAULT_INTERVAL_S = 900
+
+/** Connecté si le dernier envoi date de moins de deux intervalles (+ 1 min de marge pour le Wi-Fi). */
+function connectionStatus(lastSeenAt: string | null, intervalS: number | undefined, now: number) {
+  if (!lastSeenAt) return { connected: false, ageSec: null }
+  const ageSec = Math.max(0, Math.round((now - new Date(lastSeenAt).getTime()) / 1000))
+  return { connected: ageSec <= 2 * (intervalS ?? DEFAULT_INTERVAL_S) + 60, ageSec }
+}
+
+function formatAge(sec: number): string {
+  if (sec < 60) return "à l'instant"
+  if (sec < 3600) return `il y a ${Math.floor(sec / 60)} min`
+  if (sec < 86400) return `il y a ${Math.floor(sec / 3600)} h`
+  return `il y a ${Math.floor(sec / 86400)} j`
+}
 
 export function DevicesList() {
   const { user } = useAuth()
   const queryClient = useQueryClient()
-  const { data: devices, isLoading } = useQuery({ queryKey: ['devices'], queryFn: listDevices })
+  // Relu toutes les 30 s pour que le statut « connecté » suive les envois de l'iSpindel.
+  const {
+    data: devices,
+    isLoading,
+    dataUpdatedAt,
+  } = useQuery({ queryKey: ['devices'], queryFn: listDevices, refetchInterval: 30_000 })
   const { data: batches } = useQuery({ queryKey: ['batches'], queryFn: listBatches })
   const [name, setName] = useState('')
   const [type, setType] = useState<DeviceType>('ispindel')
@@ -165,9 +185,12 @@ export function DevicesList() {
         {devices?.map((device) => (
           <li key={device.id} className="card">
             <div className="flex items-start justify-between gap-4">
-              <h2 className="font-semibold text-slate-900">
-                {device.name} <span className="badge ml-1">{device.type}</span>
-              </h2>
+              <div className="min-w-0">
+                <h2 className="font-semibold text-slate-900">
+                  {device.name} <span className="badge ml-1">{device.type}</span>
+                </h2>
+                {device.type === 'ispindel' && <ConnectionBadge device={device} now={dataUpdatedAt} />}
+              </div>
               <button onClick={() => handleDelete(device.id)} className="btn-danger shrink-0">
                 Supprimer
               </button>
@@ -222,6 +245,25 @@ export function DevicesList() {
         )}
       </ul>
     </div>
+  )
+}
+
+function ConnectionBadge({ device, now }: { device: Device; now: number }) {
+  const { connected, ageSec } = connectionStatus(device.lastSeenAt, device.settings.intervalS, now)
+  const tone = connected ? 'bg-green-500' : ageSec === null ? 'bg-slate-300' : 'bg-amber-500'
+  const text = connected
+    ? `Connecté · dernier signal ${formatAge(ageSec!)}`
+    : ageSec === null
+      ? 'Jamais connecté'
+      : `Pas de signal depuis ${formatAge(ageSec).replace('il y a ', '')}`
+  return (
+    <p className="mt-1 flex items-center gap-1.5 text-sm text-slate-600">
+      <span className={`h-2.5 w-2.5 rounded-full ${tone}`} />
+      {text}
+      {connected && !device.activeBatchId && (
+        <span className="text-xs text-slate-400">— aucun brassin suivi : mesures non enregistrées</span>
+      )}
+    </p>
   )
 }
 

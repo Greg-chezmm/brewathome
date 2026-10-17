@@ -62,6 +62,9 @@ Deno.serve(async (req: Request) => {
   if (!device) {
     return new Response(JSON.stringify({ error: 'Unknown device token' }), { status: 401 })
   }
+
+  // Signe de vie, même sans brassin suivi : la page Appareils affiche « connecté ».
+  await supabase.from('devices').update({ last_seen_at: new Date().toISOString() }).eq('id', device.id)
   if (!device.active_batch_id) {
     // Device valide mais non assigné à un brassin en cours : on accepte la
     // requête (évite que le firmware retente en boucle) sans rien enregistrer.
