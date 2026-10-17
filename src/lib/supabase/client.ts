@@ -10,4 +10,14 @@ if (!supabaseUrl || !supabaseAnonKey) {
   )
 }
 
-export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey)
+export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    // Session gardée dans le navigateur et renouvelée automatiquement : on reste
+    // connecté entre deux visites (et dans la PWA installée) jusqu'à la déconnexion.
+    persistSession: true,
+    autoRefreshToken: true,
+    // Retour de Google ou du lien reçu par e-mail : la session est récupérée depuis l'URL.
+    detectSessionInUrl: true,
+    flowType: 'pkce',
+  },
+})
