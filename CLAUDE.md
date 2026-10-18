@@ -17,13 +17,14 @@ npm test                    # vitest run (all tests)
 npx vitest run tests/brew-calc/ibu.test.ts   # single test file
 npx vitest run -t "Tinseth"                  # tests matching a name
 npm run db:generate         # drizzle-kit: generate SQL migration from src/lib/db/schema.ts
+npm run db:types            # regenerate src/lib/supabase/types.ts from the live project (needs npx supabase login)
 ```
 
 CI (`.github/workflows/deploy.yml`) runs `npm test` then `npm run build` on every push to `main` and deploys `dist/` to GitHub Pages. Vite `base` is `/brewathome/` (also PWA scope/start_url); `public/404.html` handles SPA routing on Pages.
 
 ## Architecture
 
-- **No server code except one Edge Function.** The browser talks to Supabase directly via `supabase-js` (`src/lib/supabase/client.ts`); security relies entirely on RLS policies (`supabase/migrations/0001_rls_policies.sql`, grants in `0003`). `Database` type is currently `any` (types not generated yet).
+- **No server code except one Edge Function.** The browser talks to Supabase directly via `supabase-js` (`src/lib/supabase/client.ts`); security relies entirely on RLS policies (`supabase/migrations/0001_rls_policies.sql`, grants in `0003`). `Database` (`src/lib/supabase/types.ts`) is generated from the live schema by `npm run db:types` — rerun it after applying each migration. Text "enum" columns come out as `string` and jsonb as `Json`: mappers cast to the TS unions, writes of interfaces go through `toJson` (`src/lib/supabase/json.ts`).
 - **Drizzle is migration-only.** `src/lib/db/schema.ts` is the source of truth for the schema; `drizzle-kit generate` writes SQL into `supabase/migrations/`. Drizzle is never imported at runtime. Some migrations (RLS, grants, BJCP seed) are hand-written SQL. Migrations are applied to the live Supabase project manually (`supabase db push` or the SQL Editor) — new tables also need RLS policies and grants.
 - **Data access layer** — `src/lib/db/queries/*.ts`: async functions wrapping supabase-js calls, mapping snake_case rows ↔ camelCase TS types (`fromRow` helpers), throwing on error. Pages consume them through TanStack Query (`useQuery`/`useQueryClient` with keys like `['batches']`).
 - **Pure brewing calculations** — `src/lib/brew-calc/` (OG/FG, IBU Tinseth, Rager & Garetz, SRM, ABV, volumes, strike water, gravity correction, yeast, BJCP style matching), re-exported from `index.ts`. No I/O; this is where unit tests concentrate (`tests/brew-calc/`). BJCP 2021 data lives in `src/data/bjcp-styles-2021.json`.

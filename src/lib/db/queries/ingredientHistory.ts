@@ -31,7 +31,7 @@ export async function getIngredientHistory(): Promise<IngredientHistory> {
     fermentables: uniqueByName(
       (fermentables.data ?? []).map((f) => ({
         name: f.name,
-        type: f.type,
+        type: f.type as LibraryFermentable['type'],
         colorLovibond: Number(f.color_lovibond),
         yieldPercent: Number(f.yield_percent),
         note,
@@ -41,8 +41,8 @@ export async function getIngredientHistory(): Promise<IngredientHistory> {
     yeasts: uniqueByName(
       (yeasts.data ?? []).map((y) => ({
         name: y.name,
-        type: y.type,
-        style: y.style,
+        type: y.type as LibraryYeast['type'],
+        style: y.style as LibraryYeast['style'],
         attenuationPercent: Number(y.attenuation_percent),
         note,
       })),

@@ -92,6 +92,7 @@ Application personnelle de brassage de bière maison (type Brewfather/Little Boc
 - RLS sur toutes les tables, déploiement GitHub Pages via GitHub Actions, PWA installable avec bouton « Installer l'application » (barre latérale sur PC, menu « Plus » sur mobile ; fenêtre d'installation du navigateur sur Android/Chrome/Edge, explication Partager → Sur l'écran d'accueil sur iPhone ; masqué une fois installée, `src/lib/pwa/install.ts`), raccourcis Brassins / Recettes / Outils sur l'icône, plein écran sur iPhone (icône d'accueil, barre d'état sombre) (icône : cuve fumante et cône de houblon, `public/favicon.svg` ; PNG 192/512 rendus depuis ce SVG).
 - Pages chargées à la demande (`React.lazy` dans `App.tsx`), React et Supabase dans leurs propres fichiers (`vite.config.ts`) : fichier principal de 58 kB, Recharts chargé seulement sur les pages à graphique ; le service worker précharge tout pour le hors-ligne.
 - Schéma modélisé avec Drizzle (génération de migrations SQL uniquement — aucune dépendance runtime à Drizzle, tout passe par `supabase-js`).
+- **Types Supabase générés** (`npm run db:types` → `src/lib/supabase/types.ts`, depuis le projet lié via `VITE_SUPABASE_URL`) : colonnes mal nommées détectées à la compilation. À relancer après chaque migration appliquée. Colonnes texte « enum » converties vers les unions TS dans les mappers, écritures jsonb via `toJson`.
 
 ## Ce qu'il reste à faire
 
@@ -104,7 +105,6 @@ Application personnelle de brassage de bière maison (type Brewfather/Little Boc
 - Gestion de stock d'ingrédients (si besoin confirmé un jour).
 - **Notes de dégustation** par brassin : note sur 5, aspect, arôme, goût, à changer la prochaine fois ; visibles dans l'historique et depuis la recette.
 - **Suivi du conditionnement** : date d'embouteillage et date « prête à boire » calculée (refermentation ~2–3 semaines), avec un rappel.
-- **Types Supabase générés** (`supabase gen types`) à la place de `Database = any` (`src/lib/supabase/types.ts`), pour détecter les colonnes mal nommées à la compilation.
 
 ## Comment vérifier l'état du code
 

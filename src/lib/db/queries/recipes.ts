@@ -6,6 +6,7 @@ import { withAppliedResults, type ResultsToApply } from '@/lib/batches/apply-res
 import { resolveBjcpStyleId } from '@/lib/beerxml/mapping'
 import type { ParsedRecipeDraft } from '@/lib/beerxml/types'
 import { supabase } from '@/lib/supabase/client'
+import { toJson } from '@/lib/supabase/json'
 import { getEquipmentProfile } from './equipmentProfiles'
 
 export interface RecipeSummary {
@@ -52,7 +53,7 @@ export async function listRecipes(): Promise<RecipeSummary[]> {
   return (data ?? []).map((r) => ({
     id: r.id,
     name: r.name,
-    status: r.status,
+    status: r.status as RecipeSummary['status'],
     estOg: r.est_og !== null ? Number(r.est_og) : null,
     estFg: r.est_fg !== null ? Number(r.est_fg) : null,
     estIbu: r.est_ibu !== null ? Number(r.est_ibu) : null,
@@ -89,9 +90,9 @@ export async function getRecipeWithDetails(recipeId: string): Promise<RecipeDeta
   return {
     id: recipe.id,
     name: recipe.name,
-    status: recipe.status,
+    status: recipe.status as RecipeDetails['status'],
     styleId: recipe.style_id,
-    type: recipe.type,
+    type: recipe.type as RecipeDetails['type'],
     targetVolumeL: Number(recipe.target_volume_l),
     boilTimeMin: recipe.boil_time_min,
     mashEfficiencyPercent: Number(recipe.mash_efficiency_percent),
@@ -102,7 +103,7 @@ export async function getRecipeWithDetails(recipeId: string): Promise<RecipeDeta
     }),
     fermentationSteps: (recipe.fermentation_steps as FermentationStep[] | null) ?? [],
     carbonationVols: recipe.carbonation_vols !== null && recipe.carbonation_vols !== undefined ? Number(recipe.carbonation_vols) : null,
-    ibuFormula: recipe.ibu_formula,
+    ibuFormula: recipe.ibu_formula as RecipeDetails['ibuFormula'],
     equipmentProfileId: recipe.equipment_profile_id,
     notes: recipe.notes,
     estOg: recipe.est_og !== null ? Number(recipe.est_og) : null,
@@ -113,19 +114,19 @@ export async function getRecipeWithDetails(recipeId: string): Promise<RecipeDeta
     createdAt: recipe.created_at,
     fermentables: (fermentables ?? []).map((f) => ({
       name: f.name,
-      type: f.type,
+      type: f.type as Fermentable['type'],
       amountKg: Number(f.amount_kg),
       colorLovibond: Number(f.color_lovibond),
       yieldPercent: Number(f.yield_percent),
-      use: f.use ?? undefined,
+      use: (f.use ?? undefined) as Fermentable['use'],
     })),
     hops: (hops ?? []).map((h) => ({
       name: h.name,
       amountG: Number(h.amount_g),
       alphaAcidPercent: Number(h.alpha_acid_percent),
       timeMin: h.time_min,
-      use: h.use,
-      form: h.form ?? undefined,
+      use: h.use as Hop['use'],
+      form: (h.form ?? undefined) as Hop['form'],
       dryHopDays: h.dry_hop_days ?? undefined,
       temperatureC: h.temperature_c !== null && h.temperature_c !== undefined ? Number(h.temperature_c) : undefined,
       dryHopTempC: h.dry_hop_temp_c !== null && h.dry_hop_temp_c !== undefined ? Number(h.dry_hop_temp_c) : undefined,
@@ -133,11 +134,11 @@ export async function getRecipeWithDetails(recipeId: string): Promise<RecipeDeta
     })),
     yeasts: (yeasts ?? []).map((y) => ({
       name: y.name,
-      type: y.type,
-      style: y.style,
+      type: y.type as Yeast['type'],
+      style: y.style as Yeast['style'],
       attenuationPercent: Number(y.attenuation_percent),
       amount: y.amount !== null && y.amount !== undefined ? Number(y.amount) : undefined,
-      amountUnit: y.amount_unit ?? undefined,
+      amountUnit: (y.amount_unit ?? undefined) as Yeast['amountUnit'],
     })),
     otherIngredients: (otherIngredients ?? []).map((o) => ({
       name: o.name,
@@ -254,8 +255,8 @@ async function recipeStatsPayload(input: RecipeInput) {
     boil_time_min: input.boilTimeMin,
     mash_efficiency_percent: input.mashEfficiencyPercent,
     mash_temp_c: mashTempC,
-    mash_steps: input.mashSteps,
-    fermentation_steps: input.fermentationSteps,
+    mash_steps: toJson(input.mashSteps),
+    fermentation_steps: toJson(input.fermentationSteps),
     carbonation_vols: input.carbonationVols !== null && Number.isFinite(input.carbonationVols) ? input.carbonationVols : null,
     ibu_formula: input.ibuFormula,
     equipment_profile_id: input.equipmentProfileId,

@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase/client'
+import { toJson } from '@/lib/supabase/json'
 
 export type DeviceType = 'ispindel' | 'tilt'
 
@@ -63,7 +64,7 @@ export async function setDeviceActiveBatch(deviceId: string, batchId: string | n
 }
 
 export async function updateDeviceSettings(deviceId: string, settings: ISpindelSettings): Promise<void> {
-  const { error } = await supabase.from('devices').update({ calibration_coefficients: settings }).eq('id', deviceId)
+  const { error } = await supabase.from('devices').update({ calibration_coefficients: toJson(settings) }).eq('id', deviceId)
   if (error) throw error
 }
 

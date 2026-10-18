@@ -15,6 +15,8 @@ import type { BrewfatherBatchImport } from '@/lib/brewfather/batches'
 import { findOrCreateEquipmentProfile, getEquipmentProfile } from './equipmentProfiles'
 import { draftToRecipeInput, getRecipeWithDetails, updateRecipeStatus } from './recipes'
 import { supabase } from '@/lib/supabase/client'
+import { toJson } from '@/lib/supabase/json'
+import type { TablesUpdate } from '@/lib/supabase/types'
 
 export type BatchStatus = 'planned' | 'brew_day' | 'fermentation' | 'conditioning' | 'completed'
 
@@ -26,7 +28,7 @@ export const BATCH_STATUS_LABELS: Record<BatchStatus, string> = {
   completed: 'Terminé',
 }
 /** Colonne de `batches` de chaque mesure. */
-const MEASUREMENT_COLUMNS: Record<MeasurementKey, string> = {
+const MEASUREMENT_COLUMNS = {
   mashPh: 'mash_ph_measured',
   preBoilVolumeL: 'pre_boil_volume_measured_l',
   preBoilGravity: 'pre_boil_gravity_measured',
@@ -38,7 +40,7 @@ const MEASUREMENT_COLUMNS: Record<MeasurementKey, string> = {
   fg: 'fg_measured',
   packagingVolumeL: 'packaging_volume_l',
   maxFermentationTempC: 'max_fermentation_temp_c',
-}
+} as const satisfies Record<MeasurementKey, keyof TablesUpdate<'batches'>>
 
 export type BatchStepType =
   | 'preparation'
@@ -133,7 +135,7 @@ export async function createBatchFromRecipe(
     .insert({
       user_id: userId,
       recipe_id: recipeId,
-      recipe_snapshot: recipe,
+      recipe_snapshot: toJson(recipe),
       name,
       brew_date: brewDate,
       status: 'planned',
@@ -182,7 +184,7 @@ export async function createBatchFromBrewfather(userId: string, imported: Brewfa
     .insert({
       user_id: userId,
       recipe_id: null,
-      recipe_snapshot: recipe,
+      recipe_snapshot: toJson(recipe),
       name: imported.name,
       brew_date: imported.brewDate,
       status: imported.status,
@@ -223,7 +225,7 @@ export async function listBatches(): Promise<BatchSummary[]> {
   return (data ?? []).map((b) => ({
     id: b.id,
     name: b.name,
-    status: b.status,
+    status: b.status as BatchStatus,
     brewDate: b.brew_date,
     createdAt: b.created_at,
   }))
@@ -291,15 +293,15 @@ export async function getBatchSteps(batchId: string): Promise<BatchStep[]> {
   if (error) throw error
   return (data ?? []).map((s) => ({
     id: s.id,
-    stepType: s.step_type,
+    stepType: s.step_type as BatchStepType,
     label: s.label,
     orderIndex: s.order_index,
     plannedDurationMin: s.planned_duration_min,
     triggerTimeMin: s.trigger_time_min,
-    status: s.status,
+    status: s.status as BatchStepStatus,
     actualStartAt: s.actual_start_at,
     actualEndAt: s.actual_end_at,
-    checkedItems: s.checked_items ?? [],
+    checkedItems: (s.checked_items as string[] | null) ?? [],
     session: s.session ?? null,
   }))
 }
@@ -379,7 +381,7 @@ export async function updateBatchRecipeSnapshot(
     estAbv: abv,
   }
 
-  const { error } = await supabase.from('batches').update({ recipe_snapshot: snapshot }).eq('id', batchId)
+  const { error } = await supabase.from('batches').update({ recipe_snapshot: toJson(snapshot) }).eq('id', batchId)
   if (error) throw error
 
   await regenerateBatchSteps(batchId, snapshot, equipment, brewSessions)
@@ -492,7 +494,7 @@ export async function updateBatchMeasurements(
   batchId: string,
   measurements: Partial<Record<MeasurementKey, number | null>>,
 ): Promise<void> {
-  const payload: Record<string, number | null> = {}
+  const payload: TablesUpdate<'batches'> = {}
   for (const [key, value] of Object.entries(measurements) as [MeasurementKey, number | null | undefined][]) {
     if (value !== undefined) payload[MEASUREMENT_COLUMNS[key]] = value
   }
