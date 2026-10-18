@@ -6,7 +6,7 @@ Application personnelle de brassage de bière maison (type Brewfather/Little Boc
 
 ## Où on en est (résumé)
 
-**Dernières avancées** (migration `0016` appliquée sur la base live le 2026-10-17 ; `0017` à appliquer)
+**Dernières avancées** (migrations `0016` et `0017` appliquées sur la base live, les 2026-10-17 et 2026-10-18)
 - **Recette brassée en 2 sessions** le même jour vers un seul fermenteur (cuve trop petite) : choix à la validation (proposé d'office si la recette déborde de la cuve) ou sur un brassin planifié ; chaque session brasse la moitié du côté chaud, avec ses étapes, son ébullition, ses alertes et ses mesures ; DI du mélange proposée à l'ensemencement.
 - **Profil de fermentation** (primaire, secondaire, garde, cold crash) et **jour du dry hop**, importés de Brewfather et BeerXML ; le suivi de fermentation montre le plan (jour X sur Y, étape en cours, écart de température, dry hops à venir) et pré-remplit le resucrage.
 - **Quantité de levure** (sachets, g, mL), **carbonatation visée**, **moment d'ajout des fermentescibles** (empâtage, ébullition, fermentation) jusque dans le Brew Day.
@@ -18,7 +18,7 @@ Application personnelle de brassage de bière maison (type Brewfather/Little Boc
 - Import Brewfather : les équipements « Imported » ne sont plus confondus entre recettes.
 
 **À faire juste après**
-- Appliquer la migration `0017_brew_sessions.sql` (colonnes `batches.brew_sessions`, `batches.session_measurements`, `batch_steps.session`), puis pousser les commits locaux (déploiement).
+- Pousser les commits locaux (déploiement).
 
 **Prochaines étapes** : voir « Ce qu'il reste à faire ».
 
