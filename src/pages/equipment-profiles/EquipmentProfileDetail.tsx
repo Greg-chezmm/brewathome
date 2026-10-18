@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '@/lib/auth/AuthProvider'
 import {
@@ -105,6 +106,7 @@ export function EquipmentProfileDetail() {
   const isNew = profileId === 'new'
   const { user } = useAuth()
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
 
   const [profile, setProfile] = useState<EquipmentProfile>(DEFAULT_EQUIPMENT_PROFILE)
   const [loading, setLoading] = useState(!isNew)
@@ -139,9 +141,12 @@ export function EquipmentProfileDetail() {
     try {
       if (isNew) {
         const id = await createEquipmentProfile(user.id, profile)
+        queryClient.invalidateQueries({ queryKey: ['equipment-profiles'] })
         navigate(`/equipment-profiles/${id}`)
       } else if (profileId) {
         await updateEquipmentProfile(profileId, profile)
+        queryClient.invalidateQueries({ queryKey: ['equipment-profiles'] })
+        queryClient.invalidateQueries({ queryKey: ['equipment-profile', profileId] })
       }
     } catch (err) {
       setError((err as Error).message)
@@ -153,7 +158,17 @@ export function EquipmentProfileDetail() {
   async function handleDelete() {
     if (!profileId || isNew) return
     if (!confirm('Supprimer ce profil d’équipement ?')) return
-    await deleteEquipmentProfile(profileId)
+    setError(null)
+    try {
+      await deleteEquipmentProfile(profileId)
+    } catch (err) {
+      // Clé étrangère : un profil encore choisi dans une recette ne peut pas être supprimé.
+      const { code, message } = err as { code?: string; message: string }
+      setError(code === '23503' ? 'Ce profil est encore utilisé par une recette : choisissez-en un autre dans la recette avant de le supprimer.' : message)
+      return
+    }
+    queryClient.removeQueries({ queryKey: ['equipment-profile', profileId] })
+    await queryClient.invalidateQueries({ queryKey: ['equipment-profiles'] })
     navigate('/equipment-profiles')
   }
 
