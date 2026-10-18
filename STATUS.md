@@ -53,6 +53,7 @@ Application personnelle de brassage de bière maison (type Brewfather/Little Boc
 - **Alcool mesuré avec les ajouts en fermentation** (`effectiveOg` / `measuredAbv`, `brew-day/measurements.ts`) : la DI mesurée ne voit pas le sucre versé dans le fermenteur, on l'y ajoute (masse × rendement ÷ volume en fermenteur) pour l'alcool et l'atténuation ; DI prévue = celle qu'on mesurera ; mention « dont +x % de sucre ajouté en fermentation » (résumé, historique, fiche, suivi de fermentation une fois l'ajout fait).
 - **Historique** (`/batches/history`, `src/lib/batches/history.ts`) : pour chaque brassin, DI, DF, alcool, atténuation, efficacité d'empâtage, volume en fermenteur et pH face à la recette figée ; moyennes des écarts, graphique des efficacités, conseils (efficacité, pertes de volume, atténuation) ; lien « Reporter sur la recette » par brassin.
 - **Reporter les résultats mesurés** (`src/lib/batches/apply-results.ts`, carte sur l'aperçu du brassin) : efficacité d'empâtage mesurée → recette d'origine et profil d'équipement ; atténuation réelle → levure principale de la recette (si c'est la même levure), corrigée de la température d'empâtage du brassin pour que la recette retombe sur la DF mesurée. Les prévisions ne lisent que l'efficacité de la recette : choisir un profil d'équipement dans une recette y copie désormais son efficacité. Brassin sans recette liée (import Brewfather) : profil d'équipement seulement.
+- **Nouvelle version de la recette depuis un brassin** (`src/lib/batches/new-version.ts`, bouton dans la carte recette de l'aperçu) : recette créée depuis le snapshot du brassin (retouches comprises), nommée « Nom v2 » (puis v3… sans doublon), avec en option les résultats mesurés ; note d'origine dans la recette, pas de lien en base. Ouvre directement l'éditeur. C'est aussi la voie pour réutiliser un brassin importé de Brewfather.
 - **Plan de fermentation** sur l'onglet Fermentation : frise du profil avec le jour en cours, étape et jours restants, alerte d'écart de température, dry hops à venir/en contact/faits ; resucrage pré-rempli (volume, carbonatation, température max) en fermentation et conditionnement.
 
 ### Mode Brew Day
@@ -103,7 +104,6 @@ Application personnelle de brassage de bière maison (type Brewfather/Little Boc
 - Gestion de stock d'ingrédients (si besoin confirmé un jour).
 - **Notes de dégustation** par brassin : note sur 5, aspect, arôme, goût, à changer la prochaine fois ; visibles dans l'historique et depuis la recette.
 - **Suivi du conditionnement** : date d'embouteillage et date « prête à boire » calculée (refermentation ~2–3 semaines), avec un rappel.
-- **Nouvelle version d'une recette depuis un brassin** : créer la v2 à partir du snapshot du brassin (et de ses notes de dégustation).
 - **Types Supabase générés** (`supabase gen types`) à la place de `Database = any` (`src/lib/supabase/types.ts`), pour détecter les colonnes mal nommées à la compilation.
 
 ## Comment vérifier l'état du code

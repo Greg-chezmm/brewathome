@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ApplyResultsCard } from '@/components/batches/ApplyResultsCard'
 import { BatchSummaryTable } from '@/components/batches/BatchSummaryTable'
 import { MeasurementsPanel } from '@/components/batches/MeasurementsPanel'
+import { NewRecipeVersion } from '@/components/batches/NewRecipeVersion'
 import { SessionsChoice } from '@/components/batches/SessionsChoice'
 import { calculateFG } from '@/lib/brew-calc/gravity'
 import {
@@ -149,6 +150,9 @@ export function BatchOverview() {
         <p className="mt-1 text-xs text-slate-400">
           Modifier ici n'affecte que ce brassin — la recette d'origine reste inchangée.
         </p>
+        <div className="mt-3">
+          <NewRecipeVersion batch={batch} equipment={equipmentProfile} />
+        </div>
       </section>
 
       {(batch.status === 'planned' || sessions > 1) && (
