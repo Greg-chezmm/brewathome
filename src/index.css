@@ -70,3 +70,22 @@ body {
     @apply text-lg font-bold tracking-tight text-slate-900;
   }
 }
+
+/* Impression (liste de préparation…) : on masque la navigation et on laisse respirer la page. */
+@media print {
+  aside,
+  header,
+  nav,
+  .no-print {
+    display: none !important;
+  }
+
+  main {
+    max-width: none !important;
+    padding: 0 !important;
+  }
+
+  body {
+    background: #fff;
+  }
+}

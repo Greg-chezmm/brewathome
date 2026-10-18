@@ -56,7 +56,7 @@ const recipe: RecipeDetails = {
 }
 
 const generated = buildBatchSteps(recipe, equipment)
-const steps: BatchStep[] = generated.map((s, i) => ({ ...s, id: `s${i}`, checkedItems: [] }))
+const steps: BatchStep[] = generated.map((s, i) => ({ ...s, id: `s${i}`, checkedItems: [], notes: null }))
 const mashSteps = steps.filter((s) => ['mash', 'mash-step', 'mash-out'].includes(s.stepType))
 const ctx = { recipe, volumes: null, method: 'all-grain' as const }
 

@@ -349,6 +349,31 @@ export async function applyResultsToRecipe(recipeId: string, results: ResultsToA
   await updateRecipe(recipeId, withAppliedResults(recipe, results))
 }
 
+/** Duplique une recette (ingrédients compris) en un nouveau brouillon « (copie) ». Renvoie son id. */
+export async function duplicateRecipe(userId: string, recipeId: string): Promise<string> {
+  const r = await getRecipeWithDetails(recipeId)
+  const input: RecipeInput = {
+    name: `${r.name} (copie)`,
+    styleId: r.styleId,
+    type: r.type,
+    targetVolumeL: r.targetVolumeL,
+    boilTimeMin: r.boilTimeMin,
+    mashEfficiencyPercent: r.mashEfficiencyPercent,
+    mashTempC: r.mashTempC,
+    mashSteps: r.mashSteps,
+    fermentationSteps: r.fermentationSteps,
+    carbonationVols: r.carbonationVols,
+    ibuFormula: r.ibuFormula,
+    equipmentProfileId: r.equipmentProfileId,
+    notes: r.notes,
+    fermentables: r.fermentables,
+    hops: r.hops,
+    yeasts: r.yeasts,
+    otherIngredients: r.otherIngredients,
+  }
+  return createRecipe(userId, input)
+}
+
 export async function updateRecipeStatus(recipeId: string, status: 'draft' | 'validated' | 'archived'): Promise<void> {
   const { error } = await supabase.from('recipes').update({ status }).eq('id', recipeId)
   if (error) throw error

@@ -30,6 +30,7 @@ export const BATCH_STATUS_LABELS: Record<BatchStatus, string> = {
 /** Colonne de `batches` de chaque mesure. */
 const MEASUREMENT_COLUMNS = {
   mashPh: 'mash_ph_measured',
+  mashTempReachedC: 'mash_temp_reached_c',
   preBoilVolumeL: 'pre_boil_volume_measured_l',
   preBoilGravity: 'pre_boil_gravity_measured',
   postBoilVolumeL: 'post_boil_volume_measured_l',
@@ -82,6 +83,8 @@ export interface BatchStep {
   checkedItems: string[]
   /** Brassin en plusieurs sessions : numéro de la session (1, 2) des étapes chaudes ; null pour les étapes communes. */
   session: number | null
+  /** Notes libres saisies sur l'étape pendant le Brew Day. */
+  notes: string | null
 }
 
 export interface BatchSummary {
@@ -303,6 +306,8 @@ export async function getBatchSteps(batchId: string): Promise<BatchStep[]> {
     actualEndAt: s.actual_end_at,
     checkedItems: (s.checked_items as string[] | null) ?? [],
     session: s.session ?? null,
+    // Colonne ajoutée en 0019 : absente (undefined) tant que la migration n'est pas appliquée.
+    notes: s.notes ?? null,
   }))
 }
 
@@ -329,6 +334,12 @@ export async function resetBatchStep(stepId: string): Promise<void> {
 
 export async function updateBatchStepChecklist(stepId: string, checkedItems: string[]): Promise<void> {
   const { error } = await supabase.from('batch_steps').update({ checked_items: checkedItems }).eq('id', stepId)
+  if (error) throw error
+}
+
+/** Enregistre les notes libres d'une étape (null/chaîne vide efface). */
+export async function updateBatchStepNotes(stepId: string, notes: string | null): Promise<void> {
+  const { error } = await supabase.from('batch_steps').update({ notes: notes || null }).eq('id', stepId)
   if (error) throw error
 }
 

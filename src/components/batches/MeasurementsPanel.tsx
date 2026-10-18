@@ -19,7 +19,7 @@ const INPUT: Record<MeasurementKind, { step: string; min: number; max: number; d
   gravity: { step: '0.001', min: 0.98, max: 1.2, decimals: 3 },
   volume: { step: '0.1', min: 0, max: 1000, decimals: 1 },
   ph: { step: '0.01', min: 3, max: 8, decimals: 2 },
-  temperature: { step: '0.5', min: -5, max: 45, decimals: 1 },
+  temperature: { step: '0.5', min: -5, max: 100, decimals: 1 },
 }
 
 /** Plage de pH d'empâtage où les enzymes travaillent bien. */

@@ -22,6 +22,7 @@ export type Database = {
           checked_items: Json
           id: string
           label: string
+          notes: string | null
           order_index: number
           planned_duration_min: number | null
           session: number | null
@@ -36,6 +37,7 @@ export type Database = {
           checked_items?: Json
           id?: string
           label: string
+          notes?: string | null
           order_index?: number
           planned_duration_min?: number | null
           session?: number | null
@@ -50,6 +52,7 @@ export type Database = {
           checked_items?: Json
           id?: string
           label?: string
+          notes?: string | null
           order_index?: number
           planned_duration_min?: number | null
           session?: number | null
@@ -77,6 +80,7 @@ export type Database = {
           fg_measured: number | null
           id: string
           mash_ph_measured: number | null
+          mash_temp_reached_c: number | null
           max_fermentation_temp_c: number | null
           name: string
           notes: string | null
@@ -102,6 +106,7 @@ export type Database = {
           fg_measured?: number | null
           id?: string
           mash_ph_measured?: number | null
+          mash_temp_reached_c?: number | null
           max_fermentation_temp_c?: number | null
           name: string
           notes?: string | null
@@ -127,6 +132,7 @@ export type Database = {
           fg_measured?: number | null
           id?: string
           mash_ph_measured?: number | null
+          mash_temp_reached_c?: number | null
           max_fermentation_temp_c?: number | null
           name?: string
           notes?: string | null

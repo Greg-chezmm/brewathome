@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { Download, FlaskConical, Hop, Snowflake, Wheat } from 'lucide-react'
+import { Copy, Download, FlaskConical, Hop, ListChecks, Snowflake, Wheat } from 'lucide-react'
+import { useAuth } from '@/lib/auth/AuthProvider'
 import { beerXMLFileName, recipesToBeerXML } from '@/lib/beerxml/export'
 import bjcpStyles from '@/data/bjcp-styles-2021.json'
 import { matchStyle } from '@/lib/brew-calc/style-matching'
@@ -21,7 +22,7 @@ import {
   totalFermentationDays,
 } from '@/lib/brew-calc/fermentation-profile'
 import type { YeastAmountUnit } from '@/lib/brew-calc/types'
-import { deleteRecipe, getRecipeWithDetails } from '@/lib/db/queries/recipes'
+import { deleteRecipe, duplicateRecipe, getRecipeWithDetails } from '@/lib/db/queries/recipes'
 import { getEquipmentProfile } from '@/lib/db/queries/equipmentProfiles'
 import { ActionBar } from '@/components/ActionBar'
 import { BeerGlass } from '@/components/BeerGlass'
@@ -41,6 +42,7 @@ export function RecipeDetail() {
   const { recipeId } = useParams<{ recipeId: string }>()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const { user } = useAuth()
 
   const { data: recipe, isLoading, error } = useQuery({
     queryKey: ['recipe', recipeId],
@@ -118,6 +120,13 @@ export function RecipeDetail() {
     link.download = beerXMLFileName(recipe.name)
     link.click()
     URL.revokeObjectURL(url)
+  }
+
+  async function handleDuplicate() {
+    if (!recipeId || !user) return
+    const newId = await duplicateRecipe(user.id, recipeId)
+    await queryClient.invalidateQueries({ queryKey: ['recipes'] })
+    navigate(`/recipes/${newId}/edit`)
   }
 
   async function handleDelete() {
@@ -322,6 +331,12 @@ export function RecipeDetail() {
           </button>
         }
       >
+        <Link to={`/recipes/${recipeId}/prep`} className="btn-secondary" title="Liste à peser et à préparer avant le brassage (imprimable)">
+          <ListChecks size={16} /> Préparation
+        </Link>
+        <button type="button" onClick={handleDuplicate} className="btn-secondary" title="Créer une copie de cette recette à modifier">
+          <Copy size={16} /> Dupliquer
+        </button>
         <button type="button" onClick={handleExport} className="btn-secondary" title="Télécharger au format BeerXML (Brewfather, BeerSmith, Little Bock…)">
           <Download size={16} /> BeerXML
         </button>

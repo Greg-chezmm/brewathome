@@ -7,7 +7,11 @@ Application personnelle de brassage de bière maison (type Brewfather/Little Boc
 
 ## Où on en est (résumé)
 
-**Dernières avancées** (migration `0018` appliquée sur la base live le 2026-10-18)
+**Dernières avancées** (migration `0019` appliquée sur la base live le 2026-10-18)
+- **Liste de préparation / courses** (bouton « Préparation » sur la fiche recette, `/recipes/:id/prep`) : feuille imprimable (ou cochable à l'écran) listant les fermentescibles à peser, les houblons en sachets datés par moment d'ajout, la levure, les autres ajouts, les volumes d'eau avec la température d'empâtage, et les paliers. Styles d'impression dédiés (navigation masquée).
+- **Notes libres par étape au Brew Day** : chaque étape a un champ « Notes de l'étape » (observations, écarts…), enregistré en base (`batch_steps.notes`, migration 0019), avec mise à jour optimiste pour ne pas être écrasé par le rafraîchissement automatique.
+- **Température d'empâtage réellement atteinte** : nouvelle mesure du Brew Day sur l'étape d'empâtage (`batches.mash_temp_reached_c`, migration 0019), comparée à la cible de la recette et reprise dans le résumé Recette / Brassin.
+- **Dupliquer une recette** (bouton « Dupliquer » sur la fiche) : copie complète (ingrédients compris) nommée « … (copie) », ouverte directement dans l'éditeur.
 - **Changement d'équipement : redimensionnement proposé (façon Brewfather)** : choisir un profil d'équipement qui vise un autre volume ou une autre efficacité propose de recalculer les quantités (grain + houblons) pour garder la même DI et le même IBU ; refuser garde les quantités et ne change que les estimations (`scaleFermentablesToOg`, nouveau `scaleHopsToIbu`).
 - **Fiche et formulaire de recette plus lisibles** : chaque partie (fermentescibles, houblons, levures, empâtage, fermentation, autres ajouts) a une icône colorée (blé, houblon, fiole, thermomètre, flocon…) ; dans le formulaire, elle est dans un bloc encadré distinct des cartes d'ingrédients. Sur la fiche, badge BJCP en haut (code + nom + Ale/Lager) et **jauges** montrant la position de DI/DF/IBU/SRM/alcool dans la plage du style.
 - **Enregistrement d'une recette sans risque de perte** : l'ancienne sauvegarde supprimait tous les ingrédients avant de les réinsérer — un échec d'insertion laissait la recette vide. Désormais on insère d'abord les nouvelles lignes, on ne supprime les anciennes qu'une fois tout réussi, et au moindre échec on annule les insertions (anciennes lignes intactes).

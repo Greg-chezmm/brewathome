@@ -29,6 +29,7 @@ const RecipeDetail = lazyPage(() => import('@/pages/recipes/RecipeDetail'), 'Rec
 const RecipeEdit = lazyPage(() => import('@/pages/recipes/RecipeEdit'), 'RecipeEdit')
 const RecipeImport = lazyPage(() => import('@/pages/recipes/RecipeImport'), 'RecipeImport')
 const RecipeNew = lazyPage(() => import('@/pages/recipes/RecipeNew'), 'RecipeNew')
+const RecipePrep = lazyPage(() => import('@/pages/recipes/RecipePrep'), 'RecipePrep')
 const RecipeValidate = lazyPage(() => import('@/pages/recipes/RecipeValidate'), 'RecipeValidate')
 const RecipesList = lazyPage(() => import('@/pages/recipes/RecipesList'), 'RecipesList')
 const StylesList = lazyPage(() => import('@/pages/styles/StylesList'), 'StylesList')
@@ -48,6 +49,7 @@ export function App() {
           <Route path="/recipes/brewfather" element={<BrewfatherImport />} />
           <Route path="/recipes/:recipeId" element={<RecipeDetail />} />
           <Route path="/recipes/:recipeId/edit" element={<RecipeEdit />} />
+          <Route path="/recipes/:recipeId/prep" element={<RecipePrep />} />
           <Route path="/recipes/:recipeId/validate" element={<RecipeValidate />} />
           <Route path="/batches" element={<BatchesList />} />
           <Route path="/batches/history" element={<BatchesHistory />} />

@@ -79,7 +79,7 @@ const session = (values: Partial<SessionMeasurements>): SessionMeasurements => (
 })
 
 function persisted(sessions: number): BatchStep[] {
-  return buildBatchSteps(recipe, equipment, sessions).map((s, i) => ({ ...s, id: `s${i}`, checkedItems: [] }))
+  return buildBatchSteps(recipe, equipment, sessions).map((s, i) => ({ ...s, id: `s${i}`, checkedItems: [], notes: null }))
 }
 
 describe('Part de recette par session', () => {

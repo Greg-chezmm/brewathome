@@ -223,6 +223,8 @@ export const batches = pgTable('batches', {
   fermenterTopUpL: numeric('fermenter_top_up_l', { precision: 6, scale: 2 }),
   packagingVolumeL: numeric('packaging_volume_l', { precision: 6, scale: 2 }),
   maxFermentationTempC: numeric('max_fermentation_temp_c', { precision: 4, scale: 1 }),
+  // Température réellement atteinte à l'empâtage (relevée au Brew Day), comparée à la cible de la recette.
+  mashTempReachedC: numeric('mash_temp_reached_c', { precision: 4, scale: 1 }),
   ogMeasured: numeric('og_measured', { precision: 5, scale: 3 }),
   fgMeasured: numeric('fg_measured', { precision: 5, scale: 3 }),
   volumeMeasuredL: numeric('volume_measured_l', { precision: 6, scale: 2 }),
@@ -277,6 +279,8 @@ export const batchSteps = pgTable('batch_steps', {
   checkedItems: jsonb('checked_items').$type<string[]>().notNull().default([]),
   // Brassin en plusieurs sessions : numéro de session des étapes chaudes (null pour les étapes communes).
   session: smallint('session'),
+  // Notes libres saisies sur l'étape pendant le Brew Day (observations, écarts…).
+  notes: text('notes'),
 })
 
 export const fermentationReadings = pgTable('fermentation_readings', {

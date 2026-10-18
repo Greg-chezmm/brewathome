@@ -32,7 +32,7 @@ const recipe: RecipeDetails = {
   otherIngredients: [],
 }
 
-const steps: BatchStep[] = buildBatchSteps(recipe, null).map((s, i) => ({ ...s, id: `s${i}`, checkedItems: [] }))
+const steps: BatchStep[] = buildBatchSteps(recipe, null).map((s, i) => ({ ...s, id: `s${i}`, checkedItems: [], notes: null }))
 const step = (type: BatchStep['stepType']) => steps.find((s) => s.stepType === type)!
 const ctx = { recipe, volumes: null, method: 'all-grain' as const }
 

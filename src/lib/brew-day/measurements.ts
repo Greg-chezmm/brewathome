@@ -10,6 +10,7 @@ import { sessionRecipe } from './sessions'
 /** Mesures relevées au fil d'un brassin (mêmes rubriques que Brewfather). */
 export type MeasurementKey =
   | 'mashPh'
+  | 'mashTempReachedC'
   | 'preBoilVolumeL'
   | 'preBoilGravity'
   | 'postBoilVolumeL'
@@ -36,6 +37,12 @@ export interface MeasurementMeta {
 
 export const MEASUREMENTS: Record<MeasurementKey, MeasurementMeta> = {
   mashPh: { label: "pH d'empâtage", kind: 'ph', unit: 'pH', hint: 'Mesuré 10-15 min après l’empâtage, échantillon refroidi.' },
+  mashTempReachedC: {
+    label: "Température d'empâtage atteinte",
+    kind: 'temperature',
+    unit: '°C',
+    hint: 'Température réelle de la maische une fois stabilisée : explique un écart de DF/atténuation (plus chaud = bière plus ronde).',
+  },
   preBoilVolumeL: { label: 'Volume pré-ébullition', kind: 'volume', unit: 'L', hint: 'Dans la cuve, moût chaud, avant de bouillir.' },
   preBoilGravity: { label: 'Densité pré-ébullition', kind: 'gravity', unit: 'SG', hint: 'Échantillon refroidi, avant de bouillir.' },
   postBoilVolumeL: { label: "Volume fin d'ébullition", kind: 'volume', unit: 'L', hint: 'Dans la cuve, à l’arrêt du feu (chaud).' },
@@ -69,6 +76,8 @@ export function plannedMeasurements(
   const volumes = boilSide.volumes
   return {
     mashPh: null,
+    // Cible d'empâtage de la recette : sert de « prévu » en face de la température relevée.
+    mashTempReachedC: mashTempC,
     preBoilVolumeL: volumes ? volumes.preBoilVolumeL * sessions : null,
     preBoilGravity: boilSide.preBoilGravity,
     postBoilVolumeL: volumes ? volumes.postBoilVolumeL * sessions : null,
@@ -312,5 +321,6 @@ export function batchSummary(
       actual: brewhouseEfficiency(measured.og, measured.fermenterVolumeL),
     },
     { label: "pH d'empâtage", unit: '', decimals: 2, planned: null, actual: measured.mashPh },
+    { label: "Température d'empâtage", unit: '°C', decimals: 1, planned: planned.mashTempReachedC, actual: measured.mashTempReachedC },
   ]
 }

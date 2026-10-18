@@ -8,7 +8,7 @@ import type { BatchStep } from '@/lib/db/queries/batches'
 import type { RecipeDetails } from '@/lib/db/queries/recipes'
 import { sessionRecipe } from './sessions'
 
-export type NewBatchStep = Omit<BatchStep, 'id' | 'checkedItems'>
+export type NewBatchStep = Omit<BatchStep, 'id' | 'checkedItems' | 'notes'>
 
 /** Température de l'eau d'empâtage pour atteindre `mashTempC` une fois le grain (à 20 °C) ajouté. */
 export function strikeWaterTempFor(mashTempC: number, totalGrainKg: number, mashWaterL: number | undefined): number | null {

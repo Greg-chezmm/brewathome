@@ -28,6 +28,7 @@ function renderCard(overrides: Partial<BatchStep>, now = Date.now()) {
       totalGrainKg={5}
       mashWaterL={15}
       onToggleItem={() => undefined}
+      onSaveNotes={() => undefined}
       onStart={onStart}
       onStop={onStop}
     />,

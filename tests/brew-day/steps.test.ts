@@ -35,6 +35,7 @@ function persisted(r: RecipeDetails, statuses: Record<string, BatchStep['status'
     status: statuses[s.stepType] ?? 'todo',
     actualStartAt: statuses[s.stepType] ? '2026-10-17T08:00:00Z' : null,
     checkedItems: [],
+    notes: null,
   }))
 }
 

@@ -1,4 +1,5 @@
-import { Check, ChevronDown, Lightbulb, Play, Square } from 'lucide-react'
+import { useState } from 'react'
+import { Check, ChevronDown, Lightbulb, Play, Square, StickyNote } from 'lucide-react'
 import { firstMashTempC } from '@/lib/brew-day/steps'
 import { GravityCorrectionTool } from '@/components/brew-day/GravityCorrectionTool'
 import { StrikeWaterTool } from '@/components/brew-day/StrikeWaterTool'
@@ -20,6 +21,7 @@ export function StepCard({
   totalGrainKg,
   mashWaterL,
   onToggleItem,
+  onSaveNotes,
   onStart,
   onStop,
   measurement,
@@ -34,6 +36,8 @@ export function StepCard({
   totalGrainKg: number
   mashWaterL: number | undefined
   onToggleItem: (itemId: string) => void
+  /** Enregistre les notes libres de l'étape (à la perte du focus). */
+  onSaveNotes: (notes: string) => void
   onStart: () => void
   onStop: () => void
   /** Densité à relever à cette étape (pré-ébullition, fin d'ébullition, DI), comparée à la recette. */
@@ -112,6 +116,8 @@ export function StepCard({
             })}
           </ul>
         )}
+
+        <NotesField step={step} onSave={onSaveNotes} />
       </div>
 
       {measurement}
@@ -142,6 +148,27 @@ export function StepCard({
           <GravityCorrectionTool targetGravity={recipe.estOg ?? undefined} />
         </ToolPanel>
       )}
+    </div>
+  )
+}
+
+/** Notes libres de l'étape : saisie locale, enregistrée à la perte du focus (le composant est remonté à chaque étape). */
+function NotesField({ step, onSave }: { step: BatchStep; onSave: (notes: string) => void }) {
+  const [value, setValue] = useState(step.notes ?? '')
+  return (
+    <div className="mt-5 border-t border-slate-100 pt-4">
+      <label htmlFor={`notes-${step.id}`} className="mb-1.5 flex items-center gap-1.5 text-sm font-medium text-slate-600">
+        <StickyNote size={16} className="text-slate-400" /> Notes de l'étape
+      </label>
+      <textarea
+        id={`notes-${step.id}`}
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onBlur={() => onSave(value)}
+        rows={2}
+        placeholder="Observations, écarts, idées pour la prochaine fois…"
+        className="field-input w-full resize-y"
+      />
     </div>
   )
 }

@@ -38,6 +38,7 @@ import {
   resetBatchStep,
   updateBatchSessionMeasurements,
   updateBatchStepChecklist,
+  updateBatchStepNotes,
   updateBatchStepStatus,
   type BatchStep,
   type BatchStepType,
@@ -46,7 +47,7 @@ import { getEquipmentProfile } from '@/lib/db/queries/equipmentProfiles'
 
 /** Mesures à relever à chaque étape (comme dans Brewfather), comparées aux valeurs de la recette. */
 const STEP_MEASUREMENTS: Partial<Record<BatchStepType, MeasurementKey[]>> = {
-  mash: ['mashPh'],
+  mash: ['mashPh', 'mashTempReachedC'],
   'heat-to-boil': ['preBoilVolumeL', 'preBoilGravity'],
   cooling: ['postBoilVolumeL', 'postBoilGravity'],
   pitch: ['fermenterTopUpL', 'fermenterVolumeL', 'og'],
@@ -220,6 +221,16 @@ export function BrewDay() {
       old?.map((s) => (s.id === step.id ? { ...s, checkedItems } : s)),
     )
     return run(() => updateBatchStepChecklist(step.id, checkedItems))
+  }
+
+  function saveStepNotes(step: BatchStep, notes: string) {
+    const value = notes.trim() === '' ? null : notes
+    if (value === step.notes) return
+    // Mise à jour optimiste : le refetch toutes les 5 s ne doit pas effacer la note tout juste saisie.
+    queryClient.setQueryData<BatchStep[]>(['batch-steps', batchId], (old) =>
+      old?.map((s) => (s.id === step.id ? { ...s, notes: value } : s)),
+    )
+    return run(() => updateBatchStepNotes(step.id, value))
   }
 
   if (!batch || !steps || !visibleSteps || !recipe || !part) return <p className="text-slate-500">Chargement…</p>
@@ -439,6 +450,7 @@ export function BrewDay() {
               totalGrainKg={partGrainKg}
               mashWaterL={partVolumes?.mashWaterL}
               onToggleItem={(itemId) => toggleItem(activeStep, itemId)}
+              onSaveNotes={(notes) => saveStepNotes(activeStep, notes)}
               onStart={() => startStep(activeStep)}
               onStop={() => resetStep(activeStep)}
               measurement={measurement}
