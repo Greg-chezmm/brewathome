@@ -36,6 +36,10 @@ describe('profils d’équipement importés', () => {
     expect(sameEquipmentSettings({ ...barleyWine, boilKettleVolumeL: 20 }, barleyWine)).toBe(true)
   })
 
+  it('réutilise un profil dont l’efficacité d’empâtage a été recalée sur les brassins mesurés', () => {
+    expect(sameEquipmentSettings({ ...barleyWine, mashEfficiencyPercent: 72 }, barleyWine)).toBe(true)
+  })
+
   it('numérote les noms déjà pris', () => {
     expect(uniqueProfileName('Imported', [])).toBe('Imported')
     expect(uniqueProfileName('Imported', ['Imported', 'Imported (2)'])).toBe('Imported (3)')

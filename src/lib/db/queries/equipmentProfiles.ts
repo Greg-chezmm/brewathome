@@ -70,10 +70,13 @@ export async function createEquipmentProfile(
   return data.id as string
 }
 
-/** Capacités estimées à l'import (Brewfather ne les donne pas) : souvent corrigées à la main, on ne les compare pas. */
-const ESTIMATED_FIELDS: (keyof EquipmentProfile)[] = ['name', 'boilKettleVolumeL', 'mashTunVolumeL']
+/**
+ * Non comparés : capacités estimées à l'import (Brewfather ne les donne pas, souvent corrigées à la main) et
+ * efficacité d'empâtage, recalée au fil des brassins (« Reporter les résultats mesurés ») et propre à chaque recette Brewfather.
+ */
+const ESTIMATED_FIELDS: (keyof EquipmentProfile)[] = ['name', 'boilKettleVolumeL', 'mashTunVolumeL', 'mashEfficiencyPercent']
 
-/** Mêmes réglages de volumes et de rendement (au centième près) : un profil importé peut être réutilisé. */
+/** Mêmes réglages de volumes (au centième près) : un profil importé peut être réutilisé. */
 export function sameEquipmentSettings(a: EquipmentProfile, b: EquipmentProfile): boolean {
   return (Object.keys(b) as (keyof EquipmentProfile)[])
     .filter((key) => !ESTIMATED_FIELDS.includes(key))
