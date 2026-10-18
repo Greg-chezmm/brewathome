@@ -120,6 +120,13 @@
       "when": 1792253422411,
       "tag": "0016_recipe_details_fermentation",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1792298826267,
+      "tag": "0017_brew_sessions",
+      "breakpoints": true
     }
   ]
 }

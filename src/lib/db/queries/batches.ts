@@ -2,6 +2,13 @@ import { effectiveMashSteps, mainMashTempC } from '@/lib/brew-calc/mash'
 import type { MeasurementKey, MeasurementValues } from '@/lib/brew-day/measurements'
 import { estimateRecipeStats, REFERENCE_MASH_TEMP_C } from '@/lib/brew-calc/recipe-stats'
 import type { EquipmentProfile } from '@/lib/brew-calc/types'
+import {
+  aggregateSessionMeasurements,
+  clampBrewSessions,
+  normalizeSessionMeasurements,
+  type SessionMeasurementKey,
+  type SessionMeasurements,
+} from '@/lib/brew-day/sessions'
 import { buildBatchSteps, planBatchStepsUpdate, type NewBatchStep } from '@/lib/brew-day/steps'
 import type { RecipeDetails, RecipeInput } from './recipes'
 import type { BrewfatherBatchImport } from '@/lib/brewfather/batches'
@@ -71,6 +78,8 @@ export interface BatchStep {
   actualEndAt: string | null
   /** Points de checklist cochés (identifiants de src/lib/brew-day/checklist.ts). */
   checkedItems: string[]
+  /** Brassin en plusieurs sessions : numéro de la session (1, 2) des étapes chaudes ; null pour les étapes communes. */
+  session: number | null
 }
 
 export interface BatchSummary {
@@ -92,6 +101,10 @@ export interface BatchDetails extends BatchSummary {
   notes: string | null
   /** Brassin Brewfather d'origine (import ou rattachement) : permet d'en reprendre les relevés. */
   brewfatherId: string | null
+  /** Nombre de sessions de brassage (2 : recette brassée en deux fois le même jour, un seul fermenteur). */
+  brewSessions: number
+  /** Mesures de chaque session (une entrée par session) ; leurs totaux alimentent `measurements`. */
+  sessionMeasurements: SessionMeasurements[]
 }
 
 /** Valide une recette en brassin : snapshot figé + génération des étapes de brew day. */
@@ -100,6 +113,7 @@ export async function createBatchFromRecipe(
   recipeId: string,
   name: string,
   brewDate: string | null,
+  brewSessions = 1,
 ): Promise<string> {
   const savedRecipe = await getRecipeWithDetails(recipeId)
   const equipmentProfile = savedRecipe.equipmentProfileId ? await getEquipmentProfile(savedRecipe.equipmentProfileId) : null
@@ -123,6 +137,8 @@ export async function createBatchFromRecipe(
       name,
       brew_date: brewDate,
       status: 'planned',
+      // Colonne ajoutée en 0017 : envoyée seulement quand elle sert.
+      ...(brewSessions > 1 && { brew_sessions: brewSessions }),
     })
     .select('id')
     .single()
@@ -130,7 +146,7 @@ export async function createBatchFromRecipe(
 
   const batchId = batch.id as string
 
-  const steps = buildBatchSteps(recipe, equipmentProfile)
+  const steps = buildBatchSteps(recipe, equipmentProfile, brewSessions)
   const { error: stepsError } = await supabase.from('batch_steps').insert(steps.map((s) => toStepRow(batchId, s)))
   if (stepsError) throw stepsError
 
@@ -260,6 +276,9 @@ function batchFromRow(data: Record<string, any>): BatchDetails {
     ) as MeasurementValues,
     notes: data.notes,
     brewfatherId: data.brewfather_id ?? null,
+    // Colonnes ajoutées en 0017 : un brassin d'une session tant que la migration n'est pas appliquée.
+    brewSessions: clampBrewSessions(data.brew_sessions ?? 1),
+    sessionMeasurements: normalizeSessionMeasurements(data.session_measurements, clampBrewSessions(data.brew_sessions ?? 1)),
   }
 }
 
@@ -281,6 +300,7 @@ export async function getBatchSteps(batchId: string): Promise<BatchStep[]> {
     actualStartAt: s.actual_start_at,
     actualEndAt: s.actual_end_at,
     checkedItems: s.checked_items ?? [],
+    session: s.session ?? null,
   }))
 }
 
@@ -328,6 +348,7 @@ export async function updateBatchRecipeSnapshot(
   batchId: string,
   currentSnapshot: RecipeDetails,
   patch: RecipeInput,
+  brewSessions: number,
 ): Promise<void> {
   const equipment = patch.equipmentProfileId ? await getEquipmentProfile(patch.equipmentProfileId) : null
   const { og, fg, ibu, srm, abv } = estimateRecipeStats({ ...patch, mashTempC: mainMashTempC(patch.mashSteps, patch.mashTempC), equipment })
@@ -361,7 +382,51 @@ export async function updateBatchRecipeSnapshot(
   const { error } = await supabase.from('batches').update({ recipe_snapshot: snapshot }).eq('id', batchId)
   if (error) throw error
 
-  await regenerateBatchSteps(batchId, snapshot, equipment)
+  await regenerateBatchSteps(batchId, snapshot, equipment, brewSessions)
+}
+
+/**
+ * Passe un brassin en une ou plusieurs sessions : les étapes du Brew Day sont régénérées
+ * (celles déjà commencées sont gardées, voir `planBatchStepsUpdate`).
+ */
+export async function updateBatchBrewSessions(batchId: string, recipe: RecipeDetails, brewSessions: number): Promise<void> {
+  const { error } = await supabase.from('batches').update({ brew_sessions: brewSessions }).eq('id', batchId)
+  if (error) throw error
+  const equipment = recipe.equipmentProfileId ? await getEquipmentProfile(recipe.equipmentProfileId) : null
+  await regenerateBatchSteps(batchId, recipe, equipment, brewSessions)
+}
+
+/**
+ * Enregistre des mesures d'une session (index 0 = session 1), puis leurs totaux sur le brassin
+ * (volumes additionnés, densités moyennées selon les volumes ; effacés tant qu'une session manque).
+ * Les mesures sont relues juste avant : deux onglets (une session chacun) ne s'écrasent pas.
+ */
+export async function updateBatchSessionMeasurements(
+  batchId: string,
+  sessionIndex: number,
+  changes: Partial<Record<SessionMeasurementKey, number | null>>,
+): Promise<void> {
+  const { data, error } = await supabase
+    .from('batches')
+    .select('brew_sessions, session_measurements')
+    .eq('id', batchId)
+    .single()
+  if (error) throw error
+  const sessions = normalizeSessionMeasurements(data.session_measurements, clampBrewSessions(data.brew_sessions))
+  if (!sessions[sessionIndex]) throw new Error(`Session ${sessionIndex + 1} inconnue pour ce brassin.`)
+  sessions[sessionIndex] = { ...sessions[sessionIndex], ...changes }
+
+  const totals = aggregateSessionMeasurements(sessions)
+  const { error: updateError } = await supabase
+    .from('batches')
+    .update({
+      session_measurements: sessions,
+      ...Object.fromEntries(
+        Object.entries(totals).map(([key, value]) => [MEASUREMENT_COLUMNS[key as MeasurementKey], value]),
+      ),
+    })
+    .eq('id', batchId)
+  if (updateError) throw updateError
 }
 
 function toStepRow(batchId: string, s: NewBatchStep) {
@@ -373,6 +438,8 @@ function toStepRow(batchId: string, s: NewBatchStep) {
     planned_duration_min: s.plannedDurationMin,
     trigger_time_min: s.triggerTimeMin,
     status: s.status,
+    // Colonne ajoutée en 0017 : envoyée seulement pour un brassin en plusieurs sessions.
+    ...(s.session != null && { session: s.session }),
   }
 }
 
@@ -386,9 +453,10 @@ async function regenerateBatchSteps(
   batchId: string,
   recipe: RecipeDetails,
   equipmentProfile: EquipmentProfile | null,
+  brewSessions: number,
 ): Promise<void> {
   const existing = await getBatchSteps(batchId)
-  const plan = planBatchStepsUpdate(existing, buildBatchSteps(recipe, equipmentProfile))
+  const plan = planBatchStepsUpdate(existing, buildBatchSteps(recipe, equipmentProfile, brewSessions))
 
   if (plan.deleteIds.length > 0) {
     const { error } = await supabase.from('batch_steps').delete().in('id', plan.deleteIds)

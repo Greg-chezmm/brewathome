@@ -2,6 +2,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { BatchSummaryTable } from '@/components/batches/BatchSummaryTable'
 import { MeasurementsPanel } from '@/components/batches/MeasurementsPanel'
+import { SessionsChoice } from '@/components/batches/SessionsChoice'
 import { calculateFG } from '@/lib/brew-calc/gravity'
 import {
   MEASUREMENTS,
@@ -13,9 +14,12 @@ import {
   plannedMeasurements,
   type MeasurementKey,
 } from '@/lib/brew-day/measurements'
+import { SESSION_MEASUREMENT_KEYS, SESSION_MEASUREMENT_LABELS, sessionRecipe } from '@/lib/brew-day/sessions'
 import {
   deleteBatch,
   getBatchWithDetails,
+  updateBatchBrewSessions,
+  updateBatchSessionMeasurements,
   updateBatchStatus,
   type BatchStatus,
 } from '@/lib/db/queries/batches'
@@ -59,7 +63,14 @@ export function BatchOverview() {
     toolsParams.set('yeast', recipe.yeasts[0].style)
     toolsParams.set('form', recipe.yeasts[0].type)
   }
-  const planned = plannedMeasurements(recipe, equipmentProfile)
+  const sessions = batch.brewSessions
+  const planned = plannedMeasurements(recipe, equipmentProfile, sessions)
+  const part = sessionRecipe(recipe, sessions)
+  const plannedSession = sessions > 1 ? plannedMeasurements(part, equipmentProfile) : null
+  // En plusieurs sessions, volumes et densités avant/après ébullition se saisissent par session (le brassin en a les totaux).
+  const batchFields = (Object.keys(MEASUREMENTS) as MeasurementKey[]).filter(
+    (key) => sessions === 1 || key === 'fermenterVolumeL' || !(SESSION_MEASUREMENT_KEYS as readonly MeasurementKey[]).includes(key),
+  )
   const { og, fg, fermenterVolumeL } = batch.measurements
   // DI mesurée sans DF : degré attendu en gardant l'atténuation prévue par la recette,
   // depuis la DI effective (sucre ajouté en fermentation compris).
@@ -84,6 +95,13 @@ export function BatchOverview() {
     if (!next) return
     await updateBatchStatus(batchId, next)
     queryClient.invalidateQueries({ queryKey: ['batch', batchId] })
+  }
+
+  async function changeSessions(brewSessions: number) {
+    if (!batchId) return
+    await updateBatchBrewSessions(batchId, recipe, brewSessions)
+    queryClient.invalidateQueries({ queryKey: ['batch', batchId] })
+    queryClient.invalidateQueries({ queryKey: ['batch-steps', batchId] })
   }
 
   async function handleDelete() {
@@ -132,9 +150,27 @@ export function BatchOverview() {
         </p>
       </section>
 
+      {(batch.status === 'planned' || sessions > 1) && (
+        <section className="card">
+          <h2 className="section-title mb-2">Sessions de brassage</h2>
+          <SessionsChoice
+            recipe={recipe}
+            equipment={equipmentProfile}
+            value={sessions}
+            onChange={changeSessions}
+            disabled={batch.status !== 'planned'}
+          />
+          {sessions > 1 && (
+            <p className="mt-2 text-xs text-slate-500">
+              Au Brew Day, suivez une session par onglet (ou passez de l'une à l'autre) : chacune a son ébullition et ses mesures.
+            </p>
+          )}
+        </section>
+      )}
+
       <MeasurementsPanel
         batchId={batch.id}
-        fields={Object.keys(MEASUREMENTS) as MeasurementKey[]}
+        fields={batchFields}
         measured={batch.measurements}
         planned={planned}
         recipe={recipe}
@@ -142,13 +178,29 @@ export function BatchOverview() {
         title="Mesures du brassin"
       />
 
+      {plannedSession &&
+        batch.sessionMeasurements.map((measured, index) => (
+          <MeasurementsPanel
+            key={index}
+            batchId={batch.id}
+            fields={[...SESSION_MEASUREMENT_KEYS]}
+            measured={{ ...batch.measurements, ...measured }}
+            planned={plannedSession}
+            recipe={part}
+            equipment={equipmentProfile}
+            labels={SESSION_MEASUREMENT_LABELS}
+            title={`Mesures de la session ${index + 1}`}
+            onSave={(changes) => updateBatchSessionMeasurements(batch.id, index, changes)}
+          />
+        ))}
+
       <section className="card">
         <h2 className="section-title mb-1">Résumé : recette / brassin</h2>
         <p className="mb-3 text-sm text-slate-500">
           Saisissez les mesures au Brew Day (chaque étape propose les siennes) ou ci-dessus. Seules la DI et la DF sont
           indispensables ; volumes et densités intermédiaires donnent les efficacités réelles.
         </p>
-        <BatchSummaryTable rows={batchSummary(recipe, equipmentProfile, batch.measurements)} />
+        <BatchSummaryTable rows={batchSummary(recipe, equipmentProfile, batch.measurements, sessions)} />
         {projected !== null && (
           <p className="mt-3 text-sm text-slate-600">
             Avec la DI mesurée, alcool attendu : <strong>{projected.abv.toFixed(1)} %</strong> (atténuation de la recette

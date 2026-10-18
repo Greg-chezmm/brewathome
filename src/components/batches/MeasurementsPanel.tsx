@@ -47,6 +47,9 @@ export function MeasurementsPanel({
   recipe,
   equipment,
   title = 'Mesures',
+  labels,
+  suggestions,
+  onSave = (changes) => updateBatchMeasurements(batchId, changes),
 }: {
   batchId: string
   fields: MeasurementKey[]
@@ -55,6 +58,12 @@ export function MeasurementsPanel({
   recipe: RecipeDetails
   equipment: EquipmentProfile | null | undefined
   title?: string
+  /** Libellés remplaçant ceux de `MEASUREMENTS` (ex. mesures d'une session). */
+  labels?: Partial<Record<MeasurementKey, string>>
+  /** Valeurs calculées proposées (ex. DI du mélange des sessions), reprises d'un clic dans le champ. */
+  suggestions?: Partial<Record<MeasurementKey, { value: number; label: string }>>
+  /** Enregistrement des mesures modifiées (par défaut : celles du brassin). */
+  onSave?: (changes: Partial<Record<MeasurementKey, number | null>>) => Promise<void>
 }) {
   const queryClient = useQueryClient()
   const [drafts, setDrafts] = useState(() =>
@@ -85,7 +94,7 @@ export function MeasurementsPanel({
     setSaving(true)
     setError(null)
     try {
-      await updateBatchMeasurements(batchId, changes)
+      await onSave(changes)
       await queryClient.invalidateQueries({ queryKey: ['batch', batchId] })
     } catch (err) {
       setError((err as Error).message)
@@ -106,7 +115,7 @@ export function MeasurementsPanel({
       planned: recipe.mashEfficiencyPercent,
     })
   }
-  if (fields.includes('og') || fields.includes('fermenterVolumeL')) {
+  if (fields.includes('og')) {
     efficiencies.push({
       label: 'Efficacité de la brasserie',
       actual:
@@ -126,11 +135,13 @@ export function MeasurementsPanel({
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         {fields.map((key) => {
           const meta = MEASUREMENTS[key]
+          const label = labels?.[key] ?? meta.label
           const input = INPUT[meta.kind]
+          const suggestion = suggestions?.[key]
           return (
             <div key={key}>
               <FieldLabel hint={meta.hint}>
-                {meta.label}
+                {label}
                 <span
                   className={`ml-1.5 rounded px-1 py-px text-[10px] normal-case tracking-normal ${
                     meta.required ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-500'
@@ -147,7 +158,7 @@ export function MeasurementsPanel({
                   value={drafts[key]}
                   placeholder={planned[key] !== null ? toDraft(key, Number(planned[key]!.toFixed(input.decimals))) : ''}
                   onChange={(e) => setDrafts({ ...drafts, [key]: e.target.value })}
-                  aria-label={meta.label}
+                  aria-label={label}
                   className="field-input w-32"
                 />
                 {meta.kind !== 'gravity' && <span className="text-sm text-slate-500">{meta.unit}</span>}
@@ -155,6 +166,15 @@ export function MeasurementsPanel({
                   <span className="text-xs text-slate-500">prévu {formatValue(key, planned[key]!)}</span>
                 )}
               </div>
+              {suggestion && (
+                <button
+                  type="button"
+                  onClick={() => setDrafts({ ...drafts, [key]: toDraft(key, Number(suggestion.value.toFixed(input.decimals))) })}
+                  className="mt-1 text-xs font-medium text-indigo-600 hover:underline"
+                >
+                  {suggestion.label} : {formatValue(key, suggestion.value)} — reprendre
+                </button>
+              )}
               {invalid.includes(key) && (
                 <p className="mt-1 text-xs text-red-600">
                   Valeur attendue entre {input.min} et {input.max}.

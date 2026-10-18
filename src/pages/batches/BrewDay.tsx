@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useParams, useSearchParams } from 'react-router-dom'
 import {
   ChevronLeft,
   ChevronRight,
@@ -16,18 +16,27 @@ import {
 import { MeasurementsPanel } from '@/components/batches/MeasurementsPanel'
 import { StepCard } from '@/components/brew-day/StepCard'
 import { StepOverview } from '@/components/brew-day/StepOverview'
-import { additionTiming, groupSteps } from '@/components/brew-day/stepMeta'
+import { boilElapsedSeconds, boilTiming, groupSteps } from '@/components/brew-day/stepMeta'
 import { useAlertSound } from '@/hooks/useAlertSound'
 import { formatDuration, useNowTick } from '@/hooks/useBrewTimer'
 import { useWakeLock } from '@/hooks/useWakeLock'
-import { calculateVolumes } from '@/lib/brew-calc/volumes'
+import { fermentableUse } from '@/lib/brew-calc/gravity'
 import { checklistProgress, stepGuide, type StepGuide } from '@/lib/brew-day/checklist'
 import { plannedMeasurements, type MeasurementKey } from '@/lib/brew-day/measurements'
+import {
+  blendedFermenter,
+  scaleVolumes,
+  SESSION_MEASUREMENT_LABELS,
+  sessionRecipe,
+  sessionVolumes,
+  type SessionMeasurementKey,
+} from '@/lib/brew-day/sessions'
 import {
   getBatchSteps,
   isStepFinished,
   getBatchWithDetails,
   resetBatchStep,
+  updateBatchSessionMeasurements,
   updateBatchStepChecklist,
   updateBatchStepStatus,
   type BatchStep,
@@ -43,14 +52,21 @@ const STEP_MEASUREMENTS: Partial<Record<BatchStepType, MeasurementKey[]>> = {
   pitch: ['fermenterTopUpL', 'fermenterVolumeL', 'og'],
 }
 
+/** Brassin en plusieurs sessions : mesures propres à chaque session (le volume versé au fermenteur en plus). */
+const SESSION_STEP_MEASUREMENTS: Partial<Record<BatchStepType, SessionMeasurementKey[]>> = {
+  'heat-to-boil': ['preBoilVolumeL', 'preBoilGravity'],
+  cooling: ['postBoilVolumeL', 'postBoilGravity', 'fermenterVolumeL'],
+}
+
 export function BrewDay() {
   const { batchId } = useParams<{ batchId: string }>()
+  const [searchParams, setSearchParams] = useSearchParams()
   const queryClient = useQueryClient()
   const { unlock, play } = useAlertSound()
   const [soundEnabled, setSoundEnabled] = useState(false)
   const alertedStepIds = useRef(new Set<string>())
   const now = useNowTick()
-  const [activeIndex, setActiveIndex] = useState<number | null>(null)
+  const [activeId, setActiveId] = useState<string | null>(null)
   const [overviewOpen, setOverviewOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -74,43 +90,85 @@ export function BrewDay() {
     enabled: !!equipmentProfileId,
   })
 
-  const boilStep = steps?.find((s) => s.stepType === 'boil')
-  const boilElapsedSeconds = boilStep?.actualStartAt
-    ? Math.max(0, Math.floor((now - new Date(boilStep.actualStartAt).getTime()) / 1000))
-    : 0
+  // Brassin en plusieurs sessions : la session suivie est dans l'URL (?session=2), un onglet par session possible.
+  const brewSessions = batch?.brewSessions ?? 1
+  const sessionParam = Number(searchParams.get('session'))
+  const sessionFilter = brewSessions > 1 && sessionParam >= 1 && sessionParam <= brewSessions ? sessionParam : null
+  const visibleSteps = useMemo(
+    () => steps?.filter((s) => sessionFilter === null || s.session == null || s.session === sessionFilter),
+    [steps, sessionFilter],
+  )
 
   const recipe = batch?.recipeSnapshot
-  const totalGrainKg = recipe
-    ? recipe.fermentables.filter((f) => f.type === 'grain').reduce((sum, f) => sum + f.amountKg, 0)
+  // Étapes d'une session : sa part de la recette et ses volumes ; étapes communes : toute la journée.
+  const part = useMemo(() => (recipe ? sessionRecipe(recipe, brewSessions) : undefined), [recipe, brewSessions])
+  const partVolumes = useMemo(
+    () => (recipe ? sessionVolumes(recipe, brewSessions, equipmentProfile) : null),
+    [recipe, brewSessions, equipmentProfile],
+  )
+  const dayVolumes = partVolumes ? scaleVolumes(partVolumes, brewSessions) : null
+  const partGrainKg = part
+    ? part.fermentables.filter((f) => f.type === 'grain' && fermentableUse(f) === 'mash').reduce((sum, f) => sum + f.amountKg, 0)
     : 0
-  const volumes = recipe && equipmentProfile ? calculateVolumes(recipe.targetVolumeL, totalGrainKg, recipe.boilTimeMin, equipmentProfile) : null
 
-  const planned = useMemo(() => (recipe ? plannedMeasurements(recipe, equipmentProfile) : null), [recipe, equipmentProfile])
+  const planned = useMemo(
+    () => (recipe ? plannedMeasurements(recipe, equipmentProfile, brewSessions) : null),
+    [recipe, equipmentProfile, brewSessions],
+  )
+  const plannedSession = useMemo(
+    () => (part && brewSessions > 1 ? plannedMeasurements(part, equipmentProfile) : null),
+    [part, equipmentProfile, brewSessions],
+  )
 
   const guides = useMemo(() => {
     const map = new Map<string, StepGuide>()
-    if (!recipe || !steps) return map
+    if (!recipe || !part || !steps) return map
     const method = equipmentProfile?.method ?? (recipe.type === 'biab' ? 'biab' : recipe.type)
-    for (const step of steps) map.set(step.id, stepGuide(step, { recipe, volumes, method }))
-    return map
-  }, [recipe, steps, volumes, equipmentProfile])
-
-  useEffect(() => {
-    if (!soundEnabled || !boilStep || !steps) return
     for (const step of steps) {
-      if (additionTiming(step, boilStep, boilElapsedSeconds).isDue && !alertedStepIds.current.has(step.id)) {
+      const inSession = step.session != null
+      map.set(
+        step.id,
+        stepGuide(step, {
+          recipe: inSession ? part : recipe,
+          volumes: inSession ? partVolumes : dayVolumes,
+          method,
+          sessions: brewSessions,
+        }),
+      )
+    }
+    return map
+  }, [recipe, part, steps, partVolumes, dayVolumes, equipmentProfile, brewSessions])
+
+  // Alertes de toutes les sessions, même celles d'un autre onglet : un ajout oublié coûte plus qu'un bip en double.
+  useEffect(() => {
+    if (!soundEnabled || !steps) return
+    for (const step of steps) {
+      if (boilTiming(steps, step, now).timing.isDue && !alertedStepIds.current.has(step.id)) {
         alertedStepIds.current.add(step.id)
         play()
         document.title = `⏰ ${step.label} — BrewAtHome`
       }
     }
-  }, [boilElapsedSeconds, boilStep, steps, soundEnabled, play])
+  }, [now, steps, soundEnabled, play])
 
+  // Étape affichée : la première pas encore faite de la session suivie (ou de toutes).
   useEffect(() => {
-    if (activeIndex !== null || !steps || steps.length === 0) return
-    const firstNotDone = steps.findIndex((s) => !isStepFinished(s.status))
-    setActiveIndex(firstNotDone === -1 ? steps.length - 1 : firstNotDone)
-  }, [steps, activeIndex])
+    if (!visibleSteps || visibleSteps.length === 0) return
+    if (activeId !== null && visibleSteps.some((s) => s.id === activeId)) return
+    const firstNotDone = visibleSteps.find((s) => !isStepFinished(s.status))
+    setActiveId((firstNotDone ?? visibleSteps[visibleSteps.length - 1]).id)
+  }, [visibleSteps, activeId])
+
+  function showSession(session: number | null) {
+    setSearchParams(session === null ? {} : { session: String(session) }, { replace: true })
+  }
+
+  /** Affiche une étape, en passant sur sa session si l'onglet en suit une autre. */
+  function goToStep(step: BatchStep) {
+    if (sessionFilter !== null && step.session != null && step.session !== sessionFilter) showSession(step.session)
+    setActiveId(step.id)
+    setOverviewOpen(false)
+  }
 
   async function run(action: () => Promise<void>) {
     setError(null)
@@ -127,21 +185,24 @@ export function BrewDay() {
     return run(() => updateBatchStepStatus(step.id, 'in-progress', { actualStartAt: new Date().toISOString() }))
   }
 
-  async function completeStep(step: BatchStep, index: number) {
+  async function completeStep(step: BatchStep) {
     await run(() => updateBatchStepStatus(step.id, 'done', { actualEndAt: new Date().toISOString() }))
     document.title = 'BrewAtHome'
-    goToNextUnfinished(index)
+    goToNextUnfinished(step)
   }
 
-  async function skipStep(step: BatchStep, index: number) {
+  async function skipStep(step: BatchStep) {
     await run(() => updateBatchStepStatus(step.id, 'skipped'))
-    goToNextUnfinished(index)
+    goToNextUnfinished(step)
   }
 
-  // Enchaîne sur la prochaine étape ni terminée ni passée.
-  function goToNextUnfinished(index: number) {
-    const next = steps?.findIndex((s, i) => i > index && !isStepFinished(s.status)) ?? -1
-    if (next !== -1) setActiveIndex(next)
+  // Enchaîne sur la prochaine étape ni terminée ni passée : de la même session d'abord, puis dans l'ordre de la journée.
+  function goToNextUnfinished(step: BatchStep) {
+    if (!visibleSteps) return
+    const index = visibleSteps.findIndex((s) => s.id === step.id)
+    const after = visibleSteps.filter((s, i) => i > index && s.id !== step.id && !isStepFinished(s.status))
+    const next = (step.session != null && after.find((s) => s.session === step.session)) || after[0]
+    if (next) setActiveId(next.id)
   }
 
   function resetStep(step: BatchStep) {
@@ -161,36 +222,36 @@ export function BrewDay() {
     return run(() => updateBatchStepChecklist(step.id, checkedItems))
   }
 
-  function selectStep(index: number) {
-    setActiveIndex(index)
-    setOverviewOpen(false)
-  }
+  if (!batch || !steps || !visibleSteps || !recipe || !part) return <p className="text-slate-500">Chargement…</p>
 
-  if (!batch || !steps || !recipe) return <p className="text-slate-500">Chargement…</p>
-
-  const groups = groupSteps(steps)
-  const activeStep = activeIndex !== null ? steps[activeIndex] : undefined
-  const activeMeasurements = activeStep ? STEP_MEASUREMENTS[activeStep.stepType] : undefined
-  const activeGroup = groups.find((g) => g.steps.some(({ index }) => index === activeIndex))
-  const positionInGroup = activeGroup ? activeGroup.steps.findIndex(({ index }) => index === activeIndex) : -1
+  const groups = groupSteps(visibleSteps)
+  const activeIndex = visibleSteps.findIndex((s) => s.id === activeId)
+  const activeStep = activeIndex !== -1 ? visibleSteps[activeIndex] : undefined
+  const activeGroup = groups.find((g) => g.steps.some(({ step }) => step.id === activeId))
+  const positionInGroup = activeGroup ? activeGroup.steps.findIndex(({ step }) => step.id === activeId) : -1
   const checklistTotals = new Map(
     steps.map((s) => [s.id, checklistProgress(guides.get(s.id) ?? { checklist: [], tips: [] }, s)]),
   )
-  const dueSteps = steps
-    .map((step, index) => ({ step, index }))
-    .filter(({ step }) => additionTiming(step, boilStep, boilElapsedSeconds).isDue)
-  const boilRunning = boilStep?.status === 'in-progress' && !!boilStep.actualStartAt
-  const boilRemainingSec = boilRunning ? (boilStep.plannedDurationMin ?? 0) * 60 - boilElapsedSeconds : 0
+  // Ajouts à faire et ébullitions en cours : toutes sessions confondues.
+  const dueSteps = steps.filter((step) => boilTiming(steps, step, now).timing.isDue)
+  const runningBoils = steps.filter(
+    (s) => s.stepType === 'boil' && s.status === 'in-progress' && !!s.actualStartAt && s.id !== activeStep?.id,
+  )
   const allDone = steps.every((s) => isStepFinished(s.status))
+  const activeInSession = activeStep?.session != null
+  const activeSessionIndex = activeStep?.session != null ? activeStep.session - 1 : null
+  const sessionFields = activeStep && activeInSession ? SESSION_STEP_MEASUREMENTS[activeStep.stepType] : undefined
+  const batchFields = activeStep && !sessionFields ? STEP_MEASUREMENTS[activeStep.stepType] : undefined
+  // DI et volume du fermenteur rempli par les sessions, proposés à l'ensemencement.
+  const blend = brewSessions > 1 ? blendedFermenter(batch.sessionMeasurements, batch.measurements.fermenterTopUpL) : null
 
   const overview = (
     <StepOverview
       groups={groups}
-      activeIndex={activeIndex}
-      boilStep={boilStep}
-      boilElapsedSeconds={boilElapsedSeconds}
+      activeIndex={activeIndex === -1 ? null : activeIndex}
+      timingOf={(step) => boilTiming(steps, step, now)}
       checklistTotals={checklistTotals}
-      onSelect={selectStep}
+      onSelect={(index) => goToStep(visibleSteps[index])}
     />
   )
 
@@ -216,8 +277,64 @@ export function BrewDay() {
     </button>
   )
 
+  let measurement: React.ReactNode = undefined
+  if (activeStep && sessionFields && activeSessionIndex !== null && plannedSession) {
+    measurement = (
+      <MeasurementsPanel
+        batchId={batch.id}
+        fields={sessionFields}
+        measured={{ ...batch.measurements, ...batch.sessionMeasurements[activeSessionIndex] }}
+        planned={plannedSession}
+        recipe={part}
+        equipment={equipmentProfile}
+        labels={SESSION_MEASUREMENT_LABELS}
+        title={`Mesures de la session ${activeStep.session}`}
+        onSave={(changes) => updateBatchSessionMeasurements(batch.id, activeSessionIndex, changes)}
+      />
+    )
+  } else if (activeStep && batchFields && planned) {
+    measurement = (
+      <MeasurementsPanel
+        batchId={batch.id}
+        fields={batchFields}
+        measured={batch.measurements}
+        planned={planned}
+        recipe={recipe}
+        equipment={equipmentProfile}
+        title="Mesures de l'étape"
+        suggestions={
+          activeStep.stepType === 'pitch' && blend
+            ? {
+                og: { value: blend.og, label: 'Mélange des sessions' },
+                fermenterVolumeL: { value: blend.volumeL, label: 'Versé par les sessions' },
+              }
+            : undefined
+        }
+      />
+    )
+  }
+
   return (
     <div className="flex flex-col">
+      {/* Session suivie : un onglet par session, ou toutes à la suite */}
+      {brewSessions > 1 && (
+        <div className="mb-3 flex items-center gap-1 self-start rounded-full bg-slate-100 p-1 text-sm" role="group" aria-label="Session suivie">
+          {[null, ...Array.from({ length: brewSessions }, (_, i) => i + 1)].map((session) => (
+            <button
+              key={session ?? 'all'}
+              type="button"
+              onClick={() => showSession(session)}
+              aria-pressed={sessionFilter === session}
+              className={`rounded-full px-3 py-1.5 font-medium ${
+                sessionFilter === session ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-600'
+              }`}
+            >
+              {session === null ? 'Toutes' : `Session ${session}`}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Phase en cours, alertes sonores, liste des étapes (sous les onglets du brassin) */}
       <div className="flex items-center gap-3">
         {activeGroup && (
@@ -230,13 +347,13 @@ export function BrewDay() {
               </span>
             </p>
             <div className="flex flex-1 gap-1">
-              {activeGroup.steps.map(({ step, index }) => (
+              {activeGroup.steps.map(({ step }) => (
                 <button
                   key={step.id}
                   type="button"
-                  onClick={() => setActiveIndex(index)}
+                  onClick={() => setActiveId(step.id)}
                   className={`h-1.5 flex-1 rounded-full ${
-                    index === activeIndex
+                    step.id === activeId
                       ? 'bg-indigo-500'
                       : step.status === 'done'
                         ? 'bg-green-500'
@@ -263,34 +380,40 @@ export function BrewDay() {
         </div>
       </div>
 
-      {/* Bandeaux : ajouts à faire maintenant, ébullition en cours ailleurs */}
+      {/* Bandeaux : ajouts à faire maintenant, ébullitions en cours ailleurs */}
       <div className="space-y-2 pt-3">
-        {dueSteps.map(({ step, index }) => (
+        {dueSteps.map((step) => (
           <button
             key={step.id}
             type="button"
-            onClick={() => setActiveIndex(index)}
+            onClick={() => goToStep(step)}
             className="flex w-full animate-pulse items-center gap-2 rounded-2xl bg-red-600 px-4 py-3 text-left font-semibold text-white"
           >
             <TriangleAlert size={20} className="shrink-0" />
-            <span className="flex-1">Maintenant : {step.label}</span>
+            <span className="flex-1">
+              Maintenant{step.session != null && brewSessions > 1 ? ` (session ${step.session})` : ''} : {step.label}
+            </span>
             <ChevronRight size={18} />
           </button>
         ))}
-        {boilRunning && activeStep?.id !== boilStep.id && (
-          <button
-            type="button"
-            onClick={() => setActiveIndex(steps.indexOf(boilStep))}
-            className="flex w-full items-center gap-2 rounded-2xl bg-orange-100 px-4 py-2.5 text-left text-sm font-medium text-orange-900"
-          >
-            <Flame size={18} className="shrink-0 text-orange-500" />
-            <span className="flex-1">Ébullition</span>
-            <span className="font-mono font-bold tabular-nums">
-              {boilRemainingSec < 0 ? '+' : ''}
-              {formatDuration(Math.abs(boilRemainingSec))}
-            </span>
-          </button>
-        )}
+        {runningBoils.map((boil) => {
+          const remainingSec = (boil.plannedDurationMin ?? 0) * 60 - boilElapsedSeconds(boil, now)
+          return (
+            <button
+              key={boil.id}
+              type="button"
+              onClick={() => goToStep(boil)}
+              className="flex w-full items-center gap-2 rounded-2xl bg-orange-100 px-4 py-2.5 text-left text-sm font-medium text-orange-900"
+            >
+              <Flame size={18} className="shrink-0 text-orange-500" />
+              <span className="flex-1">Ébullition{boil.session != null && brewSessions > 1 ? ` · session ${boil.session}` : ''}</span>
+              <span className="font-mono font-bold tabular-nums">
+                {remainingSec < 0 ? '+' : ''}
+                {formatDuration(Math.abs(remainingSec))}
+              </span>
+            </button>
+          )
+        })}
         {error && <p className="rounded-2xl bg-red-50 px-4 py-2 text-sm text-red-700">{error}</p>}
       </div>
 
@@ -308,36 +431,24 @@ export function BrewDay() {
               key={activeStep.id}
               step={activeStep}
               guide={guides.get(activeStep.id) ?? { checklist: [], tips: [] }}
-              timing={additionTiming(activeStep, boilStep, boilElapsedSeconds)}
+              timing={boilTiming(steps, activeStep, now).timing}
               now={now}
-              boilStarted={!!boilStep?.actualStartAt}
-              boilElapsedSeconds={boilElapsedSeconds}
-              recipe={recipe}
-              totalGrainKg={totalGrainKg}
-              mashWaterL={volumes?.mashWaterL}
+              boilStarted={boilTiming(steps, activeStep, now).boilStarted}
+              boilElapsedSeconds={boilTiming(steps, activeStep, now).boilElapsedSeconds}
+              recipe={activeInSession ? part : recipe}
+              totalGrainKg={partGrainKg}
+              mashWaterL={partVolumes?.mashWaterL}
               onToggleItem={(itemId) => toggleItem(activeStep, itemId)}
               onStart={() => startStep(activeStep)}
               onStop={() => resetStep(activeStep)}
-              measurement={
-                activeMeasurements && batch && planned ? (
-                  <MeasurementsPanel
-                    batchId={batch.id}
-                    fields={activeMeasurements}
-                    measured={batch.measurements}
-                    planned={planned}
-                    recipe={recipe}
-                    equipment={equipmentProfile}
-                    title="Mesures de l'étape"
-                  />
-                ) : undefined
-              }
+              measurement={measurement}
             />
           )}
 
-          {activeStep?.status === 'todo' && activeIndex !== null && (
+          {activeStep?.status === 'todo' && (
             <button
               type="button"
-              onClick={() => skipStep(activeStep, activeIndex)}
+              onClick={() => skipStep(activeStep)}
               className="mx-auto flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium text-slate-500 hover:bg-slate-100"
             >
               <SkipForward size={16} /> Passer cette étape
@@ -357,12 +468,12 @@ export function BrewDay() {
       </div>
 
       {/* Barre d'actions : collée en bas sur mobile, sous la carte sur PC */}
-      {activeStep && activeIndex !== null && (
+      {activeStep && (
         <div className="sticky bottom-0 z-10 -mx-4 border-t border-slate-200 bg-white/95 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur sm:-mx-6 sm:px-6 lg:mx-0 lg:mb-4 lg:ml-[344px] lg:rounded-3xl lg:border lg:px-4 lg:pb-3">
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={() => setActiveIndex(Math.max(0, activeIndex - 1))}
+              onClick={() => setActiveId(visibleSteps[Math.max(0, activeIndex - 1)].id)}
               disabled={activeIndex === 0}
               className="rounded-full border border-slate-200 p-3 text-slate-600 disabled:opacity-30"
               aria-label="Étape précédente"
@@ -373,7 +484,7 @@ export function BrewDay() {
             <div className="flex flex-1 gap-2">
               {/* Démarrer / Arrêter sont sous le minuteur, dans la carte de l'étape. */}
               {!isStepFinished(activeStep.status) && (
-                <button type="button" onClick={() => completeStep(activeStep, activeIndex)} className="btn-primary flex-1 py-3">
+                <button type="button" onClick={() => completeStep(activeStep)} className="btn-primary flex-1 py-3">
                   Terminer
                 </button>
               )}
@@ -386,8 +497,8 @@ export function BrewDay() {
 
             <button
               type="button"
-              onClick={() => setActiveIndex(Math.min(steps.length - 1, activeIndex + 1))}
-              disabled={activeIndex === steps.length - 1}
+              onClick={() => setActiveId(visibleSteps[Math.min(visibleSteps.length - 1, activeIndex + 1)].id)}
+              disabled={activeIndex === visibleSteps.length - 1}
               className="rounded-full border border-slate-200 p-3 text-slate-600 disabled:opacity-30"
               aria-label="Étape suivante"
             >

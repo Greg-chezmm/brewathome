@@ -5,6 +5,7 @@ import { computeRecipe } from '@/lib/brew-calc/recipe-stats'
 import type { EquipmentProfile } from '@/lib/brew-calc/types'
 import { postBoilLossesL } from '@/lib/brew-calc/volumes'
 import type { RecipeDetails } from '@/lib/db/queries/recipes'
+import { sessionRecipe } from './sessions'
 
 /** Mesures relevées au fil d'un brassin (mêmes rubriques que Brewfather). */
 export type MeasurementKey =
@@ -54,20 +55,24 @@ const DEFAULT_SHRINKAGE_PERCENT = 4
  * Valeurs prévues par la recette du brassin (et son équipement, pour les volumes).
  * La DI prévue est celle qu'on mesurera au Brew Day : sans les ajouts en fermentation (sucre,
  * miel…), que la DI estimée de la recette inclut. Ils reviennent dans l'alcool via `measuredAbv`.
+ * Brassin en plusieurs sessions : densités avant/après ébullition d'une session (part de la recette),
+ * volumes d'une session multipliés par leur nombre — ce que donnent les mesures additionnées des sessions.
  */
-export function plannedMeasurements(recipe: RecipeDetails, equipment: EquipmentProfile | null | undefined): MeasurementValues {
-  const calculation = computeRecipe({
-    ...recipe,
-    mashTempC: mainMashTempC(recipe.mashSteps, recipe.mashTempC),
-    equipment,
-  })
-  const volumes = calculation.volumes
+export function plannedMeasurements(
+  recipe: RecipeDetails,
+  equipment: EquipmentProfile | null | undefined,
+  sessions = 1,
+): MeasurementValues {
+  const mashTempC = mainMashTempC(recipe.mashSteps, recipe.mashTempC)
+  const calculation = computeRecipe({ ...recipe, mashTempC, equipment })
+  const boilSide = sessions > 1 ? computeRecipe({ ...sessionRecipe(recipe, sessions), mashTempC, equipment }) : calculation
+  const volumes = boilSide.volumes
   return {
     mashPh: null,
-    preBoilVolumeL: volumes?.preBoilVolumeL ?? null,
-    preBoilGravity: calculation.preBoilGravity,
-    postBoilVolumeL: volumes?.postBoilVolumeL ?? null,
-    postBoilGravity: calculation.postBoilGravity,
+    preBoilVolumeL: volumes ? volumes.preBoilVolumeL * sessions : null,
+    preBoilGravity: boilSide.preBoilGravity,
+    postBoilVolumeL: volumes ? volumes.postBoilVolumeL * sessions : null,
+    postBoilGravity: boilSide.postBoilGravity,
     fermenterTopUpL: 0,
     fermenterVolumeL: recipe.targetVolumeL,
     // computeRecipe dilue les ajouts en fermentation dans son volume de calcul : on les retire de même.
@@ -228,10 +233,12 @@ export function batchSummary(
   recipe: RecipeDetails,
   equipment: EquipmentProfile | null | undefined,
   measured: MeasurementValues,
+  sessions = 1,
 ): SummaryRow[] {
-  const planned = plannedMeasurements(recipe, equipment)
+  const planned = plannedMeasurements(recipe, equipment, sessions)
   const shrinkage = equipment?.thermalShrinkagePercent ?? DEFAULT_SHRINKAGE_PERCENT
-  const boilHours = recipe.boilTimeMin / 60
+  // Plusieurs sessions : chacune bout à son tour, l'évaporation mesurée se répartit entre elles.
+  const boilHours = (recipe.boilTimeMin / 60) * sessions
   const both = <T>(a: T | null, b: T | null, f: (a: T, b: T) => number | null) => (a !== null && b !== null ? f(a, b) : null)
 
   const evaporation = (pre: number | null, post: number | null) => both(pre, post, (a, b) => (boilHours > 0 ? (a - b) / boilHours : null))
@@ -266,7 +273,7 @@ export function batchSummary(
       label: 'Pertes trub/refroidissement',
       unit: 'L',
       decimals: 1,
-      planned: equipment ? postBoilLossesL(equipment) : null,
+      planned: equipment ? postBoilLossesL(equipment) * sessions : null,
       actual: actualLosses,
     },
     { label: 'Volume conditionné', unit: 'L', decimals: 1, planned: planned.packagingVolumeL, actual: measured.packagingVolumeL },

@@ -40,16 +40,52 @@ export interface StepGroup {
   key: string
   label: string
   icon: string
+  /** Session des étapes de la phase (brassin en plusieurs sessions), null pour une phase commune. */
+  session: number | null
   steps: { step: BatchStep; index: number }[]
 }
 
+/**
+ * Phases du brassage et leurs étapes. Brassin en plusieurs sessions : une phase par session
+ * (« Session 1 · Empâtage »…), rangées dans l'ordre de la journée (session 1, puis session 2).
+ */
 export function groupSteps(steps: BatchStep[]): StepGroup[] {
-  return STEP_GROUPS.map((g) => ({
-    key: g.key,
-    label: g.label,
-    icon: g.icon,
-    steps: steps.map((step, index) => ({ step, index })).filter(({ step }) => g.types.includes(step.stepType)),
-  })).filter((g) => g.steps.length > 0)
+  const indexed = steps.map((step, index) => ({ step, index }))
+  const sessions = [...new Set(steps.map((s) => s.session ?? null))]
+  const groups = STEP_GROUPS.flatMap((g) =>
+    sessions.map((session) => ({
+      key: session === null ? g.key : `${g.key}-${session}`,
+      label: session === null ? g.label : `Session ${session} · ${g.label}`,
+      icon: g.icon,
+      session,
+      steps: indexed.filter(({ step }) => g.types.includes(step.stepType) && (step.session ?? null) === session),
+    })),
+  ).filter((g) => g.steps.length > 0)
+  return sessions.length > 1 ? groups.sort((a, b) => a.steps[0].index - b.steps[0].index) : groups
+}
+
+/** Déclenchement d'une étape et état de l'ébullition dont elle dépend. */
+export interface BoilTiming {
+  timing: AdditionTiming
+  boilStarted: boolean
+  boilElapsedSeconds: number
+}
+
+/** Ébullition dont dépend une étape : celle de sa session. */
+export function boilStepFor(steps: BatchStep[], step: BatchStep): BatchStep | undefined {
+  return steps.find((s) => s.stepType === 'boil' && (s.session ?? null) === (step.session ?? null))
+}
+
+/** Secondes écoulées depuis le début d'une ébullition (0 si pas lancée). */
+export function boilElapsedSeconds(boil: BatchStep | undefined, now: number): number {
+  return boil?.actualStartAt ? Math.max(0, Math.floor((now - new Date(boil.actualStartAt).getTime()) / 1000)) : 0
+}
+
+/** Déclenchement d'une étape d'après l'ébullition de sa session. */
+export function boilTiming(steps: BatchStep[], step: BatchStep, now: number): BoilTiming {
+  const boil = boilStepFor(steps, step)
+  const elapsed = boilElapsedSeconds(boil, now)
+  return { timing: additionTiming(step, boil, elapsed), boilStarted: !!boil?.actualStartAt, boilElapsedSeconds: elapsed }
 }
 
 export interface AdditionTiming {

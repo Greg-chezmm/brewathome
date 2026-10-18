@@ -1,21 +1,20 @@
 import { Check, SkipForward } from 'lucide-react'
 import { formatDuration } from '@/hooks/useBrewTimer'
 import { isStepFinished, type BatchStep } from '@/lib/db/queries/batches'
-import { additionTiming, STEP_ICONS, type StepGroup } from './stepMeta'
+import { STEP_ICONS, type BoilTiming, type StepGroup } from './stepMeta'
 
 /** Vue d'ensemble du brassage : phases → étapes, avec état et avancement des checklists. */
 export function StepOverview({
   groups,
   activeIndex,
-  boilStep,
-  boilElapsedSeconds,
+  timingOf,
   checklistTotals,
   onSelect,
 }: {
   groups: StepGroup[]
   activeIndex: number | null
-  boilStep: BatchStep | undefined
-  boilElapsedSeconds: number
+  /** Moment de l'ajout par rapport à l'ébullition de la session de l'étape. */
+  timingOf: (step: BatchStep) => BoilTiming
   /** Avancement de la checklist de chaque étape, par id d'étape. */
   checklistTotals: Map<string, { done: number; total: number }>
   onSelect: (index: number) => void
@@ -39,7 +38,11 @@ export function StepOverview({
             </div>
             <ul className="space-y-1">
               {group.steps.map(({ step, index }) => {
-                const { isDue, triggerAtSeconds } = additionTiming(step, boilStep, boilElapsedSeconds)
+                const {
+                  timing: { isDue, triggerAtSeconds },
+                  boilStarted,
+                  boilElapsedSeconds,
+                } = timingOf(step)
                 const active = index === activeIndex
                 const progress = checklistTotals.get(step.id)
                 return (
@@ -64,7 +67,7 @@ export function StepOverview({
                         </span>
                         {triggerAtSeconds !== null && step.status === 'todo' && (
                           <span className={`block text-xs ${isDue ? 'font-semibold text-red-600' : 'text-slate-500'}`}>
-                            {!boilStep?.actualStartAt
+                            {!boilStarted
                               ? `à ${step.triggerTimeMin} min de la fin`
                               : isDue
                                 ? 'maintenant !'

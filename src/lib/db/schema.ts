@@ -5,6 +5,7 @@ import {
   numeric,
   pgSchema,
   pgTable,
+  smallint,
   text,
   timestamp,
   uniqueIndex,
@@ -226,6 +227,10 @@ export const batches = pgTable('batches', {
   notes: text('notes'),
   // Identifiant du brassin Brewfather d'origine (import) : évite de l'importer deux fois.
   brewfatherId: text('brewfather_id'),
+  // Recette brassée en plusieurs sessions le même jour (cuve trop petite), vers un seul fermenteur.
+  brewSessions: smallint('brew_sessions').notNull().default(1),
+  // Mesures de chaque session : volumes et densités avant/après ébullition, volume versé au fermenteur.
+  sessionMeasurements: jsonb('session_measurements'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [uniqueIndex('batches_user_brewfather_id_idx').on(t.userId, t.brewfatherId)])
 
@@ -268,6 +273,8 @@ export const batchSteps = pgTable('batch_steps', {
   actualEndAt: timestamp('actual_end_at', { withTimezone: true }),
   // Identifiants des points de checklist cochés pendant le Brew Day (voir src/lib/brew-day/checklist.ts).
   checkedItems: jsonb('checked_items').$type<string[]>().notNull().default([]),
+  // Brassin en plusieurs sessions : numéro de session des étapes chaudes (null pour les étapes communes).
+  session: smallint('session'),
 })
 
 export const fermentationReadings = pgTable('fermentation_readings', {

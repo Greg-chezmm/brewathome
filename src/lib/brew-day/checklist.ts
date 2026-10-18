@@ -28,6 +28,8 @@ export interface StepGuideContext {
   /** Volumes calculés depuis le profil d'équipement (absents sans profil). */
   volumes: VolumeBreakdown | null
   method: BrewMethod
+  /** Nombre de sessions du brassin : chacune verse son moût au fermenteur après refroidissement. */
+  sessions?: number
 }
 
 const fmtL = (l: number) => `${l.toFixed(1)} L`
@@ -243,6 +245,15 @@ export function stepGuide(step: BatchStep, ctx: StepGuideContext): StepGuide {
           { id: 'whirl', label: 'Remuer en cercle (tourbillon) puis laisser reposer 10–15 min', optional: true },
           { id: 'target', label: `Viser ${fermentTemp} pour l'ensemencement` },
           { id: 'gravity', label: "Mesurer la densité de fin d'ébullition et la saisir ci-dessous", optional: true },
+          // Brassin en plusieurs sessions : chaque session verse son moût au fermenteur dès qu'il est froid.
+          ...(step.session != null
+            ? [
+                {
+                  id: 'transfer',
+                  label: `Transférer ${volumes ? fmtL(volumes.volumeIntoFermenterL) : 'le moût'} dans le fermenteur désinfecté, puis noter le volume versé ci-dessous`,
+                },
+              ]
+            : []),
         ],
         tips: [
           "Refroidir vite est crucial : un moût tiède est la cible idéale des bactéries.",
@@ -255,9 +266,12 @@ export function stepGuide(step: BatchStep, ctx: StepGuideContext): StepGuide {
         checklist: [
           {
             id: 'transfer',
-            label: volumes
-              ? `Transférer ${fmtL(volumes.volumeIntoFermenterL)} dans le fermenteur désinfecté, en laissant chuter le moût pour l'oxygéner`
-              : "Transférer dans le fermenteur désinfecté, en laissant chuter le moût pour l'oxygéner",
+            label:
+              (ctx.sessions ?? 1) > 1
+                ? `Les ${ctx.sessions} sessions sont dans le fermenteur : compléter à ${fmtL(recipe.targetVolumeL)} si besoin et bien oxygéner (secouer, remuer)`
+                : volumes
+                  ? `Transférer ${fmtL(volumes.volumeIntoFermenterL)} dans le fermenteur désinfecté, en laissant chuter le moût pour l'oxygéner`
+                  : "Transférer dans le fermenteur désinfecté, en laissant chuter le moût pour l'oxygéner",
           },
           {
             id: 'og',

@@ -2,7 +2,10 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '@/lib/auth/AuthProvider'
+import { SessionsChoice } from '@/components/batches/SessionsChoice'
+import { exceedsKettle } from '@/lib/brew-day/sessions'
 import { createBatchFromRecipe } from '@/lib/db/queries/batches'
+import { getEquipmentProfile } from '@/lib/db/queries/equipmentProfiles'
 import { getRecipeWithDetails } from '@/lib/db/queries/recipes'
 
 export function RecipeValidate() {
@@ -14,20 +17,29 @@ export function RecipeValidate() {
     queryFn: () => getRecipeWithDetails(recipeId!),
     enabled: !!recipeId,
   })
+  const equipmentProfileId = recipe?.equipmentProfileId
+  const { data: equipmentProfile } = useQuery({
+    queryKey: ['equipment-profile', equipmentProfileId],
+    queryFn: () => getEquipmentProfile(equipmentProfileId!),
+    enabled: !!equipmentProfileId,
+  })
 
   const [name, setName] = useState('')
   const [brewDate, setBrewDate] = useState('')
+  // Tant que l'utilisateur n'a pas choisi : 2 sessions si la recette déborde de la cuve.
+  const [sessionsChoice, setSessionsChoice] = useState<number | null>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const effectiveName = name || recipe?.name || ''
+  const brewSessions = sessionsChoice ?? (recipe && exceedsKettle(recipe, equipmentProfile) ? 2 : 1)
 
   async function handleValidate() {
     if (!user || !recipeId) return
     setSaving(true)
     setError(null)
     try {
-      const batchId = await createBatchFromRecipe(user.id, recipeId, effectiveName, brewDate || null)
+      const batchId = await createBatchFromRecipe(user.id, recipeId, effectiveName, brewDate || null, brewSessions)
       navigate(`/batches/${batchId}`)
     } catch (err) {
       setError((err as Error).message)
@@ -64,6 +76,7 @@ export function RecipeValidate() {
             className="w-full rounded border border-slate-300 px-3 py-1.5 text-sm"
           />
         </div>
+        <SessionsChoice recipe={recipe} equipment={equipmentProfile} value={brewSessions} onChange={setSessionsChoice} />
         {error && <p className="text-sm text-red-600">{error}</p>}
         <button
           onClick={handleValidate}

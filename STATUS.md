@@ -6,7 +6,8 @@ Application personnelle de brassage de bière maison (type Brewfather/Little Boc
 
 ## Où on en est (résumé)
 
-**Dernières avancées** (migration `0016` appliquée sur la base live le 2026-10-17)
+**Dernières avancées** (migration `0016` appliquée sur la base live le 2026-10-17 ; `0017` à appliquer)
+- **Recette brassée en 2 sessions** le même jour vers un seul fermenteur (cuve trop petite) : choix à la validation (proposé d'office si la recette déborde de la cuve) ou sur un brassin planifié ; chaque session brasse la moitié du côté chaud, avec ses étapes, son ébullition, ses alertes et ses mesures ; DI du mélange proposée à l'ensemencement.
 - **Profil de fermentation** (primaire, secondaire, garde, cold crash) et **jour du dry hop**, importés de Brewfather et BeerXML ; le suivi de fermentation montre le plan (jour X sur Y, étape en cours, écart de température, dry hops à venir) et pré-remplit le resucrage.
 - **Quantité de levure** (sachets, g, mL), **carbonatation visée**, **moment d'ajout des fermentescibles** (empâtage, ébullition, fermentation) jusque dans le Brew Day.
 - **pH d'empâtage estimé** sur la fiche recette, avec la dose d'acide lactique ; **export BeerXML** ; import BeerXML plus complet.
@@ -17,7 +18,7 @@ Application personnelle de brassage de bière maison (type Brewfather/Little Boc
 - Import Brewfather : les équipements « Imported » ne sont plus confondus entre recettes.
 
 **À faire juste après**
-- Pousser les commits locaux (déploiement).
+- Appliquer la migration `0017_brew_sessions.sql` (colonnes `batches.brew_sessions`, `batches.session_measurements`, `batch_steps.session`), puis pousser les commits locaux (déploiement).
 
 **Prochaines étapes** : voir « Ce qu'il reste à faire ».
 
@@ -59,6 +60,7 @@ Application personnelle de brassage de bière maison (type Brewfather/Little Boc
 - Saisie des mesures à l'étape où elles se font : pH à l'empâtage, volume et densité pré-ébullition à la montée en ébullition, fin d'ébullition au refroidissement, appoint/volume fermenteur/DI à l'ensemencement ; efficacités affichées aussitôt. DF saisissable depuis le bandeau « densité stable » du suivi de fermentation.
 - Minuteur par étape, persistant en base (survit à un rafraîchissement de page) : Démarrer à côté de la durée prévue, Arrêter sous le compte à rebours, Terminer dans la barre du bas. Terminer une étape enchaîne sur la suivante.
 - Alertes sonores + bandeau rouge + changement du titre d'onglet quand un ajout arrive à échéance ; rappel du minuteur d'ébullition quand on consulte une autre étape.
+- **Brassin en 2 sessions** (`src/lib/brew-day/sessions.ts`, migration `0017`) : la recette est brassée en deux fois le même jour vers un seul fermenteur. Chaque session reçoit la moitié du grain, des sucres et houblons d'ébullition et du volume, avec ses propres étapes chaudes (`batch_steps.session`), son ébullition, ses alertes et ses mesures (`batches.session_measurements`) ; levure, ajouts en fermentation et dry hop restent communs. Ordre par session ; sélecteur « Toutes / Session 1 / Session 2 » dans l'URL (`?session=2`) pour suivre une session par onglet. Les totaux des sessions (volumes additionnés, densités moyennées) alimentent les mesures du brassin, donc le résumé et l'historique ; la DI du mélange (pondérée par les volumes versés, appoint compris) est proposée à l'ensemencement.
 - Wake Lock (écran qui reste allumé) pendant tout le Brew Day.
 - Renvoi vers le suivi de fermentation une fois toutes les étapes terminées ou passées.
 - Outils intégrés : calcul d'eau de trempe (strike water), correction de densité (dilution/ajout de fermentescible).
@@ -91,7 +93,6 @@ Application personnelle de brassage de bière maison (type Brewfather/Little Boc
 
 - E-mails d'auth : configurer un SMTP personnalisé (expéditeur « BrewAtHome » au lieu de « Supabase Auth ») et coller les modèles de `supabase/templates/` dans Authentication → Emails. Écran Google : nom d'app « BrewAtHome » dans Google Cloud.
 - Profils d'équipement importés de Brewfather : la capacité de la cuve n'existe pas dans Brewfather ; elle est lue dans le nom (« Marmite 20L ») ou estimée à 1,2 × pré-ébullition et signalée à l'import — à vérifier dans le profil.
-- **Diviser une recette en 2 brassins pour un seul fermenteur** (demande utilisateur) : brasser la recette en deux sessions (ex. 2 × 10 L quand la cuve est trop petite) qui finissent dans le même fermenteur. À cadrer : quantités et volumes par session (moitié de la recette, profil d'équipement), deux Brew Days avec leurs mesures, puis une seule fermentation / un seul suivi iSpindel ; DI du fermenteur = moyenne pondérée des volumes.
 - Support Tilt/TiltBridge au-delà de la saisie manuelle.
 - Calculateur de starter de levure — repoussé (petits volumes, pas de starter pour l'instant).
 - Brewfather : utiliser l'atténuation réelle par levure et le rendement mesuré pour ajuster les recettes. Écarts restants connus : IBU des bières fortes (Brewfather prend la densité pré-ébullition, nous la moyenne des specs) et DF (Brewfather ajuste l'atténuation selon l'empâtage et le sucre).

@@ -6,6 +6,7 @@ import type { EquipmentProfile } from '@/lib/brew-calc/types'
 import { formatWeightKg } from '@/lib/brew-calc/units'
 import type { BatchStep } from '@/lib/db/queries/batches'
 import type { RecipeDetails } from '@/lib/db/queries/recipes'
+import { sessionRecipe } from './sessions'
 
 export type NewBatchStep = Omit<BatchStep, 'id' | 'checkedItems'>
 
@@ -40,20 +41,67 @@ export const CHILLER_SANITIZE_MIN = 15
  * Génère les étapes du Brew Day d'une recette, dans l'ordre de la journée :
  * préparation → empâtage → filtration/rinçage → ébullition → refroidissement
  * → ensemencement → rangement, puis houblonnage à froid (les jours suivants).
+ * En plusieurs sessions (`sessions` > 1), la partie chaude (empâtage → refroidissement) est répétée
+ * pour chaque session avec sa part de la recette, les étapes portant leur numéro de session ;
+ * préparation, ensemencement, rangement et ajouts en fermentation restent communs.
  */
-export function buildBatchSteps(recipe: RecipeDetails, equipmentProfile: EquipmentProfile | null): NewBatchStep[] {
+export function buildBatchSteps(recipe: RecipeDetails, equipmentProfile: EquipmentProfile | null, sessions = 1): NewBatchStep[] {
   const steps: NewBatchStep[] = []
-  const add = (step: Pick<NewBatchStep, 'stepType' | 'label'> & Partial<NewBatchStep>) =>
+  let session: number | null = null
+  const add: AddStep = (step) =>
     steps.push({
       plannedDurationMin: null,
       triggerTimeMin: null,
       status: 'todo',
       actualStartAt: null,
       actualEndAt: null,
+      session,
       ...step,
       orderIndex: steps.length,
     })
 
+  add({ stepType: 'preparation', label: 'Préparation : nettoyage, concassage, eau' })
+
+  const part = sessionRecipe(recipe, sessions)
+  for (let n = 1; n <= sessions; n++) {
+    session = sessions > 1 ? n : null
+    addHotSideSteps(part, equipmentProfile, add, sessions > 1)
+  }
+  session = null
+
+  add({ stepType: 'pitch', label: recipe.yeasts[0] ? `Ensemencement : ${recipe.yeasts[0].name}` : 'Ensemencement' })
+  add({ stepType: 'cleanup', label: 'Rangement et nettoyage' })
+
+  for (const f of recipe.fermentables.filter((f) => fermentableUse(f) === 'fermentation')) {
+    add({ stepType: 'fermentation-addition', label: `Ajout en fermentation : ${f.name} (${formatWeightKg(f.amountKg)})` })
+  }
+
+  for (const hop of recipe.hops.filter((h) => h.use === 'dry-hop')) {
+    const days = hop.dryHopDays ?? 0
+    // Le jour n'apparaît que s'il est fixé dans la recette (les anciens libellés restent identiques).
+    const day = hop.dryHopDay != null ? ` au jour ${hop.dryHopDay}` : ''
+    add({
+      stepType: 'dry-hop-addition',
+      label:
+        hop.dryHopTempC != null
+          ? `Houblonnage à froid${day} : ${hop.name} (${hop.amountG} g) — ${days} j @ ${hop.dryHopTempC} °C`
+          : `Houblonnage à froid${day} : ${hop.name} (${hop.amountG} g) — ${days} j`,
+      plannedDurationMin: days * 24 * 60,
+    })
+  }
+
+  return steps
+}
+
+type AddStep = (step: Pick<NewBatchStep, 'stepType' | 'label'> & Partial<NewBatchStep>) => void
+
+/** Partie chaude d'une session : eau d'empâtage → paliers → rinçage → ébullition et ajouts → refroidissement. */
+function addHotSideSteps(
+  recipe: RecipeDetails,
+  equipmentProfile: EquipmentProfile | null,
+  add: AddStep,
+  transferToFermenter: boolean,
+) {
   // Le grain ajouté ailleurs qu'à l'empâtage (rare) n'absorbe pas d'eau de maische : seul celui de l'empâtage compte.
   const mashFermentables = recipe.fermentables.filter((f) => fermentableUse(f) === 'mash')
   const grainFermentables = mashFermentables.filter((f) => f.type === 'grain')
@@ -62,8 +110,6 @@ export function buildBatchSteps(recipe: RecipeDetails, equipmentProfile: Equipme
   const volumes = equipmentProfile ? calculateVolumes(recipe.targetVolumeL, totalGrainKg, recipe.boilTimeMin, equipmentProfile) : null
   const mashSteps = effectiveMashSteps(recipe)
   const strikeTempC = strikeWaterTempFor(firstMashTempC(recipe), totalGrainKg, volumes?.mashWaterL)
-
-  add({ stepType: 'preparation', label: 'Préparation : nettoyage, concassage, eau' })
 
   add({
     stepType: 'strike-water',
@@ -136,32 +182,15 @@ export function buildBatchSteps(recipe: RecipeDetails, equipmentProfile: Equipme
     add({ stepType: 'whirlpool', label: 'Whirlpool / hopstand', plannedDurationMin: 15, triggerTimeMin: 0 })
   }
 
-  add({ stepType: 'cooling', label: 'Refroidissement sous 25 °C' })
-  add({ stepType: 'pitch', label: recipe.yeasts[0] ? `Ensemencement : ${recipe.yeasts[0].name}` : 'Ensemencement' })
-  add({ stepType: 'cleanup', label: 'Rangement et nettoyage' })
-
-  for (const f of recipe.fermentables.filter((f) => fermentableUse(f) === 'fermentation')) {
-    add({ stepType: 'fermentation-addition', label: `Ajout en fermentation : ${f.name} (${formatWeightKg(f.amountKg)})` })
-  }
-
-  for (const hop of recipe.hops.filter((h) => h.use === 'dry-hop')) {
-    const days = hop.dryHopDays ?? 0
-    // Le jour n'apparaît que s'il est fixé dans la recette (les anciens libellés restent identiques).
-    const day = hop.dryHopDay != null ? ` au jour ${hop.dryHopDay}` : ''
-    add({
-      stepType: 'dry-hop-addition',
-      label:
-        hop.dryHopTempC != null
-          ? `Houblonnage à froid${day} : ${hop.name} (${hop.amountG} g) — ${days} j @ ${hop.dryHopTempC} °C`
-          : `Houblonnage à froid${day} : ${hop.name} (${hop.amountG} g) — ${days} j`,
-      plannedDurationMin: days * 24 * 60,
-    })
-  }
-
-  return steps
+  add({
+    stepType: 'cooling',
+    label: transferToFermenter
+      ? `Refroidissement sous 25 °C puis transfert au fermenteur (${recipe.targetVolumeL.toFixed(1)} L)`
+      : 'Refroidissement sous 25 °C',
+  })
 }
 
-/** Types d'étape présents au plus une fois par brassin : on les retrouve par type, même si leur libellé change. */
+/** Types d'étape présents au plus une fois par brassin (par session) : on les retrouve par type, même si leur libellé change. */
 const SINGLE_STEP_TYPES: BatchStep['stepType'][] = [
   'preparation',
   'strike-water',
@@ -199,7 +228,9 @@ export function planBatchStepsUpdate(existing: BatchStep[], fresh: NewBatchStep[
   const deleteIds = ordered.filter((s) => s.status === 'todo').map((s) => s.id)
 
   const sameStep = (f: NewBatchStep, s: BatchStep) =>
-    f.stepType === s.stepType && (SINGLE_STEP_TYPES.includes(s.stepType) || f.label === s.label)
+    f.stepType === s.stepType &&
+    (f.session ?? null) === (s.session ?? null) &&
+    (SINGLE_STEP_TYPES.includes(s.stepType) || f.label === s.label)
 
   // Associe chaque étape commencée à une étape de la nouvelle génération (index dans `fresh`).
   const matchedFreshIndex = new Map<string, number>()
