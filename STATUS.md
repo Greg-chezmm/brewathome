@@ -2,11 +2,15 @@
 
 _Dernière mise à jour : 2026-10-18_
 
+
 Application personnelle de brassage de bière maison (type Brewfather/Little Bock), SPA React + TypeScript, backend Supabase, déployée sur GitHub Pages.
 
 ## Où on en est (résumé)
 
-**Dernières avancées** (migrations `0016` et `0017` appliquées sur la base live, les 2026-10-17 et 2026-10-18)
+**Dernières avancées** (migration `0018` appliquée sur la base live le 2026-10-18)
+- **Enregistrement d'une recette sans risque de perte** : l'ancienne sauvegarde supprimait tous les ingrédients avant de les réinsérer — un échec d'insertion laissait la recette vide. Désormais on insère d'abord les nouvelles lignes, on ne supprime les anciennes qu'une fois tout réussi, et au moindre échec on annule les insertions (anciennes lignes intactes).
+- **Levure sèche en sachets** : unité « sachet(s) » aussi pour les levures sèches, avec le poids d'un sachet (déduit de la marque — Fermentis 11,5 g, Lallemand 11 g, Mangrove Jack's 10 g — ou saisi), et un avertissement quand la levure manque, est sans quantité ou en quantité insuffisante (`brew-calc/yeast.ts`, migration 0018 `recipe_yeasts.sachet_g`).
+- **Vocabulaire unifié DI/DF** : partout « DI » (densité initiale) et « DF » (densité finale) au lieu d'un mélange OG/FG, et « Alcool » au lieu d'ABV, pour ne pas perdre les débutants.
 - **Rappels de fermentation dans l'agenda** (page Fermentation) : ajouts en fermentation (jour réglable), dry hops (ajout et retrait), changements de température, cold crash et fin de fermentation ; fichier .ics pour tout ajouter d'un coup (Calendrier iPhone/Mac, Outlook, Google Agenda) ou lien Google Agenda par rappel. Sans serveur : c'est l'agenda qui notifie.
 - **Recette brassée en 2 sessions** le même jour vers un seul fermenteur (cuve trop petite) : choix à la validation (proposé d'office si la recette déborde de la cuve) ou sur un brassin planifié ; chaque session brasse la moitié du côté chaud, avec ses étapes, son ébullition, ses alertes et ses mesures ; DI du mélange proposée à l'ensemencement.
 - **Profil de fermentation** (primaire, secondaire, garde, cold crash) et **jour du dry hop**, importés de Brewfather et BeerXML ; le suivi de fermentation montre le plan (jour X sur Y, étape en cours, écart de température, dry hops à venir) et pré-remplit le resucrage.

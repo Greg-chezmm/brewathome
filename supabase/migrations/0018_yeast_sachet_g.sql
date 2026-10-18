@@ -1,0 +1,1 @@
+ALTER TABLE "recipe_yeasts" ADD COLUMN "sachet_g" numeric(4, 1);

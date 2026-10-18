@@ -38,11 +38,11 @@ export function RecipesList() {
                   <span className="badge shrink-0">{r.status}</span>
                 </div>
                 <p className="text-sm text-slate-500">
-                  {r.estOg && `OG ${r.estOg.toFixed(3)} · `}
-                  {r.estFg && `FG ${r.estFg.toFixed(3)} · `}
+                  {r.estOg && `DI ${r.estOg.toFixed(3)} · `}
+                  {r.estFg && `DF ${r.estFg.toFixed(3)} · `}
                   {r.estIbu !== null && `${r.estIbu.toFixed(0)} IBU · `}
                   {r.estSrm !== null && `${r.estSrm.toFixed(1)} SRM · `}
-                  {r.estAbv !== null && `${r.estAbv.toFixed(1)}% ABV`}
+                  {r.estAbv !== null && `${r.estAbv.toFixed(1)} % alcool`}
                 </p>
               </div>
             </Link>

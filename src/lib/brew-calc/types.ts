@@ -63,6 +63,8 @@ export interface Yeast {
   style: YeastStyle
   amount?: number
   amountUnit?: YeastAmountUnit
+  /** Poids d'un sachet de levure sèche (g), pour convertir les sachets en grammes. Absent = déduit de la marque. */
+  sachetG?: number
 }
 
 export type BrewMethod = 'all-grain' | 'biab' | 'extract'

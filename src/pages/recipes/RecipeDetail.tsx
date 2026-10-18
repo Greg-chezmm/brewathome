@@ -128,13 +128,13 @@ export function RecipeDetail() {
       <div className="card-tinted">
         <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-5">
           <Stat
-            label="OG"
+            label="DI"
             value={calc.og.toFixed(3)}
             ok={styleMatch?.og}
             hint="Densité initiale avant fermentation. Indique le potentiel d'alcool."
           />
           <Stat
-            label="FG"
+            label="DF"
             value={calc.fg.toFixed(3)}
             ok={styleMatch?.fg}
             hint="Densité finale après fermentation. Plus basse = bière plus sèche."
@@ -152,8 +152,8 @@ export function RecipeDetail() {
             hint="Couleur de la bière, du plus clair au plus foncé."
           />
           <Stat
-            label="ABV"
-            value={`${calc.abv.toFixed(1)}%`}
+            label="Alcool"
+            value={`${calc.abv.toFixed(1)} %`}
             ok={styleMatch?.abv}
             hint="Pourcentage d'alcool par volume."
           />

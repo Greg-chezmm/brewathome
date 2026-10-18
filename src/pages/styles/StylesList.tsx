@@ -19,11 +19,11 @@ export function StylesList() {
           <thead className="bg-slate-50 text-left text-slate-600">
             <tr>
               <th className="px-3 py-2">Style</th>
-              <th className="px-3 py-2">OG</th>
-              <th className="px-3 py-2">FG</th>
+              <th className="px-3 py-2">DI</th>
+              <th className="px-3 py-2">DF</th>
               <th className="px-3 py-2">IBU</th>
               <th className="px-3 py-2">SRM</th>
-              <th className="px-3 py-2">ABV</th>
+              <th className="px-3 py-2">Alcool (%)</th>
             </tr>
           </thead>
           <tbody>

@@ -191,6 +191,8 @@ export const recipeYeasts = pgTable('recipe_yeasts', {
   // Quantité de levure : sachets, grammes ou millilitres.
   amount: numeric('amount', { precision: 7, scale: 2 }),
   amountUnit: text('amount_unit', { enum: ['pkg', 'g', 'ml'] }),
+  // Poids d'un sachet de levure sèche (g) : 11,5 Fermentis, 11 Lallemand, 10 Mangrove Jack's…
+  sachetG: numeric('sachet_g', { precision: 4, scale: 1 }),
   sortOrder: integer('sort_order').notNull().default(0),
 })
 

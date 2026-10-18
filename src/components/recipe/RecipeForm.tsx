@@ -202,7 +202,7 @@ export function RecipeForm({
           </div>
 
           <div className="sm:col-span-2">
-            <FieldLabel hint="Le style BJCP sert de référence pour juger si votre recette (OG, FG, IBU, SRM, ABV) correspond aux plages attendues pour un style donné (ex : IPA américaine, Stout...). C'est informatif — vous pouvez brasser hors-style volontairement.">
+            <FieldLabel hint="Le style BJCP sert de référence pour juger si votre recette (DI, DF, IBU, SRM, alcool) correspond aux plages attendues pour un style donné (ex : IPA américaine, Stout...). C'est informatif — vous pouvez brasser hors-style volontairement.">
               Style BJCP
             </FieldLabel>
             {selectedStyle ? (
@@ -345,7 +345,7 @@ export function RecipeForm({
             />
           </div>
           <div>
-            <FieldLabel hint="Part du potentiel sucre du grain qui finit réellement dissoute dans le moût. Une efficacité plus basse nécessite plus de grain pour atteindre la même densité (OG). Typique : 65-75% en BIAB/tout-grain amateur, jusqu'à 85% avec un matériel optimisé. Choisir un profil d'équipement reprend la sienne (celle mesurée sur vos brassins si vous l'y avez appliquée).">
+            <FieldLabel hint="Part du potentiel sucre du grain qui finit réellement dissoute dans le moût. Une efficacité plus basse nécessite plus de grain pour atteindre la même densité initiale (DI). Typique : 65-75% en BIAB/tout-grain amateur, jusqu'à 85% avec un matériel optimisé. Choisir un profil d'équipement reprend la sienne (celle mesurée sur vos brassins si vous l'y avez appliquée).">
               Efficacité de brassage (%)
             </FieldLabel>
             <input
@@ -416,6 +416,8 @@ export function RecipeForm({
           yeasts={value.yeasts}
           attenuationPercent={calc.attenuationPercent}
           fg={calc.fg}
+          og={calc.og}
+          volumeL={value.targetVolumeL}
           mashTempC={value.mashTempC}
           history={ingredientHistory}
           onChange={(yeasts) => set('yeasts', yeasts)}

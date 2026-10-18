@@ -78,7 +78,7 @@ export function GravityCorrectionTool({ targetGravity }: { targetGravity?: numbe
           />
         </div>
         <div>
-          <FieldLabel hint="La densité visée par la recette à ce stade (généralement l'OG estimée).">
+          <FieldLabel hint="La densité visée par la recette à ce stade (généralement la DI estimée).">
             Densité cible
           </FieldLabel>
           <input

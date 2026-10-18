@@ -536,6 +536,7 @@ export type Database = {
           name: string
           product_id: string | null
           recipe_id: string
+          sachet_g: number | null
           sort_order: number
           style: string
           type: string
@@ -549,6 +550,7 @@ export type Database = {
           name: string
           product_id?: string | null
           recipe_id: string
+          sachet_g?: number | null
           sort_order?: number
           style?: string
           type?: string
@@ -562,6 +564,7 @@ export type Database = {
           name?: string
           product_id?: string | null
           recipe_id?: string
+          sachet_g?: number | null
           sort_order?: number
           style?: string
           type?: string

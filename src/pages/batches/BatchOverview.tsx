@@ -126,8 +126,8 @@ export function BatchOverview() {
           </Link>
         </div>
         <p className="text-sm text-slate-600">
-          OG estimée {recipe.estOg?.toFixed(3)} · FG estimée {recipe.estFg?.toFixed(3)} · {recipe.estIbu?.toFixed(0)} IBU ·{' '}
-          {recipe.estSrm?.toFixed(1)} SRM · {recipe.estAbv?.toFixed(1)}% ABV estimé
+          DI estimée {recipe.estOg?.toFixed(3)} · DF estimée {recipe.estFg?.toFixed(3)} · {recipe.estIbu?.toFixed(0)} IBU ·{' '}
+          {recipe.estSrm?.toFixed(1)} SRM · alcool estimé {recipe.estAbv?.toFixed(1)} %
         </p>
         <p className="mt-1 text-xs text-slate-400">
           Modifier ici n'affecte que ce brassin — la recette d'origine reste inchangée.

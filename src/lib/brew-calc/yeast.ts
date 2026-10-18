@@ -1,4 +1,4 @@
-import type { YeastStyle } from './types'
+import type { Yeast, YeastStyle } from './types'
 
 /**
  * Conversion densité spécifique (SG) -> degrés Plato, formule ASBC standard.
@@ -76,4 +76,69 @@ export function dryYeastForCells(
 ): { grams: number; sachets: number } {
   const grams = cellsNeededBillions / DRY_YEAST_BILLION_CELLS_PER_G
   return { grams, sachets: Math.max(1, Math.ceil(grams / sachetGrams)) }
+}
+
+/**
+ * Poids d'un sachet de levure sèche d'après la marque (nom, ou laboratoire s'il est connu) :
+ * Fermentis (SafAle, SafLager…) 11,5 g, Lallemand (LalBrew…) 11 g, Mangrove Jack's 10 g.
+ * Marque inconnue : 11,5 g, le format le plus courant.
+ */
+export function dryYeastSachetGrams(nameOrLaboratory: string): number {
+  const name = nameOrLaboratory.toLowerCase()
+  if (/mangrove|\bm\d{2}\b/.test(name)) return 10
+  if (/lal|lallemand|windsor|nottingham|verdant|voss/.test(name)) return 11
+  return DRY_YEAST_SACHET_G
+}
+
+/** Cellules d'un sachet ou tube de levure liquide neuf (Wyeast, White Labs), en milliards. */
+export const LIQUID_PACK_BILLION_CELLS = 100
+
+/** En dessous de 90 % de la quantité conseillée, la levure est jugée insuffisante. */
+const PITCH_TOLERANCE = 0.9
+
+export interface YeastPitchCheck {
+  /** Unité de comparaison : grammes de levure sèche ou milliards de cellules (liquide). */
+  unit: 'g' | 'cells'
+  /** Quantité conseillée, dans `unit`. */
+  needed: number
+  /** Quantité prévue par la recette, dans `unit` ; null si non renseignée ou non convertible (ml…). */
+  planned: number | null
+  /** Sachets (ou tubes) conseillés. */
+  packs: number
+  /** Poids d'un sachet de levure sèche (g) ; null pour une levure liquide. */
+  sachetG: number | null
+  /** missing : quantité absente ; unknown : unité non comparable ; low : insuffisante ; ok. */
+  status: 'missing' | 'unknown' | 'low' | 'ok'
+}
+
+/**
+ * Levure à ensemencer pour `volumeL` litres de moût à la densité `og`, comparée à la quantité prévue.
+ * Même taux que l'outil d'ensemencement (Mr Malty : 0,75 million de cellules/mL/°P en ale, le double
+ * en lager ; 10 milliards de cellules par gramme de levure sèche, 100 milliards par sachet liquide neuf).
+ */
+export function checkYeastPitch(yeast: Yeast, volumeL: number, og: number): YeastPitchCheck {
+  const cells = calculateCellsNeededBillions(volumeL, og, yeast.style)
+  const hasAmount = yeast.amount !== undefined && Number.isFinite(yeast.amount) && yeast.amount > 0
+  const unit = yeast.amountUnit ?? 'pkg'
+
+  let check: Omit<YeastPitchCheck, 'status'>
+  if (yeast.type === 'dry') {
+    const sachetG = yeast.sachetG && yeast.sachetG > 0 ? yeast.sachetG : dryYeastSachetGrams(yeast.name)
+    const needed = cells / DRY_YEAST_BILLION_CELLS_PER_G
+    const planned = !hasAmount ? null : unit === 'g' ? yeast.amount! : unit === 'pkg' ? yeast.amount! * sachetG : null
+    check = { unit: 'g', needed, planned, packs: Math.max(1, Math.ceil((needed * PITCH_TOLERANCE) / sachetG)), sachetG }
+  } else {
+    const planned = hasAmount && unit === 'pkg' ? yeast.amount! * LIQUID_PACK_BILLION_CELLS : null
+    const packs = Math.max(1, Math.ceil((cells * PITCH_TOLERANCE) / LIQUID_PACK_BILLION_CELLS))
+    check = { unit: 'cells', needed: cells, planned, packs, sachetG: null }
+  }
+
+  const status = !hasAmount
+    ? 'missing'
+    : check.planned === null
+      ? 'unknown'
+      : check.planned < check.needed * PITCH_TOLERANCE
+        ? 'low'
+        : 'ok'
+  return { ...check, status }
 }

@@ -139,6 +139,7 @@ export async function getRecipeWithDetails(recipeId: string): Promise<RecipeDeta
       attenuationPercent: Number(y.attenuation_percent),
       amount: y.amount !== null && y.amount !== undefined ? Number(y.amount) : undefined,
       amountUnit: (y.amount_unit ?? undefined) as Yeast['amountUnit'],
+      sachetG: y.sachet_g !== null && y.sachet_g !== undefined ? Number(y.sachet_g) : undefined,
     })),
     otherIngredients: (otherIngredients ?? []).map((o) => ({
       name: o.name,
@@ -169,78 +170,131 @@ export interface RecipeInput {
   otherIngredients: OtherIngredient[]
 }
 
+/**
+ * Remplace les lignes d'ingrédients d'une recette **sans jamais pouvoir la vider**.
+ *
+ * On insère d'abord toutes les nouvelles lignes, et on ne supprime les anciennes
+ * qu'une fois toutes les insertions réussies. Si une insertion échoue, on retire les
+ * lignes déjà insérées pendant ce tour et on remonte l'erreur : les anciennes lignes
+ * restent intactes. (supabase-js n'offre pas de transaction côté client ; ce schéma
+ * « insérer puis supprimer » évite la perte de données d'un « supprimer puis insérer ».)
+ */
 async function replaceChildRows(recipeId: string, input: RecipeInput): Promise<void> {
-  await Promise.all([
-    supabase.from('recipe_fermentables').delete().eq('recipe_id', recipeId),
-    supabase.from('recipe_hops').delete().eq('recipe_id', recipeId),
-    supabase.from('recipe_yeasts').delete().eq('recipe_id', recipeId),
-    supabase.from('recipe_other_ingredients').delete().eq('recipe_id', recipeId),
+  // Ids des lignes existantes : on ne les supprimera qu'après insertion réussie des nouvelles.
+  const [exF, exH, exO, exY] = await Promise.all([
+    supabase.from('recipe_fermentables').select('id').eq('recipe_id', recipeId),
+    supabase.from('recipe_hops').select('id').eq('recipe_id', recipeId),
+    supabase.from('recipe_other_ingredients').select('id').eq('recipe_id', recipeId),
+    supabase.from('recipe_yeasts').select('id').eq('recipe_id', recipeId),
   ])
+  for (const res of [exF, exH, exO, exY]) if (res.error) throw res.error
 
-  if (input.fermentables.length > 0) {
-    const { error } = await supabase.from('recipe_fermentables').insert(
-      input.fermentables.map((f, i) => ({
-        recipe_id: recipeId,
-        name: f.name,
-        type: f.type,
-        amount_kg: f.amountKg,
-        color_lovibond: f.colorLovibond,
-        yield_percent: f.yieldPercent,
-        use: f.use ?? null,
-        sort_order: i,
-      })),
-    )
-    if (error) throw error
+  // Insère les nouvelles lignes AVANT toute suppression. Au moindre échec, on nettoie
+  // ce qui a déjà été inséré ce tour et on remonte l'erreur : les anciennes lignes restent.
+  const rollback: Array<() => PromiseLike<unknown>> = []
+  try {
+    if (input.fermentables.length > 0) {
+      const { data, error } = await supabase
+        .from('recipe_fermentables')
+        .insert(
+          input.fermentables.map((f, i) => ({
+            recipe_id: recipeId,
+            name: f.name,
+            type: f.type,
+            amount_kg: f.amountKg,
+            color_lovibond: f.colorLovibond,
+            yield_percent: f.yieldPercent,
+            use: f.use ?? null,
+            sort_order: i,
+          })),
+        )
+        .select('id')
+      if (error) throw error
+      const ids = (data ?? []).map((r) => r.id)
+      if (ids.length > 0) rollback.push(() => supabase.from('recipe_fermentables').delete().in('id', ids))
+    }
+
+    if (input.hops.length > 0) {
+      const { data, error } = await supabase
+        .from('recipe_hops')
+        .insert(
+          input.hops.map((h, i) => ({
+            recipe_id: recipeId,
+            name: h.name,
+            amount_g: h.amountG,
+            alpha_acid_percent: h.alphaAcidPercent,
+            time_min: h.timeMin,
+            use: h.use,
+            form: h.form ?? 'pellet',
+            dry_hop_days: h.dryHopDays ?? null,
+            temperature_c: h.use === 'whirlpool' ? (h.temperatureC ?? null) : null,
+            dry_hop_temp_c: h.dryHopTempC ?? null,
+            dry_hop_day: h.use === 'dry-hop' ? (h.dryHopDay ?? null) : null,
+            sort_order: i,
+          })),
+        )
+        .select('id')
+      if (error) throw error
+      const ids = (data ?? []).map((r) => r.id)
+      if (ids.length > 0) rollback.push(() => supabase.from('recipe_hops').delete().in('id', ids))
+    }
+
+    if (input.otherIngredients.length > 0) {
+      const { data, error } = await supabase
+        .from('recipe_other_ingredients')
+        .insert(
+          input.otherIngredients.map((o, i) => ({
+            recipe_id: recipeId,
+            name: o.name,
+            amount: o.amount,
+            time_min: o.timeMin,
+            sort_order: i,
+          })),
+        )
+        .select('id')
+      if (error) throw error
+      const ids = (data ?? []).map((r) => r.id)
+      if (ids.length > 0) rollback.push(() => supabase.from('recipe_other_ingredients').delete().in('id', ids))
+    }
+
+    if (input.yeasts.length > 0) {
+      const { data, error } = await supabase
+        .from('recipe_yeasts')
+        .insert(
+          input.yeasts.map((y, i) => ({
+            recipe_id: recipeId,
+            name: y.name,
+            type: y.type,
+            style: y.style,
+            attenuation_percent: y.attenuationPercent,
+            amount: y.amount !== undefined && Number.isFinite(y.amount) ? y.amount : null,
+            amount_unit: y.amount !== undefined && Number.isFinite(y.amount) ? (y.amountUnit ?? 'pkg') : null,
+            sachet_g: y.sachetG !== undefined && Number.isFinite(y.sachetG) ? y.sachetG : null,
+            sort_order: i,
+          })),
+        )
+        .select('id')
+      if (error) throw error
+      const ids = (data ?? []).map((r) => r.id)
+      if (ids.length > 0) rollback.push(() => supabase.from('recipe_yeasts').delete().in('id', ids))
+    }
+  } catch (error) {
+    for (const undo of rollback) await undo()
+    throw error
   }
 
-  if (input.hops.length > 0) {
-    const { error } = await supabase.from('recipe_hops').insert(
-      input.hops.map((h, i) => ({
-        recipe_id: recipeId,
-        name: h.name,
-        amount_g: h.amountG,
-        alpha_acid_percent: h.alphaAcidPercent,
-        time_min: h.timeMin,
-        use: h.use,
-        form: h.form ?? 'pellet',
-        dry_hop_days: h.dryHopDays ?? null,
-        temperature_c: h.use === 'whirlpool' ? (h.temperatureC ?? null) : null,
-        dry_hop_temp_c: h.dryHopTempC ?? null,
-        dry_hop_day: h.use === 'dry-hop' ? (h.dryHopDay ?? null) : null,
-        sort_order: i,
-      })),
-    )
-    if (error) throw error
-  }
-
-  if (input.otherIngredients.length > 0) {
-    const { error } = await supabase.from('recipe_other_ingredients').insert(
-      input.otherIngredients.map((o, i) => ({
-        recipe_id: recipeId,
-        name: o.name,
-        amount: o.amount,
-        time_min: o.timeMin,
-        sort_order: i,
-      })),
-    )
-    if (error) throw error
-  }
-
-  if (input.yeasts.length > 0) {
-    const { error } = await supabase.from('recipe_yeasts').insert(
-      input.yeasts.map((y, i) => ({
-        recipe_id: recipeId,
-        name: y.name,
-        type: y.type,
-        style: y.style,
-        attenuation_percent: y.attenuationPercent,
-        amount: y.amount !== undefined && Number.isFinite(y.amount) ? y.amount : null,
-        amount_unit: y.amount !== undefined && Number.isFinite(y.amount) ? (y.amountUnit ?? 'pkg') : null,
-        sort_order: i,
-      })),
-    )
-    if (error) throw error
-  }
+  // Toutes les insertions ont réussi : on supprime maintenant les anciennes lignes par id.
+  const oldF = (exF.data ?? []).map((r) => r.id)
+  const oldH = (exH.data ?? []).map((r) => r.id)
+  const oldO = (exO.data ?? []).map((r) => r.id)
+  const oldY = (exY.data ?? []).map((r) => r.id)
+  const deletions = await Promise.all([
+    oldF.length > 0 ? supabase.from('recipe_fermentables').delete().in('id', oldF) : Promise.resolve({ error: null }),
+    oldH.length > 0 ? supabase.from('recipe_hops').delete().in('id', oldH) : Promise.resolve({ error: null }),
+    oldO.length > 0 ? supabase.from('recipe_other_ingredients').delete().in('id', oldO) : Promise.resolve({ error: null }),
+    oldY.length > 0 ? supabase.from('recipe_yeasts').delete().in('id', oldY) : Promise.resolve({ error: null }),
+  ])
+  for (const res of deletions) if (res.error) throw res.error
 }
 
 async function recipeStatsPayload(input: RecipeInput) {

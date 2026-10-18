@@ -10,7 +10,7 @@ export function Dashboard() {
       <div className="grid gap-4 sm:grid-cols-3">
         <Link to="/recipes/new" className="card-link">
           <h2 className="section-title">Nouvelle recette</h2>
-          <p className="mt-1 text-sm text-slate-500">Créer une recette et calculer OG/FG/IBU/SRM/ABV.</p>
+          <p className="mt-1 text-sm text-slate-500">Créer une recette et calculer DI, DF, IBU, couleur et alcool.</p>
         </Link>
         <Link to="/recipes/import" className="card-link">
           <h2 className="section-title">Importer un BeerXML</h2>

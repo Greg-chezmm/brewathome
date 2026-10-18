@@ -76,8 +76,8 @@ export function RecipeImport() {
                   </p>
                   {draft.sourceEstimates.og && (
                     <p className="text-xs text-slate-400">
-                      Annoncé par le fichier source : OG {draft.sourceEstimates.og.toFixed(3)}, IBU{' '}
-                      {draft.sourceEstimates.ibu}, ABV {draft.sourceEstimates.abv}%
+                      Annoncé par le fichier source : DI {draft.sourceEstimates.og.toFixed(3)}, IBU{' '}
+                      {draft.sourceEstimates.ibu}, alcool {draft.sourceEstimates.abv} %
                     </p>
                   )}
                 </div>

@@ -37,6 +37,8 @@ import type { Fermentable, FermentableUse, Hop, HopForm, HopUse, OtherIngredient
 import type { IngredientHistory } from '@/lib/db/queries/ingredientHistory'
 import { InfoTooltip } from '@/components/InfoTooltip'
 import { formatWeightKg } from '@/lib/brew-calc/units'
+import { checkYeastPitch, dryYeastSachetGrams } from '@/lib/brew-calc/yeast'
+import { yeastPitchMessage } from './yeastPitch'
 
 const HOP_USES: HopUse[] = ['first-wort', 'boil', 'whirlpool', 'dry-hop', 'mash']
 const HOP_USE_LABELS: Record<HopUse, string> = {
@@ -558,6 +560,8 @@ export function YeastCards({
   yeasts,
   attenuationPercent,
   fg,
+  og,
+  volumeL,
   mashTempC,
   history,
   onChange,
@@ -566,6 +570,9 @@ export function YeastCards({
   /** Atténuation retenue par le calcul (levure principale, ajustée par l'empâtage). */
   attenuationPercent: number
   fg: number
+  /** DI et volume en fermenteur : base de la quantité de levure à ensemencer. */
+  og: number
+  volumeL: number
   mashTempC: number
   history: IngredientHistory | undefined
   onChange: (yeasts: Yeast[]) => void
@@ -579,9 +586,11 @@ export function YeastCards({
       hint="La levure transforme les sucres en alcool et CO₂. Son atténuation (part des sucres consommés) fixe la densité finale, donc l'alcool et la sécheresse."
       addLabel="Ajouter une levure"
       onAdd={() => onChange([...yeasts, { ...EMPTY_YEAST }])}
-      empty="Aucune levure : le calcul suppose 75 % d'atténuation."
+      empty="Aucune levure : ajoutez celle que vous ensemencerez (sinon le calcul suppose 75 % d'atténuation)."
     >
-      {yeasts.map((y, i) => (
+      {yeasts.map((y, i) => {
+        const pitch = i === 0 && og > 1 && volumeL > 0 ? yeastPitchMessage(checkYeastPitch(y, volumeL, og)) : null
+        return (
         <Card key={i}>
           <NameRow
             value={y.name}
@@ -593,7 +602,7 @@ export function YeastCards({
             {...reorder(yeasts, i, onChange)}
           />
           <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <Field label="Quantité" hint="Sèche : 1 sachet de 11 g pour 20 L d'ale à moins de 1.060 ; 2 au-delà, ou pour une lager. Liquide : un sachet/tube (≈ 100 milliards de cellules) pour 20 L d'ale moyenne.">
+            <Field label="Quantité" hint="La quantité conseillée dépend du volume et de la DI : plus la bière est forte, plus il faut de levure (le double en lager). Repère : 1 sachet sec pour 20 L d'ale à moins de 1.060. Liquide : un sachet/tube neuf ≈ 100 milliards de cellules.">
               <div className="flex gap-1">
                 <div className="min-w-0 flex-1">
                   <NumberInput
@@ -619,6 +628,16 @@ export function YeastCards({
                 </select>
               </div>
             </Field>
+            {y.type === 'dry' && (y.amountUnit ?? 'pkg') === 'pkg' && (
+              <Field label="Poids d'un sachet (g)" hint="Indiqué sur le sachet : 11,5 g chez Fermentis (SafAle, SafLager), 11 g chez Lallemand (LalBrew), 10 g chez Mangrove Jack's. Laissé vide, il est déduit du nom de la levure.">
+                <NumberInput
+                  value={y.sachetG}
+                  step="0.5"
+                  placeholder={fmt(dryYeastSachetGrams(y.name), 1)}
+                  onChange={(sachetG) => update(i, { sachetG: Number.isFinite(sachetG) && sachetG > 0 ? sachetG : undefined })}
+                />
+              </Field>
+            )}
             <Field label="Type">
               <select value={y.type} onChange={(e) => update(i, { type: e.target.value as Yeast['type'] })} className="field-input">
                 <option value="dry">Sèche</option>
@@ -639,6 +658,7 @@ export function YeastCards({
             {i === 0 ? (
               <>
                 <Chip>DF estimée {Number.isFinite(fg) ? fg.toFixed(3) : '—'}</Chip>
+                {pitch && <Chip tone={pitch.warning ? 'amber' : 'slate'}>{pitch.text}</Chip>}
                 {Number.isFinite(attenuationPercent) && Math.abs(attenuationPercent - y.attenuationPercent) >= 0.05 && (
                   <Chip tone="amber">
                     {fmt(attenuationPercent, 1)} % retenus avec un empâtage à {fmt(mashTempC, 1)} °C
@@ -651,7 +671,8 @@ export function YeastCards({
           </Chips>
           <LibraryNote note={findByName(YEAST_LIBRARY, y.name)?.note} guide={{ tab: 'yeasts', name: y.name }} />
         </Card>
-      ))}
+        )
+      })}
     </IngredientSection>
   )
 }
