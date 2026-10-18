@@ -91,6 +91,7 @@ export function IngredientSection({
   addLabel,
   onAdd,
   empty,
+  emptyTone = 'muted',
   tools,
   children,
 }: {
@@ -103,6 +104,8 @@ export function IngredientSection({
   addLabel: string
   onAdd: () => void
   empty: string
+  /** Ton du message « vide » : 'warn' (ambre) quand l'absence est un problème (ex. pas de levure). */
+  emptyTone?: 'muted' | 'warn'
   /** Outil affiché sous le titre (ex. viser une DI). */
   tools?: ReactNode
   children: ReactNode[]
@@ -123,7 +126,14 @@ export function IngredientSection({
       {children.length > 0 ? (
         <ul className="space-y-3">{children}</ul>
       ) : (
-        <p className="rounded-2xl border border-dashed border-slate-300 bg-white px-4 py-5 text-center text-sm text-slate-400">{empty}</p>
+        <p
+          className={`rounded-2xl border border-dashed px-4 py-5 text-center text-sm ${
+            emptyTone === 'warn' ? 'border-amber-300 bg-amber-50 font-medium text-amber-800' : 'border-slate-300 bg-white text-slate-400'
+          }`}
+        >
+          {emptyTone === 'warn' && <span aria-hidden>⚠ </span>}
+          {empty}
+        </p>
       )}
       <button type="button" onClick={onAdd} className="btn-secondary w-full border-dashed">
         <Plus size={16} />
@@ -619,7 +629,12 @@ export function YeastCards({
       hint="La levure transforme les sucres en alcool et CO₂. Son atténuation (part des sucres consommés) fixe la densité finale, donc l'alcool et la sécheresse."
       addLabel="Ajouter une levure"
       onAdd={() => onChange([...yeasts, { ...EMPTY_YEAST }])}
-      empty="Aucune levure : ajoutez celle que vous ensemencerez (sinon le calcul suppose 75 % d'atténuation)."
+      empty={
+        og > 1
+          ? 'Aucune levure : sans levure, pas de fermentation. Ajoutez celle que vous ensemencerez (en attendant, le calcul suppose 75 % d’atténuation).'
+          : 'Aucune levure : ajoutez celle que vous ensemencerez (sinon le calcul suppose 75 % d’atténuation).'
+      }
+      emptyTone={og > 1 ? 'warn' : 'muted'}
     >
       {yeasts.map((y, i) => {
         const pitch = i === 0 && og > 1 && volumeL > 0 ? yeastPitchMessage(checkYeastPitch(y, volumeL, og)) : null
