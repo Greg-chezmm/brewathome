@@ -64,6 +64,9 @@ const EMPTY_OTHER: OtherIngredient = { name: '', amount: '', timeMin: 10 }
 
 const fmt = (value: number, digits = 0) => value.toLocaleString('fr-FR', { maximumFractionDigits: digits, minimumFractionDigits: digits })
 
+/** Nombre max de suggestions dans la datalist du nom : liste courte pour ne pas masquer le clavier (mobile). */
+const MAX_NAME_SUGGESTIONS = 8
+
 // ——— Briques communes ———
 
 /** Couleur de la pastille d'icône et du liseré de chaque type de section. */
@@ -172,6 +175,12 @@ function NameRow<T extends { name: string }>({
   onMoveDown?: () => void
 }) {
   const listId = useId()
+  // Datalist courte et filtrée par la saisie : sur mobile, la liste complète recouvre le clavier.
+  const query = value.trim().toLowerCase()
+  const shownSuggestions = (query ? suggestions.filter((s) => s.name.toLowerCase().includes(query)) : suggestions).slice(
+    0,
+    MAX_NAME_SUGGESTIONS,
+  )
   return (
     <div className="flex items-center gap-2">
       <input
@@ -187,7 +196,7 @@ function NameRow<T extends { name: string }>({
         className="field-input min-w-0 flex-1 font-semibold"
       />
       <datalist id={listId}>
-        {suggestions.map((s) => (
+        {shownSuggestions.map((s) => (
           <option key={s.name} value={s.name} />
         ))}
       </datalist>
