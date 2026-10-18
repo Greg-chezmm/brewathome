@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { batchHistoryRow, historyInsights, historyStats, type BatchHistoryRow } from '@/lib/batches/history'
 import { BATCH_STATUS_LABELS, listBatchesWithDetails } from '@/lib/db/queries/batches'
+import { listEquipmentProfiles } from '@/lib/db/queries/equipmentProfiles'
 
 const fmt = (value: number | null, digits: number, suffix = '') =>
   value === null || !Number.isFinite(value)
@@ -40,7 +41,11 @@ const signed = (value: number | null, digits: number, suffix: string) =>
 export function BatchesHistory() {
   const { data: batches, isLoading, error } = useQuery({ queryKey: ['batches', 'history'], queryFn: listBatchesWithDetails })
 
-  const rows = (batches ?? []).map(batchHistoryRow)
+  const { data: equipmentProfiles } = useQuery({ queryKey: ['equipment-profiles'], queryFn: listEquipmentProfiles })
+
+  // Efficacité calculée avec le retrait thermique du profil du brassin, comme sur sa fiche.
+  const shrinkage = (id: string | null | undefined) => equipmentProfiles?.find((p) => p.id === id)?.thermalShrinkagePercent
+  const rows = (batches ?? []).map((b) => batchHistoryRow(b, shrinkage(b.recipeSnapshot.equipmentProfileId)))
   const measured = rows.filter(hasData)
   const stats = historyStats(measured)
   const insights = historyInsights(stats, measured.length)
@@ -156,7 +161,7 @@ export function BatchesHistory() {
                         {r.yeastName && <span className="block text-xs text-slate-400">{r.yeastName}</span>}
                         {(r.mashEfficiency !== null || r.attenuation !== null) && (
                           <Link to={`/batches/${r.id}`} className="mt-1 block text-xs text-indigo-600 hover:underline">
-                            Reporter sur la recette →
+                            Reporter les résultats →
                           </Link>
                         )}
                       </td>

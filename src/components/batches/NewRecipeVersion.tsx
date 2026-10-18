@@ -12,7 +12,16 @@ import { createRecipe, listRecipes } from '@/lib/db/queries/recipes'
  * « Nouvelle version de la recette » : une recette créée depuis celle du brassin (avec ses
  * retouches), éventuellement corrigée de ses résultats mesurés, ouverte ensuite dans l'éditeur.
  */
-export function NewRecipeVersion({ batch, equipment }: { batch: BatchDetails; equipment: EquipmentProfileRecord | undefined }) {
+export function NewRecipeVersion({
+  batch,
+  equipment,
+  equipmentLoading = false,
+}: {
+  batch: BatchDetails
+  equipment: EquipmentProfileRecord | undefined
+  /** Profil encore en chargement : ne pas le prendre pour supprimé (il serait retiré de la recette). */
+  equipmentLoading?: boolean
+}) {
   const { user } = useAuth()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -84,7 +93,7 @@ export function NewRecipeVersion({ batch, equipment }: { batch: BatchDetails; eq
       )}
       {error && <p className="text-red-600">{error}</p>}
       <div className="flex gap-2">
-        <button type="button" onClick={create} disabled={saving || !finalName} className="btn-primary btn-sm">
+        <button type="button" onClick={create} disabled={saving || !finalName || equipmentLoading} className="btn-primary btn-sm">
           {saving ? 'Création…' : 'Créer et modifier'}
         </button>
         <button type="button" onClick={() => setOpen(false)} className="btn-secondary btn-sm">

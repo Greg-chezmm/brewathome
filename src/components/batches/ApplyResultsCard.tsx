@@ -14,7 +14,7 @@ const pct = (value: number) => `${value.toLocaleString('fr-FR', { maximumFractio
 export function ApplyResultsCard({ batch, equipment }: { batch: BatchDetails; equipment: EquipmentProfileRecord | undefined }) {
   const queryClient = useQueryClient()
   const results = measuredResults(batch, equipment)
-  const { data: source } = useQuery({
+  const { data: source, isLoading: sourceLoading } = useQuery({
     queryKey: ['recipe', batch.recipeId],
     queryFn: () => getRecipeWithDetails(batch.recipeId!),
     enabled: !!batch.recipeId,
@@ -102,6 +102,8 @@ export function ApplyResultsCard({ batch, equipment }: { batch: BatchDetails; eq
               )}
             </span>
           </label>
+        ) : sourceLoading ? (
+          <p className="text-xs text-slate-500">Chargement de la recette d'origine…</p>
         ) : (
           <p className="text-xs text-slate-500">
             Ce brassin n'est lié à aucune recette (import Brewfather ou recette supprimée) : créez une nouvelle version de la
@@ -121,7 +123,7 @@ export function ApplyResultsCard({ batch, equipment }: { batch: BatchDetails; eq
 
       {(recipeTarget || equipmentTarget) && (
         <div className="flex flex-wrap items-center gap-3">
-          <button type="button" onClick={apply} disabled={nothingChecked || state === 'saving'} className="btn-primary btn-sm">
+          <button type="button" onClick={apply} disabled={nothingChecked || state === 'saving' || state === 'done'} className="btn-primary btn-sm">
             {state === 'saving' ? 'Enregistrement…' : 'Appliquer'}
           </button>
           {state === 'done' && <span className="text-sm text-emerald-700">Résultats reportés.</span>}

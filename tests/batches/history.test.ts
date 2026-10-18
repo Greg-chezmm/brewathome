@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { batchHistoryRow, historyInsights, historyStats, type BatchHistoryRow } from '@/lib/batches/history'
 import { calculateABV_simple } from '@/lib/brew-calc/abv'
 import { computeRecipe } from '@/lib/brew-calc/recipe-stats'
-import { MEASUREMENTS, type MeasurementValues } from '@/lib/brew-day/measurements'
+import { MEASUREMENTS, mashEfficiencyPercent, type MeasurementValues } from '@/lib/brew-day/measurements'
 import type { BatchDetails } from '@/lib/db/queries/batches'
 import type { RecipeDetails } from '@/lib/db/queries/recipes'
 
@@ -88,6 +88,13 @@ describe('batchHistoryRow', () => {
     const planned = computeRecipe({ ...withSugar, equipment: null })
     expect(row.plannedOg).toBeCloseTo(planned.postBoilGravity, 10)
     expect(row.plannedAbv).toBeCloseTo(planned.abv, 10)
+  })
+
+  it('calcule l’efficacité d’empâtage avec le retrait thermique du profil, comme la fiche du brassin', () => {
+    const m = { preBoilGravity: 1.04, preBoilVolumeL: 12 }
+    const row = batchHistoryRow(batch('1', m), 2)
+    expect(row.mashEfficiency).toBeCloseTo(mashEfficiencyPercent(recipe, 1.04, 12, 2), 10)
+    expect(row.mashEfficiency).not.toBeCloseTo(batchHistoryRow(batch('1', m)).mashEfficiency!, 3)
   })
 
   it('reste vide quand rien n’a été mesuré', () => {

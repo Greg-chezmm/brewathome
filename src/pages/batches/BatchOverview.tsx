@@ -46,7 +46,7 @@ export function BatchOverview() {
     enabled: !!batchId,
   })
   const equipmentProfileId = batch?.recipeSnapshot.equipmentProfileId
-  const { data: equipmentProfile } = useQuery({
+  const { data: equipmentProfile, isLoading: equipmentLoading } = useQuery({
     queryKey: ['equipment-profile', equipmentProfileId],
     queryFn: () => getEquipmentProfile(equipmentProfileId!),
     enabled: !!equipmentProfileId,
@@ -151,7 +151,7 @@ export function BatchOverview() {
           Modifier ici n'affecte que ce brassin — la recette d'origine reste inchangée.
         </p>
         <div className="mt-3">
-          <NewRecipeVersion batch={batch} equipment={equipmentProfile} />
+          <NewRecipeVersion batch={batch} equipment={equipmentProfile} equipmentLoading={equipmentLoading} />
         </div>
       </section>
 

@@ -11,6 +11,12 @@ export function nextVersionName(name: string, existing: string[] = []): string {
   return `${base} v${version}`
 }
 
+/** « 2026-03-14 » → « 14/03/2026 », sans passer par UTC (qui décalerait d’un jour à l’ouest de Greenwich). */
+function frenchDate(iso: string): string {
+  const day = /^(d{4})-(d{2})-(d{2})$/.exec(iso)
+  return day ? `${day[3]}/${day[2]}/${day[1]}` : new Date(iso).toLocaleDateString('fr-FR')
+}
+
 /**
  * Nouvelle recette à partir de la recette d'un brassin (son snapshot, avec les retouches faites
  * pour ce brassin), éventuellement avec ses résultats mesurés (efficacité, atténuation de la levure).
@@ -39,7 +45,7 @@ export function recipeInputFromSnapshot(
         yeastName: results.yeastName,
       })
     : snapshot
-  const date = origin.date ? ` du ${new Date(origin.date).toLocaleDateString('fr-FR')}` : ''
+  const date = origin.date ? ` du ${frenchDate(origin.date)}` : ''
   const originNote = `Nouvelle version d'après le brassin « ${origin.name} »${date}${results ? ', avec ses résultats mesurés' : ''}.`
   return {
     name,

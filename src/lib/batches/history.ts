@@ -39,7 +39,8 @@ export interface BatchHistoryRow {
 
 const both = <T>(a: number | null, b: number | null, f: (a: number, b: number) => T): T | null => (a !== null && b !== null ? f(a, b) : null)
 
-export function batchHistoryRow(batch: BatchDetails): BatchHistoryRow {
+/** `shrinkagePercent` : retrait thermique du profil d’équipement du brassin, comme dans le résumé du brassin. */
+export function batchHistoryRow(batch: BatchDetails, shrinkagePercent?: number): BatchHistoryRow {
   const recipe = batch.recipeSnapshot
   const m = batch.measurements
   const planned = plannedMeasurements(recipe, null)
@@ -66,7 +67,7 @@ export function batchHistoryRow(batch: BatchDetails): BatchHistoryRow {
     attenuation: both(og, fg, (o, f) => apparentAttenuation(effectiveOg(recipe, o, fermenterVolumeL), f)),
     yeastName: recipe.yeasts[0]?.name ?? null,
     plannedMashEfficiency: recipe.mashEfficiencyPercent,
-    mashEfficiency: both(m.preBoilGravity, m.preBoilVolumeL, (g, v) => mashEfficiencyPercent(recipe, g, v)),
+    mashEfficiency: both(m.preBoilGravity, m.preBoilVolumeL, (g, v) => mashEfficiencyPercent(recipe, g, v, shrinkagePercent)),
     plannedBrewhouseEfficiency: both(planned.og, planned.fermenterVolumeL, (g, v) => brewhouseEfficiencyPercent(recipe, g, v)),
     brewhouseEfficiency: both(og, fermenterVolumeL, (g, v) => brewhouseEfficiencyPercent(recipe, g, v)),
     plannedVolumeL: recipe.targetVolumeL,
