@@ -7,6 +7,7 @@ Application personnelle de brassage de bière maison (type Brewfather/Little Boc
 ## Où on en est (résumé)
 
 **Dernières avancées** (migrations `0016` et `0017` appliquées sur la base live, les 2026-10-17 et 2026-10-18)
+- **Rappels de fermentation dans l'agenda** (page Fermentation) : ajouts en fermentation (jour réglable), dry hops (ajout et retrait), changements de température, cold crash et fin de fermentation ; fichier .ics pour tout ajouter d'un coup (Calendrier iPhone/Mac, Outlook, Google Agenda) ou lien Google Agenda par rappel. Sans serveur : c'est l'agenda qui notifie.
 - **Recette brassée en 2 sessions** le même jour vers un seul fermenteur (cuve trop petite) : choix à la validation (proposé d'office si la recette déborde de la cuve) ou sur un brassin planifié ; chaque session brasse la moitié du côté chaud, avec ses étapes, son ébullition, ses alertes et ses mesures ; DI du mélange proposée à l'ensemencement.
 - **Profil de fermentation** (primaire, secondaire, garde, cold crash) et **jour du dry hop**, importés de Brewfather et BeerXML ; le suivi de fermentation montre le plan (jour X sur Y, étape en cours, écart de température, dry hops à venir) et pré-remplit le resucrage.
 - **Quantité de levure** (sachets, g, mL), **carbonatation visée**, **moment d'ajout des fermentescibles** (empâtage, ébullition, fermentation) jusque dans le Brew Day.
@@ -81,6 +82,7 @@ Application personnelle de brassage de bière maison (type Brewfather/Little Boc
 - **Alcool en cours de fermentation** (`src/lib/fermentation/progress.ts`) : densité actuelle (médiane des 4 derniers relevés), alcool déjà produit, atténuation et progression vers la DF prévue, calculés depuis la DI mesurée (à défaut celle de la recette) ; l'alcool apparaît aussi au survol de la courbe.
 - **Fin de fermentation détectée** (`src/lib/fermentation/stability.ts`) : pendant la fermentation, bandeau quand la densité (lissée par tranches de 6 h, ±0,001) ne bouge plus depuis 2 jours, avec l'atténuation apparente ; invite à confirmer au densimètre et à saisir la DF à la main.
 - **Import des relevés Brewfather** (`/batches/:id/readings`) pour un brassin lié à Brewfather (`brewfather_id`) : iSpindel, saisies, angle et batterie compris ; un second import n'ajoute que les nouveaux (testé sur 4 010 relevés).
+- **Rappels dans l'agenda** (`src/lib/fermentation/reminders.ts`, `FermentationReminders`) : rappels datés depuis l'ensemencement (à défaut la date de brassage), à l'heure choisie ; seuls ceux à venir sont proposés. Fichier iCalendar (alarme à l'heure, UID stable par brassin et rappel) et liens Google Agenda pré-remplis. Sans profil de fermentation, rappel « contrôler la densité » au jour 14.
 - Ingestion automatique iSpindel (Edge Function Supabase). Page Appareils : champs à recopier dans le portail de l'iSpindel (service **HTTPS Post**, firmware 6.6 minimum, 7.3.3 conseillé ; en simple HTTP Supabase redirige vers HTTPS et les mesures sont perdues), marche à suivre de mise à jour du firmware, et mémo des réglages de l'appareil (polynôme, facteur batterie, intervalle, angle dans l'eau) enregistré dans `devices.calibration_coefficients`.
 
 ### Infra
@@ -93,6 +95,7 @@ Application personnelle de brassage de bière maison (type Brewfather/Little Boc
 
 - E-mails d'auth : configurer un SMTP personnalisé (expéditeur « BrewAtHome » au lieu de « Supabase Auth ») et coller les modèles de `supabase/templates/` dans Authentication → Emails. Écran Google : nom d'app « BrewAtHome » dans Google Cloud.
 - Profils d'équipement importés de Brewfather : la capacité de la cuve n'existe pas dans Brewfather ; elle est lue dans le nom (« Marmite 20L ») ou estimée à 1,2 × pré-ébullition et signalée à l'import — à vérifier dans le profil.
+- **Rappels par e-mail** (alternative aux rappels d'agenda) : dates gérées dans l'app, envoi planifié (pg_cron + Edge Function) ; prévenir aussi quand la densité est stable (fin de fermentation détectée). Prérequis : le SMTP / service d'envoi ci-dessus.
 - Support Tilt/TiltBridge au-delà de la saisie manuelle.
 - Calculateur de starter de levure — repoussé (petits volumes, pas de starter pour l'instant).
 - Brewfather : utiliser l'atténuation réelle par levure et le rendement mesuré pour ajuster les recettes. Écarts restants connus : IBU des bières fortes (Brewfather prend la densité pré-ébullition, nous la moyenne des specs) et DF (Brewfather ajuste l'atténuation selon l'empâtage et le sucre).

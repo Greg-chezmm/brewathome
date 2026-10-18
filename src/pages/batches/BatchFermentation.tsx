@@ -15,6 +15,7 @@ import {
 import { listBrewfatherBatchReadings } from '@/lib/brewfather/client'
 import { brewfatherReadingsToImport } from '@/lib/brewfather/readings'
 import { FermentationPlan } from '@/components/batches/FermentationPlan'
+import { FermentationReminders } from '@/components/batches/FermentationReminders'
 import { MeasurementsPanel } from '@/components/batches/MeasurementsPanel'
 import { PrimingTool } from '@/components/tools/PrimingTool'
 import { ConnectionBadge } from '@/components/devices/ConnectionBadge'
@@ -222,6 +223,17 @@ export function BatchFermentation() {
           start={fermentationStart}
           now={now}
           currentTempC={lastTemperature}
+        />
+      )}
+
+      {batch && batch.status !== 'completed' && (
+        <FermentationReminders
+          batch={batch}
+          steps={profile}
+          hops={batch.recipeSnapshot.hops}
+          fermentables={batch.recipeSnapshot.fermentables}
+          start={fermentationStart}
+          now={now}
         />
       )}
 
