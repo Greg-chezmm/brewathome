@@ -59,10 +59,15 @@ export default defineConfig({
     },
   },
   test: {
-    environment: 'jsdom',
     // Copies de travail des agents Claude Code (.claude/worktrees) : leurs tests ne sont pas ceux du dépôt.
     exclude: [...configDefaults.exclude, '.claude/**'],
     globals: true,
     setupFiles: ['./src/test/setup.ts'],
+    // jsdom ne sert qu'aux tests de composants (.tsx) : le créer pour chaque fichier de calcul pur coûtait
+    // l'essentiel de la durée des tests ; vmThreads le garde d'un fichier à l'autre (isolation conservée).
+    projects: [
+      { extends: true, test: { name: 'unit', environment: 'node', include: ['tests/**/*.test.ts'] } },
+      { extends: true, test: { name: 'dom', environment: 'jsdom', pool: 'vmThreads', include: ['tests/**/*.test.tsx'] } },
+    ],
   },
 })
