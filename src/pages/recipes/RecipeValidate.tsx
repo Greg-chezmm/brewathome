@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '@/lib/auth/AuthProvider'
+import { ActionBar } from '@/components/ActionBar'
 import { SessionsChoice } from '@/components/batches/SessionsChoice'
 import { exceedsKettle } from '@/lib/brew-day/sessions'
 import { createBatchFromRecipe } from '@/lib/db/queries/batches'
@@ -78,14 +79,13 @@ export function RecipeValidate() {
         </div>
         <SessionsChoice recipe={recipe} equipment={equipmentProfile} value={brewSessions} onChange={setSessionsChoice} />
         {error && <p className="text-sm text-red-600">{error}</p>}
-        <button
-          onClick={handleValidate}
-          disabled={saving}
-          className="w-full rounded bg-green-700 px-4 py-2 text-sm font-medium text-white hover:bg-green-800 disabled:opacity-50"
-        >
+      </div>
+
+      <ActionBar>
+        <button type="button" onClick={handleValidate} disabled={saving} className="btn-primary">
           {saving ? 'Création…' : 'Créer le brassin'}
         </button>
-      </div>
+      </ActionBar>
     </div>
   )
 }

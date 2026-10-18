@@ -10,6 +10,7 @@ import {
   updateEquipmentProfile,
 } from '@/lib/db/queries/equipmentProfiles'
 import type { EquipmentProfile } from '@/lib/brew-calc/types'
+import { ActionBar } from '@/components/ActionBar'
 import { FieldLabel } from '@/components/InfoTooltip'
 
 const FIELDS: Array<{ key: keyof EquipmentProfile; label: string; step?: string; hint: string; optional?: boolean }> = [
@@ -180,7 +181,8 @@ export function EquipmentProfileDetail() {
         {isNew ? 'Nouveau profil d’équipement' : profile.name}
       </h1>
 
-      <form onSubmit={handleSubmit} className="card space-y-3">
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="card space-y-3">
         {FIELDS.map((field) => (
           <div key={field.key}>
             <FieldLabel hint={field.hint}>{field.label}</FieldLabel>
@@ -209,17 +211,21 @@ export function EquipmentProfileDetail() {
         </div>
 
         {error && <p className="text-sm text-red-600">{error}</p>}
+        </div>
 
-        <div className="flex items-center gap-2 pt-2">
+        <ActionBar
+          danger={
+            !isNew && (
+              <button type="button" onClick={handleDelete} className="btn-danger">
+                Supprimer
+              </button>
+            )
+          }
+        >
           <button type="submit" disabled={saving} className="btn-primary">
             {saving ? 'Enregistrement…' : 'Enregistrer'}
           </button>
-          {!isNew && (
-            <button type="button" onClick={handleDelete} className="btn-danger">
-              Supprimer
-            </button>
-          )}
-        </div>
+        </ActionBar>
       </form>
     </div>
   )

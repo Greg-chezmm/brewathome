@@ -12,6 +12,7 @@ import type { Fermentable, Hop, IBUFormulaName, OtherIngredient, Yeast } from '@
 import { listEquipmentProfiles } from '@/lib/db/queries/equipmentProfiles'
 import { getIngredientHistory } from '@/lib/db/queries/ingredientHistory'
 import type { RecipeInput } from '@/lib/db/queries/recipes'
+import { ActionBar } from '@/components/ActionBar'
 import { FieldLabel, InfoTooltip } from '@/components/InfoTooltip'
 import { FermentableCards, FermentationStepCards, HopCards, MashStepCards, OtherIngredientCards, YeastCards } from './IngredientCards'
 import { RecipeStatsBar, RecipeStatsPanel, type StyleRanges } from './RecipeLiveStats'
@@ -489,9 +490,11 @@ export function RecipeForm({
           <textarea value={value.notes} onChange={(e) => set('notes', e.target.value)} rows={3} className="field-input" />
         </div>
 
-        <button type="submit" disabled={saving} className="btn-primary">
-          {saving ? 'Enregistrement…' : submitLabel}
-        </button>
+        <ActionBar aboveStatsBar>
+          <button type="submit" disabled={saving} className="btn-primary">
+            {saving ? 'Enregistrement…' : submitLabel}
+          </button>
+        </ActionBar>
       </div>
 
       <RecipeStatsPanel stats={stats} styleMatch={styleMatch} style={styleRanges} buGu={buGu} />

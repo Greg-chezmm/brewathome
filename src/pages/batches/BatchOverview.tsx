@@ -1,5 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import { ActionBar } from '@/components/ActionBar'
 import { ApplyResultsCard } from '@/components/batches/ApplyResultsCard'
 import { BatchSummaryTable } from '@/components/batches/BatchSummaryTable'
 import { MeasurementsPanel } from '@/components/batches/MeasurementsPanel'
@@ -117,25 +118,6 @@ export function BatchOverview() {
 
   return (
     <div className="space-y-8">
-      <div className="flex flex-wrap gap-2">
-        {(batch.status === 'planned' || batch.status === 'brew_day') && (
-          <Link to={`/batches/${batchId}/brew-day`} className="btn-primary">
-            Lancer le Brew Day
-          </Link>
-        )}
-        <Link to={`/tools?${toolsParams}`} className="btn-secondary">
-          Outils (levure, resucrage…)
-        </Link>
-        {STATUS_FLOW.indexOf(batch.status) < STATUS_FLOW.length - 1 && (
-          <button onClick={advanceStatus} className="btn-secondary">
-            Passer à l'étape suivante ({STATUS_LABELS[STATUS_FLOW[STATUS_FLOW.indexOf(batch.status) + 1]]})
-          </button>
-        )}
-        <button onClick={handleDelete} className="btn-danger ml-auto">
-          Supprimer
-        </button>
-      </div>
-
       <section className="card">
         <div className="mb-2 flex items-center justify-between">
           <h2 className="section-title">Recette (propre à ce brassin)</h2>
@@ -215,6 +197,28 @@ export function BatchOverview() {
       </section>
 
       <ApplyResultsCard batch={batch} equipment={equipmentProfile} />
+
+      <ActionBar
+        danger={
+          <button type="button" onClick={handleDelete} className="btn-danger">
+            Supprimer
+          </button>
+        }
+      >
+        <Link to={`/tools?${toolsParams}`} className="btn-secondary">
+          Outils (levure, resucrage…)
+        </Link>
+        {STATUS_FLOW.indexOf(batch.status) < STATUS_FLOW.length - 1 && (
+          <button type="button" onClick={advanceStatus} className="btn-secondary">
+            Passer à l'étape suivante ({STATUS_LABELS[STATUS_FLOW[STATUS_FLOW.indexOf(batch.status) + 1]]})
+          </button>
+        )}
+        {(batch.status === 'planned' || batch.status === 'brew_day') && (
+          <Link to={`/batches/${batchId}/brew-day`} className="btn-primary">
+            Lancer le Brew Day
+          </Link>
+        )}
+      </ActionBar>
     </div>
   )
 }

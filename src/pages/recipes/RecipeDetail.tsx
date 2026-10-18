@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Download } from 'lucide-react'
 import { beerXMLFileName, recipesToBeerXML } from '@/lib/beerxml/export'
@@ -22,6 +22,7 @@ import {
 import type { YeastAmountUnit } from '@/lib/brew-calc/types'
 import { deleteRecipe, getRecipeWithDetails } from '@/lib/db/queries/recipes'
 import { getEquipmentProfile } from '@/lib/db/queries/equipmentProfiles'
+import { ActionBar } from '@/components/ActionBar'
 import { BeerGlass } from '@/components/BeerGlass'
 import { InfoTooltip } from '@/components/InfoTooltip'
 import { MashPhCard } from '@/components/recipe/MashPhCard'
@@ -32,6 +33,7 @@ const YEAST_UNITS: Record<YeastAmountUnit, string> = { pkg: 'sachet(s)', g: 'g',
 export function RecipeDetail() {
   const { recipeId } = useParams<{ recipeId: string }>()
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
 
   const { data: recipe, isLoading, error } = useQuery({
     queryKey: ['recipe', recipeId],
@@ -104,6 +106,8 @@ export function RecipeDetail() {
     if (!recipeId) return
     if (!confirm('Supprimer cette recette ?')) return
     await deleteRecipe(recipeId)
+    queryClient.removeQueries({ queryKey: ['recipe', recipeId] })
+    await queryClient.invalidateQueries({ queryKey: ['recipes'] })
     navigate('/recipes')
   }
 
@@ -118,17 +122,6 @@ export function RecipeDetail() {
               {style?.name ?? 'Style non précisé'} · {recipe.targetVolumeL} L · {recipe.type}
             </p>
           </div>
-        </div>
-        <div className="flex shrink-0 flex-wrap gap-2">
-          <Link to={`/recipes/${recipeId}/edit`} className="btn-secondary">
-            Modifier
-          </Link>
-          <button type="button" onClick={handleExport} className="btn-secondary" title="Télécharger au format BeerXML (Brewfather, BeerSmith, Little Bock…)">
-            <Download size={16} /> BeerXML
-          </button>
-          <button onClick={handleDelete} className="btn-danger">
-            Supprimer
-          </button>
         </div>
       </div>
 
@@ -305,11 +298,25 @@ export function RecipeDetail() {
         </section>
       )}
 
-      {recipe.status !== 'archived' && (
-        <Link to={`/recipes/${recipeId}/validate`} className="btn-primary">
-          {recipe.status === 'draft' ? 'Valider en brassin →' : 'Rebrasser cette recette →'}
+      <ActionBar
+        danger={
+          <button type="button" onClick={handleDelete} className="btn-danger">
+            Supprimer
+          </button>
+        }
+      >
+        <button type="button" onClick={handleExport} className="btn-secondary" title="Télécharger au format BeerXML (Brewfather, BeerSmith, Little Bock…)">
+          <Download size={16} /> BeerXML
+        </button>
+        <Link to={`/recipes/${recipeId}/edit`} className="btn-secondary">
+          Modifier
         </Link>
-      )}
+        {recipe.status !== 'archived' && (
+          <Link to={`/recipes/${recipeId}/validate`} className="btn-primary">
+            {recipe.status === 'draft' ? 'Valider en brassin →' : 'Rebrasser cette recette →'}
+          </Link>
+        )}
+      </ActionBar>
     </div>
   )
 }
