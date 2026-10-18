@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { STARTER_RECIPE } from '@/data/starter-recipe'
 import { computeRecipe, type RecipeStatsInput } from '@/lib/brew-calc/recipe-stats'
-import { adjustHopForIbu, bitteringHopIndex, scaleFermentablesToOg } from '@/lib/brew-calc/targets'
+import { adjustHopForIbu, bitteringHopIndex, scaleFermentablesToOg, scaleHopsToIbu } from '@/lib/brew-calc/targets'
 import type { Hop } from '@/lib/brew-calc/types'
 import { DEFAULT_EQUIPMENT_PROFILE } from '@/lib/db/queries/equipmentProfiles'
 
@@ -30,6 +30,36 @@ describe('viser une DI', () => {
     expect(scaleFermentablesToOg({ ...input, fermentables: [] }, 1.05)).toBeNull()
     expect(scaleFermentablesToOg(input, 1)).toBeNull()
     expect(scaleFermentablesToOg(input, Number.NaN)).toBeNull()
+  })
+})
+
+describe('viser un IBU (tous les houblons à l’échelle)', () => {
+  it('atteint l’IBU visé en gardant les proportions', () => {
+    const hops = scaleHopsToIbu(input, 40)!
+    expect(computeRecipe({ ...input, hops }).ibu).toBeCloseTo(40, 0)
+    const ratio = (i: number) => hops[i].amountG / (STARTER_RECIPE.hops[i].amountG || 1)
+    for (let i = 1; i < hops.length; i++) expect(ratio(i)).toBeCloseTo(ratio(0), 1)
+  })
+
+  it('redimensionnement d’équipement : DI et IBU conservés sur un nouveau volume/efficacité', () => {
+    const before = computeRecipe(input)
+    // Nouveau matériel : volume plus petit, efficacité différente.
+    const newInput: RecipeStatsInput = {
+      ...input,
+      targetVolumeL: input.targetVolumeL * 0.7,
+      mashEfficiencyPercent: 78,
+    }
+    const fermentables = scaleFermentablesToOg(newInput, before.og)!
+    const hops = scaleHopsToIbu({ ...newInput, fermentables }, before.ibu)!
+    const after = computeRecipe({ ...newInput, fermentables, hops })
+    expect(after.og).toBeCloseTo(before.og, 2)
+    expect(after.ibu).toBeCloseTo(before.ibu, 0)
+  })
+
+  it('ne propose rien sans houblon ou pour un IBU absurde', () => {
+    expect(scaleHopsToIbu({ ...input, hops: [] }, 30)).toBeNull()
+    expect(scaleHopsToIbu(input, 0)).toBeNull()
+    expect(scaleHopsToIbu(input, Number.NaN)).toBeNull()
   })
 })
 

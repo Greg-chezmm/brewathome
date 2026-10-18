@@ -25,6 +25,25 @@ export function scaleFermentablesToOg(input: RecipeStatsInput, targetOg: number)
 }
 
 /**
+ * Met tous les houblons à l'échelle pour viser un IBU, en gardant leurs proportions
+ * (donc l'équilibre amertume/arôme de la recette). L'IBU est proportionnel aux quantités
+ * à densité et volume d'ébullition constants (Tinseth, Rager) ; on recalcule une seconde
+ * fois pour absorber la non-linéarité de Garetz, puis on arrondit au gramme.
+ * Renvoie null si les houblons n'apportent encore aucune amertume.
+ */
+export function scaleHopsToIbu(input: RecipeStatsInput, targetIbu: number): Hop[] | null {
+  if (!(targetIbu > 0)) return null
+  let hops = input.hops.map((h) => ({ ...h, amountG: safe(h.amountG) }))
+  for (let pass = 0; pass < 2; pass++) {
+    const ibu = computeRecipe({ ...input, hops }).ibu
+    if (!(ibu > 0)) return null
+    const factor = targetIbu / ibu
+    hops = hops.map((h) => ({ ...h, amountG: h.amountG * factor }))
+  }
+  return hops.map((h) => ({ ...h, amountG: round(h.amountG, HOP_DECIMALS) }))
+}
+
+/**
  * Houblon à ajuster pour viser un IBU : l'ajout amérisant, c'est-à-dire le plus long
  * en ébullition (premier moût compris). Les houblons d'arôme gardent leur dose.
  */

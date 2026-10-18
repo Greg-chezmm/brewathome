@@ -6,7 +6,7 @@ import { defaultFermentationSteps, type FermentationStep } from '@/lib/brew-calc
 import { defaultMashSteps, mainMashTempC, type MashStep } from '@/lib/brew-calc/mash'
 import { computeRecipe, REFERENCE_MASH_TEMP_C } from '@/lib/brew-calc/recipe-stats'
 import { matchStyle } from '@/lib/brew-calc/style-matching'
-import { adjustHopForIbu, bitteringHopIndex, scaleFermentablesToOg } from '@/lib/brew-calc/targets'
+import { adjustHopForIbu, bitteringHopIndex, scaleFermentablesToOg, scaleHopsToIbu } from '@/lib/brew-calc/targets'
 import { estimateFinalVolumeFromPreBoil, SPARGE_WATER_TEMP_C } from '@/lib/brew-calc/volumes'
 import type { Fermentable, Hop, IBUFormulaName, OtherIngredient, Yeast } from '@/lib/brew-calc/types'
 import { listEquipmentProfiles } from '@/lib/db/queries/equipmentProfiles'
@@ -159,6 +159,57 @@ export function RecipeForm({
     onChange({ ...value, [key]: v })
   }
 
+  /**
+   * Changement de profil d'équipement, façon Brewfather : si le nouveau matériel
+   * vise un autre volume ou une autre efficacité, on propose de redimensionner la
+   * recette (grain + houblons) pour garder les mêmes densités et IBU. Refusé, on
+   * applique juste le profil et son efficacité (les estimations changent alors).
+   */
+  function changeEquipment(newId: string) {
+    const profile = newId ? (equipmentProfiles?.find((p) => p.id === newId) ?? null) : null
+    if (!profile) {
+      set('equipmentProfileId', null)
+      return
+    }
+    const newEfficiency = profile.mashEfficiencyPercent > 0 ? profile.mashEfficiencyPercent : value.mashEfficiencyPercent
+    const newVolume = profile.targetBatchVolumeL > 0 ? profile.targetBatchVolumeL : value.targetVolumeL
+    const volumeChanges = Math.abs(newVolume - value.targetVolumeL) > 0.01
+    const effChanges = Math.abs(newEfficiency - value.mashEfficiencyPercent) > 0.01
+    const hasIngredients = value.fermentables.length > 0 || value.hops.length > 0
+
+    if ((volumeChanges || effChanges) && hasIngredients) {
+      const rescale = confirm(
+        `L'équipement « ${profile.name} » vise ${newVolume.toLocaleString('fr-FR')} L à ${newEfficiency.toLocaleString('fr-FR')} % d'efficacité.\n\n` +
+          `Redimensionner la recette pour garder les mêmes densités et IBU ?\n\n` +
+          `• OK : les quantités de grain et de houblon sont recalculées pour ce matériel.\n` +
+          `• Annuler : les quantités restent inchangées (les estimations, elles, changent).`,
+      )
+      if (rescale) {
+        const targetOgValue = calc.og
+        const targetIbuValue = calc.ibu
+        const base: RecipeFormValue = {
+          ...value,
+          equipmentProfileId: newId,
+          mashEfficiencyPercent: newEfficiency,
+          targetVolumeL: newVolume,
+        }
+        const baseInput = { ...base, equipment: profile }
+        const fermentables = targetOgValue > 1 ? scaleFermentablesToOg(baseInput, targetOgValue) : null
+        const hops = targetIbuValue > 0 ? scaleHopsToIbu({ ...baseInput, ...(fermentables && { fermentables }) }, targetIbuValue) : null
+        setVolumeAnchor('final')
+        onChange({ ...base, ...(fermentables && { fermentables }), ...(hops && { hops }) })
+        return
+      }
+    }
+
+    // Pas de redimensionnement : profil appliqué, efficacité reprise (comportement d'avant).
+    onChange({
+      ...value,
+      equipmentProfileId: newId,
+      ...(profile.mashEfficiencyPercent > 0 && { mashEfficiencyPercent: profile.mashEfficiencyPercent }),
+    })
+  }
+
   function targetOg(target: number): TargetFeedback {
     const fermentables = scaleFermentablesToOg(calcInput, target)
     if (!fermentables) return { text: 'Impossible : la recette n’apporte encore aucun sucre (poids ou rendement à 0).', warn: true }
@@ -259,15 +310,7 @@ export function RecipeForm({
             </FieldLabel>
             <select
               value={value.equipmentProfileId ?? ''}
-              onChange={(e) => {
-                // L'efficacité d'empâtage suit celle du profil (reportée depuis les brassins mesurés).
-                const profile = equipmentProfiles?.find((p) => p.id === e.target.value)
-                onChange({
-                  ...value,
-                  equipmentProfileId: e.target.value || null,
-                  ...(profile && profile.mashEfficiencyPercent > 0 && { mashEfficiencyPercent: profile.mashEfficiencyPercent }),
-                })
-              }}
+              onChange={(e) => changeEquipment(e.target.value)}
               className="field-input"
             >
               <option value="">—</option>
