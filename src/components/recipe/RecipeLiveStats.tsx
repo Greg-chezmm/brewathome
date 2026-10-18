@@ -132,7 +132,7 @@ function BuGu({ buGu }: { buGu: number | null }) {
 }
 
 /** Position de chaque chiffre de la recette dans la plage du style, en barres. */
-function StyleRangeList({ stats, style }: { stats: RecipeStats; style: StyleRanges }) {
+export function StyleRangeList({ stats, style }: { stats: RecipeStats; style: StyleRanges }) {
   return (
     <div className="space-y-2.5">
       {STATS.map(({ key, label, format, hint }) => (

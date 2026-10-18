@@ -1,6 +1,7 @@
+import type { ReactNode } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { Download } from 'lucide-react'
+import { Download, FlaskConical, Hop, Snowflake, Wheat } from 'lucide-react'
 import { beerXMLFileName, recipesToBeerXML } from '@/lib/beerxml/export'
 import bjcpStyles from '@/data/bjcp-styles-2021.json'
 import { matchStyle } from '@/lib/brew-calc/style-matching'
@@ -26,9 +27,15 @@ import { ActionBar } from '@/components/ActionBar'
 import { BeerGlass } from '@/components/BeerGlass'
 import { InfoTooltip } from '@/components/InfoTooltip'
 import { MashPhCard } from '@/components/recipe/MashPhCard'
+import { StyleRangeList, type StyleRanges } from '@/components/recipe/RecipeLiveStats'
 
 const USE_LABELS = { boil: 'ajout à l’ébullition', fermentation: 'ajout en fermentation' } as const
 const YEAST_UNITS: Record<YeastAmountUnit, string> = { pkg: 'sachet(s)', g: 'g', ml: 'ml' }
+const RECIPE_TYPE_LABELS: Record<'all-grain' | 'biab' | 'extract', string> = {
+  'all-grain': 'Tout-grain',
+  biab: 'BIAB',
+  extract: 'Extrait',
+}
 
 export function RecipeDetail() {
   const { recipeId } = useParams<{ recipeId: string }>()
@@ -54,6 +61,17 @@ export function RecipeDetail() {
   // Valeurs toujours recalculées (les est_* en base ne servent qu'aux listes).
   const calc = computeRecipe({ ...recipe, equipment: equipmentProfile ?? null })
   const style = bjcpStyles.find((s) => s.id === recipe.styleId) ?? null
+  const styleRanges: StyleRanges | null = style
+    ? {
+        name: style.name,
+        og: [style.ogMin, style.ogMax],
+        fg: [style.fgMin, style.fgMax],
+        ibu: [style.ibuMin, style.ibuMax],
+        srm: [style.srmMin, style.srmMax],
+        abv: [style.abvMin, style.abvMax],
+      }
+    : null
+  const styleCode = style ? `${style.categoryNumber}${style.styleLetter}` : null
   const styleMatch =
     style
       ? matchStyle(
@@ -116,57 +134,54 @@ export function RecipeDetail() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
         <div className="flex items-start gap-4">
           <BeerGlass srm={calc.srm} size={56} />
-          <div>
+          <div className="min-w-0">
             <h1 className="text-2xl font-bold tracking-tight text-slate-900">{recipe.name}</h1>
-            <p className="text-slate-500">
-              {style?.name ?? 'Style non précisé'} · {recipe.targetVolumeL} L · {recipe.type}
-            </p>
+            <div className="mt-1.5 flex flex-wrap items-center gap-2">
+              {style ? (
+                <>
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-indigo-600 px-2.5 py-0.5 text-xs font-semibold text-white">
+                    <span className="font-bold">{styleCode}</span>
+                    {style.name}
+                  </span>
+                  <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600">{style.type}</span>
+                </>
+              ) : (
+                <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-500">Style non précisé</span>
+              )}
+              <span className="text-sm text-slate-500">
+                {recipe.targetVolumeL} L · {RECIPE_TYPE_LABELS[recipe.type]}
+              </span>
+            </div>
           </div>
         </div>
       </div>
 
       <div className="card-tinted">
-        <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-5">
-          <Stat
-            label="DI"
-            value={calc.og.toFixed(3)}
-            ok={styleMatch?.og}
-            hint="Densité initiale avant fermentation. Indique le potentiel d'alcool."
-          />
-          <Stat
-            label="DF"
-            value={calc.fg.toFixed(3)}
-            ok={styleMatch?.fg}
-            hint="Densité finale après fermentation. Plus basse = bière plus sèche."
-          />
-          <Stat
-            label="IBU"
-            value={calc.ibu.toFixed(0)}
-            ok={styleMatch?.ibu}
-            hint="Amertume apportée par les houblons."
-          />
-          <Stat
-            label="SRM"
-            value={calc.srm.toFixed(1)}
-            ok={styleMatch?.srm}
-            hint="Couleur de la bière, du plus clair au plus foncé."
-          />
-          <Stat
-            label="Alcool"
-            value={`${calc.abv.toFixed(1)} %`}
-            ok={styleMatch?.abv}
-            hint="Pourcentage d'alcool par volume."
-          />
-        </div>
-        {styleMatch && (
-          <p className={`mt-2 text-sm font-medium ${styleMatch.allMatch ? 'text-green-700' : 'text-orange-600'}`}>
-            {styleMatch.allMatch ? '✓ Conforme au style' : '⚠ Hors plage pour certains critères du style'}
-          </p>
+        {styleRanges ? (
+          <>
+            <StyleRangeList stats={calc} style={styleRanges} />
+            {styleMatch && (
+              <p className={`mt-3 text-sm font-medium ${styleMatch.allMatch ? 'text-green-700' : 'text-orange-600'}`}>
+                {styleMatch.allMatch ? '✓ Conforme au style' : '⚠ Hors plage pour certains critères du style'}
+              </p>
+            )}
+          </>
+        ) : (
+          <>
+            <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-5">
+              <Stat label="DI" value={calc.og.toFixed(3)} hint="Densité initiale avant fermentation. Indique le potentiel d'alcool." />
+              <Stat label="DF" value={calc.fg.toFixed(3)} hint="Densité finale après fermentation. Plus basse = bière plus sèche." />
+              <Stat label="IBU" value={calc.ibu.toFixed(0)} hint="Amertume apportée par les houblons." />
+              <Stat label="SRM" value={calc.srm.toFixed(1)} hint="Couleur de la bière, du plus clair au plus foncé." />
+              <Stat label="Alcool" value={`${calc.abv.toFixed(1)} %`} hint="Pourcentage d'alcool par volume." />
+            </div>
+            <p className="mt-2 text-xs text-slate-500">Choisissez un style BJCP (via « Modifier ») pour voir où se situe votre recette.</p>
+          </>
         )}
       </div>
 
       <section className="card">
-        <h2 className="section-title mb-2">Fermentescibles</h2>
+        <SectionTitle icon={<Wheat size={18} />} accent="bg-amber-100 text-amber-700">Fermentescibles</SectionTitle>
         <ul className="divide-y divide-slate-100 text-sm text-slate-700">
           {recipe.fermentables.map((f, i) => (
             <li key={i} className="py-1.5">
@@ -181,7 +196,7 @@ export function RecipeDetail() {
       </section>
 
       <section className="card">
-        <h2 className="section-title mb-2">Houblons</h2>
+        <SectionTitle icon={<Hop size={18} />} accent="bg-green-100 text-green-700">Houblons</SectionTitle>
         <ul className="divide-y divide-slate-100 text-sm text-slate-700">
           {recipe.hops.map((h, i) => (
             <li key={i} className="py-1.5">
@@ -197,7 +212,9 @@ export function RecipeDetail() {
       </section>
 
       <section className="card">
-        <h2 className="section-title mb-2">Levures &amp; quantité recommandée</h2>
+        <SectionTitle icon={<FlaskConical size={18} />} accent="bg-violet-100 text-violet-700">
+          Levures &amp; quantité recommandée
+        </SectionTitle>
         {recipe.yeasts.length === 0 && (
           <p className="text-sm text-slate-500">
             Aucune levure dans cette recette : les estimations (DF, alcool) supposent {DEFAULT_ATTENUATION_PERCENT} %
@@ -231,12 +248,12 @@ export function RecipeDetail() {
 
       {(recipe.fermentationSteps.length > 0 || recipe.carbonationVols !== null) && (
         <section className="card">
-          <h2 className="section-title mb-2">
+          <SectionTitle icon={<Snowflake size={18} />} accent="bg-sky-100 text-sky-700">
             Fermentation
             {recipe.fermentationSteps.length > 0 && (
               <span className="ml-2 text-sm font-normal text-slate-500">{totalFermentationDays(recipe.fermentationSteps)} jours</span>
             )}
-          </h2>
+          </SectionTitle>
           <ul className="divide-y divide-slate-100 text-sm text-slate-700">
             {fermentationSchedule(recipe.fermentationSteps).map((s, i) => (
               <li key={i} className="flex justify-between gap-3 py-1.5">
@@ -318,6 +335,16 @@ export function RecipeDetail() {
         )}
       </ActionBar>
     </div>
+  )
+}
+
+/** Titre de section avec une pastille d'icône colorée (blé, houblon, levure…). */
+function SectionTitle({ icon, accent, children }: { icon: ReactNode; accent: string; children: ReactNode }) {
+  return (
+    <h2 className="section-title mb-3 flex items-center gap-2.5">
+      <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${accent}`}>{icon}</span>
+      <span className="min-w-0">{children}</span>
+    </h2>
   )
 }
 

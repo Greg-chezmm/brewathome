@@ -1,6 +1,6 @@
 import { useId, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowDown, ArrowUp, BookOpen, Plus, Trash2 } from 'lucide-react'
+import { ArrowDown, ArrowUp, BookOpen, FlaskConical, FlaskRound, Hop as HopIcon, Plus, Snowflake, Thermometer, Trash2, Wheat } from 'lucide-react'
 import {
   FERMENTABLE_LIBRARY,
   findByName,
@@ -66,11 +66,25 @@ const fmt = (value: number, digits = 0) => value.toLocaleString('fr-FR', { maxim
 
 // ——— Briques communes ———
 
-/** Section d'ingrédients : titre, résumé, liste de cartes, bouton d'ajout. */
+/** Couleur de la pastille d'icône et du liseré de chaque type de section. */
+export type SectionAccent = 'amber' | 'green' | 'violet' | 'orange' | 'sky' | 'slate'
+
+const SECTION_ACCENTS: Record<SectionAccent, string> = {
+  amber: 'bg-amber-100 text-amber-700',
+  green: 'bg-green-100 text-green-700',
+  violet: 'bg-violet-100 text-violet-700',
+  orange: 'bg-orange-100 text-orange-700',
+  sky: 'bg-sky-100 text-sky-700',
+  slate: 'bg-slate-200 text-slate-600',
+}
+
+/** Section d'ingrédients : en-tête (icône + titre + résumé), liste de cartes, bouton d'ajout. */
 export function IngredientSection({
   title,
   hint,
   summary,
+  icon,
+  accent = 'slate',
   addLabel,
   onAdd,
   empty,
@@ -80,6 +94,9 @@ export function IngredientSection({
   title: string
   hint: string
   summary?: string
+  /** Icône de la section (blé, houblon…), affichée dans une pastille colorée. */
+  icon?: ReactNode
+  accent?: SectionAccent
   addLabel: string
   onAdd: () => void
   empty: string
@@ -88,9 +105,10 @@ export function IngredientSection({
   children: ReactNode[]
 }) {
   return (
-    <section className="space-y-3">
-      <div className="flex items-end justify-between gap-3 px-1">
-        <div className="min-w-0">
+    <section className="space-y-3 rounded-2xl border border-slate-200 bg-slate-50/70 p-3 sm:p-4">
+      <div className="flex items-center gap-3">
+        <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${SECTION_ACCENTS[accent]}`}>{icon}</span>
+        <div className="min-w-0 flex-1">
           <h2 className="section-title flex items-center">
             {title}
             <InfoTooltip text={hint} />
@@ -98,11 +116,11 @@ export function IngredientSection({
           {summary && <p className="text-sm text-slate-500">{summary}</p>}
         </div>
       </div>
-      {tools && <div className="px-1">{tools}</div>}
+      {tools && <div>{tools}</div>}
       {children.length > 0 ? (
         <ul className="space-y-3">{children}</ul>
       ) : (
-        <p className="rounded-2xl border border-dashed border-slate-300 px-4 py-5 text-center text-sm text-slate-400">{empty}</p>
+        <p className="rounded-2xl border border-dashed border-slate-300 bg-white px-4 py-5 text-center text-sm text-slate-400">{empty}</p>
       )}
       <button type="button" onClick={onAdd} className="btn-secondary w-full border-dashed">
         <Plus size={16} />
@@ -339,6 +357,8 @@ export function FermentableCards({
   return (
     <IngredientSection
       title="Fermentescibles"
+      icon={<Wheat size={20} />}
+      accent="amber"
       hint="Les ingrédients qui apportent les sucres (malts, extraits, sucres). Leur poids, leur couleur (°L) et leur rendement font la densité initiale et la couleur de la bière."
       summary={fermentables.length > 0 ? `${formatWeightKg(totalKg)} au total` : undefined}
       addLabel="Ajouter un fermentescible"
@@ -437,6 +457,8 @@ export function HopCards({
   return (
     <IngredientSection
       title="Houblons"
+      icon={<HopIcon size={20} />}
+      accent="green"
       hint="Amertume (IBU), saveur et arôme. Un ajout long en ébullition donne surtout de l'amertume ; un ajout court, un whirlpool ou un dry hop donnent surtout des arômes."
       summary={hops.length > 0 ? `${fmt(totalG)} g au total` : undefined}
       addLabel="Ajouter un houblon"
@@ -583,6 +605,8 @@ export function YeastCards({
   return (
     <IngredientSection
       title="Levures"
+      icon={<FlaskConical size={20} />}
+      accent="violet"
       hint="La levure transforme les sucres en alcool et CO₂. Son atténuation (part des sucres consommés) fixe la densité finale, donc l'alcool et la sécheresse."
       addLabel="Ajouter une levure"
       onAdd={() => onChange([...yeasts, { ...EMPTY_YEAST }])}
@@ -695,6 +719,8 @@ export function MashStepCards({ steps, onChange }: { steps: MashStep[]; onChange
   return (
     <IngredientSection
       title="Empâtage"
+      icon={<Thermometer size={20} />}
+      accent="orange"
       hint="Les paliers de température de la maische, dans l'ordre. Le palier principal (le plus long, hors mash-out) décide de la fermentescibilité du moût : c'est lui qui ajuste l'atténuation estimée. Au Brew Day, chaque palier devient une étape minutée."
       summary={`${steps.length} palier${steps.length > 1 ? 's' : ''} · ${fmt(totalMashTimeMin(steps))} min au total`}
       tools={
@@ -769,6 +795,8 @@ export function FermentationStepCards({
   return (
     <IngredientSection
       title="Fermentation"
+      icon={<Snowflake size={20} />}
+      accent="sky"
       hint="Le profil de température après l'ensemencement : fermentation primaire, éventuellement secondaire, garde et cold crash. Il est repris dans le suivi de fermentation du brassin, avec les jours de dry hop."
       summary={steps.length > 0 ? `${steps.length} étape${steps.length > 1 ? 's' : ''} · ${fmt(total)} jours avant l'embouteillage` : undefined}
       addLabel="Ajouter une étape"
@@ -865,6 +893,8 @@ export function OtherIngredientCards({
   return (
     <IngredientSection
       title="Autres ajouts (ébullition)"
+      icon={<FlaskRound size={20} />}
+      accent="slate"
       hint="Clarifiant (Whirlfloc, Irish moss), nutriment de levure, épices… La quantité est libre (« 1 pastille », « 5 g »). Le temps se compte comme pour les houblons."
       addLabel="Ajouter un ajout"
       onAdd={() => onChange([...items, { ...EMPTY_OTHER }])}

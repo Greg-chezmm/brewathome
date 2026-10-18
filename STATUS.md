@@ -8,6 +8,7 @@ Application personnelle de brassage de bière maison (type Brewfather/Little Boc
 ## Où on en est (résumé)
 
 **Dernières avancées** (migration `0018` appliquée sur la base live le 2026-10-18)
+- **Fiche et formulaire de recette plus lisibles** : chaque partie (fermentescibles, houblons, levures, empâtage, fermentation, autres ajouts) a une icône colorée (blé, houblon, fiole, thermomètre, flocon…) ; dans le formulaire, elle est dans un bloc encadré distinct des cartes d'ingrédients. Sur la fiche, badge BJCP en haut (code + nom + Ale/Lager) et **jauges** montrant la position de DI/DF/IBU/SRM/alcool dans la plage du style.
 - **Enregistrement d'une recette sans risque de perte** : l'ancienne sauvegarde supprimait tous les ingrédients avant de les réinsérer — un échec d'insertion laissait la recette vide. Désormais on insère d'abord les nouvelles lignes, on ne supprime les anciennes qu'une fois tout réussi, et au moindre échec on annule les insertions (anciennes lignes intactes).
 - **Levure sèche en sachets** : unité « sachet(s) » aussi pour les levures sèches, avec le poids d'un sachet (déduit de la marque — Fermentis 11,5 g, Lallemand 11 g, Mangrove Jack's 10 g — ou saisi), et un avertissement quand la levure manque, est sans quantité ou en quantité insuffisante (`brew-calc/yeast.ts`, migration 0018 `recipe_yeasts.sachet_g`).
 - **Vocabulaire unifié DI/DF** : partout « DI » (densité initiale) et « DF » (densité finale) au lieu d'un mélange OG/FG, et « Alcool » au lieu d'ABV, pour ne pas perdre les débutants.
