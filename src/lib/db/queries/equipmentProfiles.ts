@@ -129,6 +129,12 @@ export async function updateEquipmentProfile(id: string, profile: EquipmentProfi
   if (error) throw error
 }
 
+/** Efficacité d'empâtage mesurée, reportée sur le profil : les nouvelles recettes la reprennent. */
+export async function updateEquipmentMashEfficiency(id: string, mashEfficiencyPercent: number): Promise<void> {
+  const { error } = await supabase.from('equipment_profiles').update({ mash_efficiency_percent: mashEfficiencyPercent }).eq('id', id)
+  if (error) throw error
+}
+
 export async function deleteEquipmentProfile(id: string): Promise<void> {
   const { error } = await supabase.from('equipment_profiles').delete().eq('id', id)
   if (error) throw error

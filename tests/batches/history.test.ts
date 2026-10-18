@@ -127,7 +127,7 @@ describe('historyStats et historyInsights', () => {
       row({ og: 1.047, mashEfficiency: 70, attenuation: 73, fermenterVolumeL: 8.6 }),
     ])
     const insights = historyInsights(stats, 2)
-    expect(insights[0]).toContain('Réglez 69 %')
+    expect(insights[0]).toContain('69 % en moyenne')
     expect(insights.some((i) => i.includes('sous la prévision'))).toBe(true)
     expect(insights.some((i) => i.includes('L de moins'))).toBe(true)
   })

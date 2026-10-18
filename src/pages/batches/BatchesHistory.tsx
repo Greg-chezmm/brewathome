@@ -154,6 +154,11 @@ export function BatchesHistory() {
                           {formatDate(r.date)} · {BATCH_STATUS_LABELS[r.status]}
                         </span>
                         {r.yeastName && <span className="block text-xs text-slate-400">{r.yeastName}</span>}
+                        {(r.mashEfficiency !== null || r.attenuation !== null) && (
+                          <Link to={`/batches/${r.id}`} className="mt-1 block text-xs text-indigo-600 hover:underline">
+                            Reporter sur la recette →
+                          </Link>
+                        )}
                       </td>
                       <td className="whitespace-nowrap px-3 py-3">
                         <Measured value={r.og} planned={r.plannedOg} digits={3} />

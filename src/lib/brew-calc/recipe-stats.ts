@@ -71,8 +71,13 @@ const ATTENUATION_POINTS_PER_C = 1
  * Règle empirique (≈ 1 point par °C), pas un modèle enzymatique : à traiter comme une tendance.
  */
 export function adjustAttenuationForMashTemp(attenuationPercent: number, mashTempC: number): number {
+  return attenuationPercent - mashTempAttenuationOffset(mashTempC)
+}
+
+/** Points d'atténuation retirés à la levure par un empâtage à `mashTempC` (négatif sous la référence). */
+export function mashTempAttenuationOffset(mashTempC: number): number {
   const clamped = Math.min(MASH_TEMP_MAX_C, Math.max(MASH_TEMP_MIN_C, mashTempC))
-  return attenuationPercent - (clamped - REFERENCE_MASH_TEMP_C) * ATTENUATION_POINTS_PER_C
+  return (clamped - REFERENCE_MASH_TEMP_C) * ATTENUATION_POINTS_PER_C
 }
 
 /**

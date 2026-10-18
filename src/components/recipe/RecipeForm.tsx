@@ -258,7 +258,15 @@ export function RecipeForm({
             </FieldLabel>
             <select
               value={value.equipmentProfileId ?? ''}
-              onChange={(e) => set('equipmentProfileId', e.target.value || null)}
+              onChange={(e) => {
+                // L'efficacité d'empâtage suit celle du profil (reportée depuis les brassins mesurés).
+                const profile = equipmentProfiles?.find((p) => p.id === e.target.value)
+                onChange({
+                  ...value,
+                  equipmentProfileId: e.target.value || null,
+                  ...(profile && profile.mashEfficiencyPercent > 0 && { mashEfficiencyPercent: profile.mashEfficiencyPercent }),
+                })
+              }}
               className="field-input"
             >
               <option value="">—</option>
@@ -336,7 +344,7 @@ export function RecipeForm({
             />
           </div>
           <div>
-            <FieldLabel hint="Part du potentiel sucre du grain qui finit réellement dissoute dans le moût. Une efficacité plus basse nécessite plus de grain pour atteindre la même densité (OG). Typique : 65-75% en BIAB/tout-grain amateur, jusqu'à 85% avec un matériel optimisé.">
+            <FieldLabel hint="Part du potentiel sucre du grain qui finit réellement dissoute dans le moût. Une efficacité plus basse nécessite plus de grain pour atteindre la même densité (OG). Typique : 65-75% en BIAB/tout-grain amateur, jusqu'à 85% avec un matériel optimisé. Choisir un profil d'équipement reprend la sienne (celle mesurée sur vos brassins si vous l'y avez appliquée).">
               Efficacité de brassage (%)
             </FieldLabel>
             <input

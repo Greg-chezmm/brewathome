@@ -2,6 +2,7 @@ import { defaultMashSteps, effectiveMashSteps, mainMashTempC, type MashStep } fr
 import { estimateRecipeStats, REFERENCE_MASH_TEMP_C } from '@/lib/brew-calc/recipe-stats'
 import type { FermentationStep } from '@/lib/brew-calc/fermentation-profile'
 import type { Fermentable, Hop, OtherIngredient, Yeast } from '@/lib/brew-calc/types'
+import { withAppliedResults, type ResultsToApply } from '@/lib/batches/apply-results'
 import { resolveBjcpStyleId } from '@/lib/beerxml/mapping'
 import type { ParsedRecipeDraft } from '@/lib/beerxml/types'
 import { supabase } from '@/lib/supabase/client'
@@ -285,6 +286,12 @@ export async function updateRecipe(recipeId: string, input: RecipeInput): Promis
   const { error } = await supabase.from('recipes').update(payload).eq('id', recipeId)
   if (error) throw error
   await replaceChildRows(recipeId, input)
+}
+
+/** Reporte les résultats mesurés d'un brassin sur sa recette d'origine (estimations recalculées). */
+export async function applyResultsToRecipe(recipeId: string, results: ResultsToApply): Promise<void> {
+  const recipe = await getRecipeWithDetails(recipeId)
+  await updateRecipe(recipeId, withAppliedResults(recipe, results))
 }
 
 export async function updateRecipeStatus(recipeId: string, status: 'draft' | 'validated' | 'archived'): Promise<void> {

@@ -1,5 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import { ApplyResultsCard } from '@/components/batches/ApplyResultsCard'
 import { BatchSummaryTable } from '@/components/batches/BatchSummaryTable'
 import { MeasurementsPanel } from '@/components/batches/MeasurementsPanel'
 import { SessionsChoice } from '@/components/batches/SessionsChoice'
@@ -208,6 +209,8 @@ export function BatchOverview() {
           </p>
         )}
       </section>
+
+      <ApplyResultsCard batch={batch} equipment={equipmentProfile} />
     </div>
   )
 }

@@ -127,7 +127,7 @@ export function historyInsights(stats: HistoryStats, rowsWithData: number): stri
     if (Math.abs(gap) >= EFFICIENCY_GAP) {
       insights.push(
         `Efficacité d’empâtage mesurée : ${fmt(stats.mashEfficiency)} % en moyenne, pour ${fmt(stats.plannedMashEfficiency)} % prévus. ` +
-          `Réglez ${fmt(Math.round(stats.mashEfficiency))} % dans votre profil d’équipement : vos DI tomberont juste.`,
+          `Reportez-la depuis un brassin (« Reporter les résultats mesurés ») sur vos recettes et votre profil d’équipement : vos DI tomberont juste.`,
       )
     }
   }
