@@ -16,10 +16,10 @@ Application personnelle de brassage de bière maison (type Brewfather/Little Boc
 - **Guide « Empâtage & eau »** (onglet du guide des ingrédients), lié depuis le formulaire, la carte pH et l'outil Sels minéraux.
 - **IBU Garetz** sélectionnable ; **alcool mesuré** qui compte le sucre ajouté en fermentation (DI effective = DI mesurée + sucre dilué dans le fermenteur).
 - Chargement plus rapide : pages découpées par route (fichier principal 1 340 → 58 kB).
-- Import Brewfather : les équipements « Imported » ne sont plus confondus entre recettes.
-
-**À faire juste après**
-- Pousser les commits locaux (déploiement).
+- Import Brewfather : les équipements « Imported » ne sont plus confondus entre recettes ; l'efficacité d'empâtage n'empêche plus de réutiliser un profil existant.
+- **Actions de page toujours au même endroit** : Enregistrer, Modifier, Supprimer… dans une barre collée en bas de l'écran.
+- Listes d'équipements et de recettes à jour tout de suite après une création, une modification ou une suppression (plus besoin de rafraîchir).
+- **Reporter les résultats mesurés** sur la recette et l'équipement, **nouvelle version d'une recette** depuis un brassin, **types Supabase générés**.
 
 **Prochaines étapes** : voir « Ce qu'il reste à faire ».
 
@@ -32,7 +32,7 @@ Application personnelle de brassage de bière maison (type Brewfather/Little Boc
 - Matching avec les styles BJCP 2021 (plages OG/FG/IBU/SRM/ABV).
 - Profils d'équipement (cuve, évaporation en L/h, pertes cuve d'empâtage / trub / fermenteur, utilisation houblon, méthode tout-grain/BIAB/extrait) avec calcul des volumes à chaque étape (eau d'empâtage, eau de rinçage @ 76 °C, pré-ébullition, post-ébullition, fermenteur), alerte de débordement de cuve.
 - Ancrage du dimensionnement sur le volume final **ou** sur le volume pré-ébullition (utile quand la cuve est le facteur limitant).
-- Import BeerXML (lecture seule) pour récupérer des recettes existantes.
+- Import BeerXML pour récupérer des recettes existantes.
 - **Brewfather** (`/recipes/brewfather`) : connexion par identifiant + clé API (droit recipes.read, enregistrés dans `brewfather_accounts`, RLS), liste de toutes les recettes du compte, **comparaison de nos calculs** (DI, DF, ABV, IBU, couleur, volume pré-ébullition) avec ceux de Brewfather recalculés sur l'équipement de la recette (coche verte = concordant, triangle orange = écart au-delà des tolérances, expliqué sur la page avec la cause probable de chaque écart), import de la recette et de son profil d'équipement. Onglet **Brassins** (droit batches.read) : liste des brassins, import d'un brassin (sa recette devient le snapshot, DI/DF au densimètre, volume en fermenteur, statut ; étapes de Brew Day générées seulement s'il n'est pas encore brassé ; `batches.brewfather_id` empêche un double import, migration 0011) et bilan réel : atténuation apparente mesurée par levure contre la fiche, rendement d'empâtage mesuré contre celui des recettes. Appels directs depuis le navigateur (l'API Brewfather autorise le CORS), quota 500 appels/heure.
 - **Houblons** : usages first-wort / ébullition / whirlpool / dry hop / empâtage, avec pour le dry hop une durée (jours) et une température cible dédiées.
 - **Autres ajouts en ébullition** (Whirlfloc, nutriments...) : nom, quantité en texte libre, temps d'ajout — éditables directement dans le formulaire de recette.
@@ -78,6 +78,8 @@ Application personnelle de brassage de bière maison (type Brewfather/Little Boc
 
 ### Navigation
 - Barre d'onglets en bas sur mobile (Accueil, Recettes, Brassins, Plus), barre latérale sur PC.
+- **Barre d'actions** (`src/components/ActionBar.tsx`) : les boutons d'une page (Enregistrer, Modifier, Valider en brassin, Lancer le Brew Day, Supprimer…) sont regroupés dans une barre collée en bas de l'écran, au-dessus des onglets sur mobile (et de la barre des chiffres clés dans le formulaire de recette). Suppression à gauche, action principale à droite. Sur la fiche recette, le formulaire de recette, l'aperçu du brassin, la validation en brassin et le profil d'équipement.
+- Après création, modification ou suppression d'une recette ou d'un profil d'équipement, les listes sont rafraîchies aussitôt (cache TanStack Query invalidé). Supprimer un profil encore utilisé par une recette affiche un message au lieu d'échouer en silence.
 
 ### Fermentation
 - Saisie manuelle de lectures (densité, température, commentaire) + graphique. En-tête rappelant le brassin (retour vers sa page), iSpindel rattaché affiché avec son statut de connexion (bouton « Détacher » ; terminer un brassin détache ses appareils), liste limitée aux 20 relevés les plus récents (« Tout afficher » en zone défilante), courbe densité (indigo) / température (orange) sur un vrai axe de temps, coupée dans les longues interruptions, sans points au-delà de 100 relevés ; lecture paginée (Supabase plafonne à 1 000 lignes par requête).
@@ -91,6 +93,7 @@ Application personnelle de brassage de bière maison (type Brewfather/Little Boc
 - Auth Supabase (Google, lien par e-mail, e-mail + mot de passe). Inscription par mot de passe : le lien de confirmation ramène sur l'app, messages et erreurs en français, adresse déjà inscrite détectée ; lien ouvert dans un autre navigateur (PKCE impossible) ou expiré expliqué sur la page de connexion (`src/lib/auth/errors.ts`). Modèles d'e-mails en français dans `supabase/templates/` (à coller dans le tableau de bord Supabase).
 - RLS sur toutes les tables, déploiement GitHub Pages via GitHub Actions, PWA installable avec bouton « Installer l'application » (barre latérale sur PC, menu « Plus » sur mobile ; fenêtre d'installation du navigateur sur Android/Chrome/Edge, explication Partager → Sur l'écran d'accueil sur iPhone ; masqué une fois installée, `src/lib/pwa/install.ts`), raccourcis Brassins / Recettes / Outils sur l'icône, plein écran sur iPhone (icône d'accueil, barre d'état sombre) (icône : cuve fumante et cône de houblon, `public/favicon.svg` ; PNG 192/512 rendus depuis ce SVG).
 - Pages chargées à la demande (`React.lazy` dans `App.tsx`), React et Supabase dans leurs propres fichiers (`vite.config.ts`) : fichier principal de 58 kB, Recharts chargé seulement sur les pages à graphique ; le service worker précharge tout pour le hors-ligne.
+- Tests : environnement jsdom réservé aux tests de composants, les calculs purs tournent sous node (pool `vmThreads`) — suite complète ≈ 13 s au lieu de 26 s.
 - Schéma modélisé avec Drizzle (génération de migrations SQL uniquement — aucune dépendance runtime à Drizzle, tout passe par `supabase-js`).
 - **Types Supabase générés** (`npm run db:types` → `src/lib/supabase/types.ts`, depuis le projet lié via `VITE_SUPABASE_URL`) : colonnes mal nommées détectées à la compilation. À relancer après chaque migration appliquée. Colonnes texte « enum » converties vers les unions TS dans les mappers, écritures jsonb via `toJson`.
 
