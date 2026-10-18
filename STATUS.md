@@ -1,6 +1,6 @@
 # BrewAtHome — État du projet
 
-_Dernière mise à jour : 2026-10-17_
+_Dernière mise à jour : 2026-10-18_
 
 Application personnelle de brassage de bière maison (type Brewfather/Little Bock), SPA React + TypeScript, backend Supabase, déployée sur GitHub Pages.
 
@@ -100,6 +100,12 @@ Application personnelle de brassage de bière maison (type Brewfather/Little Boc
 - Calculateur de starter de levure — repoussé (petits volumes, pas de starter pour l'instant).
 - Brewfather : utiliser l'atténuation réelle par levure et le rendement mesuré pour ajuster les recettes. Écarts restants connus : IBU des bières fortes (Brewfather prend la densité pré-ébullition, nous la moyenne des specs) et DF (Brewfather ajuste l'atténuation selon l'empâtage et le sucre).
 - Gestion de stock d'ingrédients (si besoin confirmé un jour).
+- **Rappels de fermentation** (en cours, non commités : `src/lib/fermentation/reminders.ts`, `FermentationReminders.tsx`) : ajouts, changements de température et fin du profil datés depuis l'ensemencement, exportables vers un agenda — à terminer.
+- **Appliquer les résultats mesurés** : depuis l'historique (et le bilan Brewfather), un bouton qui reporte l'efficacité mesurée dans le profil d'équipement et l'atténuation réelle sur la levure, pour que les prochaines DI tombent juste.
+- **Notes de dégustation** par brassin : note sur 5, aspect, arôme, goût, à changer la prochaine fois ; visibles dans l'historique et depuis la recette.
+- **Suivi du conditionnement** : date d'embouteillage et date « prête à boire » calculée (refermentation ~2–3 semaines), avec un rappel.
+- **Nouvelle version d'une recette depuis un brassin** : créer la v2 à partir du snapshot du brassin (et de ses notes de dégustation).
+- **Types Supabase générés** (`supabase gen types`) à la place de `Database = any` (`src/lib/supabase/types.ts`), pour détecter les colonnes mal nommées à la compilation.
 
 ## Comment vérifier l'état du code
 
