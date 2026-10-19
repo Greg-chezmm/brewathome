@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   calculateDilutionWater,
   calculateFermentableAddition,
+  correctGravityForTemperature,
 } from '@/lib/brew-calc/gravity-correction'
 
 describe('calculateDilutionWater', () => {
@@ -34,5 +35,20 @@ describe('calculateFermentableAddition', () => {
   it('throws if target gravity is not higher than current gravity', () => {
     expect(() => calculateFermentableAddition(20, 1.05, 1.05, 'tableSugar')).toThrow()
     expect(() => calculateFermentableAddition(20, 1.06, 1.05, 'tableSugar')).toThrow()
+  })
+})
+
+describe('correctGravityForTemperature', () => {
+  it('leaves a reading taken at the calibration temperature unchanged', () => {
+    expect(correctGravityForTemperature(1.05, 20)).toBeCloseTo(1.05, 6)
+  })
+
+  it('raises a hot reading (hydrometer reads low when warm)', () => {
+    // Valeur de référence usuelle : 1.050 lu à 30 °C ≈ 1.0526 à 20 °C (+2,6 points).
+    expect(correctGravityForTemperature(1.05, 30)).toBeCloseTo(1.0526, 4)
+  })
+
+  it('lowers a cold reading', () => {
+    expect(correctGravityForTemperature(1.05, 10)).toBeLessThan(1.05)
   })
 })

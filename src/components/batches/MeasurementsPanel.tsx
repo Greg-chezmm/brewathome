@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { FieldLabel } from '@/components/InfoTooltip'
+import { HYDROMETER_CALIBRATION_C, correctGravityForTemperature } from '@/lib/brew-calc/gravity-correction'
 import type { EquipmentProfile } from '@/lib/brew-calc/types'
 import {
   MEASUREMENTS,
@@ -69,13 +70,24 @@ export function MeasurementsPanel({
   const [drafts, setDrafts] = useState(() =>
     Object.fromEntries(fields.map((key) => [key, toDraft(key, measured[key])])) as Record<MeasurementKey, string>,
   )
+  // Température de l'échantillon (facultative) : la densité lue est ramenée à 20 °C avant enregistrement.
+  const [sampleTemps, setSampleTemps] = useState<Partial<Record<MeasurementKey, string>>>({})
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const sampleTempC = (key: MeasurementKey) => {
+    const text = (sampleTemps[key] ?? '').trim().replace(',', '.')
+    const value = text === '' ? null : Number.parseFloat(text)
+    return value !== null && Number.isFinite(value) && value >= 0 && value <= 100 ? value : null
+  }
 
   const parsed = Object.fromEntries(
     fields.map((key) => {
       const text = drafts[key].trim().replace(',', '.')
-      return [key, text === '' ? null : Number.parseFloat(text)]
+      const reading = text === '' ? null : Number.parseFloat(text)
+      const sampleTemp = sampleTempC(key)
+      if (reading === null || sampleTemp === null || !isGravityKey(key)) return [key, reading]
+      return [key, Math.round(correctGravityForTemperature(reading, sampleTemp) * 10000) / 10000]
     }),
   ) as Record<MeasurementKey, number | null>
   const invalid = fields.filter((key) => {
@@ -166,6 +178,29 @@ export function MeasurementsPanel({
                   <span className="text-xs text-slate-500">prévu {formatValue(key, planned[key]!)}</span>
                 )}
               </div>
+              {isGravityKey(key) && (
+                <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                  <label className="flex items-center gap-1.5">
+                    Temp. de l’échantillon
+                    <input
+                      type="number"
+                      step="0.5"
+                      inputMode="decimal"
+                      value={sampleTemps[key] ?? ''}
+                      placeholder={String(HYDROMETER_CALIBRATION_C)}
+                      onChange={(e) => setSampleTemps({ ...sampleTemps, [key]: e.target.value })}
+                      aria-label={`Température de l’échantillon — ${label}`}
+                      className="field-input w-16 py-1"
+                    />
+                    °C
+                  </label>
+                  {sampleTempC(key) !== null && parsed[key] !== null && (
+                    <span className="font-medium text-indigo-600">
+                      → {formatGravity(parsed[key]!)} à {HYDROMETER_CALIBRATION_C} °C
+                    </span>
+                  )}
+                </div>
+              )}
               {suggestion && (
                 <button
                   type="button"
