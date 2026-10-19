@@ -1,6 +1,6 @@
 # BrewAtHome — État du projet
 
-_Dernière mise à jour : 2026-10-18_
+_Dernière mise à jour : 2026-10-19_
 
 
 Application personnelle de brassage de bière maison (type Brewfather/Little Bock), SPA React + TypeScript, backend Supabase, déployée sur GitHub Pages.
@@ -8,6 +8,7 @@ Application personnelle de brassage de bière maison (type Brewfather/Little Boc
 ## Où on en est (résumé)
 
 **Dernières avancées** (migration `0019` appliquée sur la base live le 2026-10-18)
+- **Densité corrigée de la température de l'échantillon** : chaque champ de densité du panneau de mesures (pré-ébullition, fin d'ébullition, DI, DF) a un champ facultatif « Temp. de l'échantillon » ; la lecture est ramenée à 20 °C (densimètre étalonné à 20 °C, `correctGravityForTemperature`, `brew-calc/gravity-correction.ts`) avant enregistrement, donc efficacités, alcool et atténuation s'appuient sur la valeur corrigée. Champ vide = aucun changement ; la température n'est pas stockée.
 - **Liste de préparation / courses** (bouton « Préparation » sur la fiche recette, `/recipes/:id/prep`) : feuille imprimable (ou cochable à l'écran) listant les fermentescibles à peser, les houblons en sachets datés par moment d'ajout, la levure, les autres ajouts, les volumes d'eau avec la température d'empâtage, et les paliers. Styles d'impression dédiés (navigation masquée).
 - **Notes libres par étape au Brew Day** : chaque étape a un champ « Notes de l'étape » (observations, écarts…), enregistré en base (`batch_steps.notes`, migration 0019), avec mise à jour optimiste pour ne pas être écrasé par le rafraîchissement automatique.
 - **Température d'empâtage réellement atteinte** : nouvelle mesure du Brew Day sur l'étape d'empâtage (`batches.mash_temp_reached_c`, migration 0019), comparée à la cible de la recette et reprise dans le résumé Recette / Brassin.
@@ -72,7 +73,7 @@ Application personnelle de brassage de bière maison (type Brewfather/Little Boc
 - Interface façon app mobile : écran plein (une étape à la fois, barre d'actions en bas, vue d'ensemble en panneau) ; sur PC, vue d'ensemble permanente à gauche et étape en cours à droite.
 - Étapes générées automatiquement à la création du brassin, dans l'ordre de la journée et **regroupées en phases** : Préparation → Empâtage (eau d'empâtage calculée pour le premier palier, une étape minutée par palier de la recette avec montée en température guidée, test à l'iode sur le palier principal, mash-out facultatif) → Filtration et rinçage → Ébullition (chaque ajout à son instant précis, whirlpool) → Refroidissement → Ensemencement → Rangement → Houblonnage à froid.
 - Chaque étape a une **checklist de gestes à cocher** (sous-sous-étapes, enregistrées en base dans `batch_steps.checked_items`) et des **conseils** affichés au moment où ils servent (`src/lib/brew-day/checklist.ts`). Points et étapes facultatifs (test à l'iode, mash-out…) ; toute étape peut être « passée ».
-- Saisie des mesures à l'étape où elles se font : pH et **température d'empâtage réellement atteinte** à l'empâtage (`batches.mash_temp_reached_c`, comparée à la cible et reprise au résumé Recette / Brassin), volume et densité pré-ébullition à la montée en ébullition, fin d'ébullition au refroidissement, appoint/volume fermenteur/DI à l'ensemencement ; efficacités affichées aussitôt. DF saisissable depuis le bandeau « densité stable » du suivi de fermentation.
+- Saisie des mesures à l'étape où elles se font (densités avec correction de température de l'échantillon, ramenées à 20 °C) : pH et **température d'empâtage réellement atteinte** à l'empâtage (`batches.mash_temp_reached_c`, comparée à la cible et reprise au résumé Recette / Brassin), volume et densité pré-ébullition à la montée en ébullition, fin d'ébullition au refroidissement, appoint/volume fermenteur/DI à l'ensemencement ; efficacités affichées aussitôt. DF saisissable depuis le bandeau « densité stable » du suivi de fermentation.
 - **Notes libres par étape** (`batch_steps.notes`) : un champ « Notes de l'étape » sous la checklist de chaque étape (observations, écarts…), enregistré à la perte du focus avec mise à jour optimiste (le rafraîchissement auto toutes les 5 s ne l'écrase pas).
 - Minuteur par étape, persistant en base (survit à un rafraîchissement de page) : Démarrer à côté de la durée prévue, Arrêter sous le compte à rebours, Terminer dans la barre du bas. Terminer une étape enchaîne sur la suivante.
 - Alertes sonores + bandeau rouge + changement du titre d'onglet quand un ajout arrive à échéance ; rappel du minuteur d'ébullition quand on consulte une autre étape.
