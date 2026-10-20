@@ -134,6 +134,24 @@ export function compareGravity(key: GravityKey, expected: number, measured: numb
   return { points, verdict, advice: GRAVITY_ADVICE[key][verdict] }
 }
 
+/**
+ * DI proposée à l'ensemencement : la densité de fin d'ébullition ne bouge plus ensuite,
+ * sauf par l'eau d'appoint versée au fermenteur, qui dilue les points.
+ * Simple suggestion : la DI saisie au densimètre fait toujours foi.
+ */
+export function derivedOg(
+  postBoilGravity: number | null,
+  fermenterVolumeL: number | null,
+  fermenterTopUpL: number | null,
+): number | null {
+  if (postBoilGravity == null) return null
+  const topUp = fermenterTopUpL ?? 0
+  if (topUp <= 0) return postBoilGravity
+  if (fermenterVolumeL == null || fermenterVolumeL <= topUp) return null
+  const points = (postBoilGravity - 1) * 1000 * ((fermenterVolumeL - topUp) / fermenterVolumeL)
+  return 1 + Math.round(points) / 1000
+}
+
 export function isGravityKey(key: MeasurementKey): key is GravityKey {
   return MEASUREMENTS[key].kind === 'gravity'
 }

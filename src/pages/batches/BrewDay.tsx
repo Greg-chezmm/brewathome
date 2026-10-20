@@ -22,7 +22,7 @@ import { formatDuration, useNowTick } from '@/hooks/useBrewTimer'
 import { useWakeLock } from '@/hooks/useWakeLock'
 import { fermentableUse } from '@/lib/brew-calc/gravity'
 import { checklistProgress, stepGuide, type StepGuide } from '@/lib/brew-day/checklist'
-import { plannedMeasurements, type MeasurementKey } from '@/lib/brew-day/measurements'
+import { derivedOg, plannedMeasurements, type MeasurementKey } from '@/lib/brew-day/measurements'
 import {
   blendedFermenter,
   scaleVolumes,
@@ -279,6 +279,14 @@ export function BrewDay() {
   const batchFields = activeStep && !sessionFields ? STEP_MEASUREMENTS[activeStep.stepType] : undefined
   // DI et volume du fermenteur rempli par les sessions, proposés à l'ensemencement.
   const blend = brewSessions > 1 ? blendedFermenter(batch.sessionMeasurements, batch.measurements.fermenterTopUpL) : null
+  // Session unique : DI déduite de la densité de fin d'ébullition (et de l'appoint d'eau enregistré).
+  // Jamais proposée si la DI est déjà saisie : la mesure au densimètre prime.
+  const endOfBoilOg = batch.measurements.og != null ? null : derivedOg(
+    batch.measurements.postBoilGravity,
+    batch.measurements.fermenterVolumeL,
+    batch.measurements.fermenterTopUpL,
+  )
+  const endOfBoilOgLabel = (batch.measurements.fermenterTopUpL ?? 0) > 0 ? "Fin d'ébullition, avec appoint" : "Fin d'ébullition"
 
   const overview = (
     <StepOverview
@@ -343,7 +351,9 @@ export function BrewDay() {
                 og: { value: blend.og, label: 'Mélange des sessions' },
                 fermenterVolumeL: { value: blend.volumeL, label: 'Versé par les sessions' },
               }
-            : undefined
+            : activeStep.stepType === 'pitch' && endOfBoilOg != null
+              ? { og: { value: endOfBoilOg, label: endOfBoilOgLabel } }
+              : undefined
         }
       />
     )
