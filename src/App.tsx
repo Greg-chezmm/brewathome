@@ -23,6 +23,7 @@ const BatchFermentation = lazyPage(() => import('@/pages/batches/BatchFermentati
 const BatchOverview = lazyPage(() => import('@/pages/batches/BatchOverview'), 'BatchOverview')
 const BrewDay = lazyPage(() => import('@/pages/batches/BrewDay'), 'BrewDay')
 const DevicesList = lazyPage(() => import('@/pages/devices/DevicesList'), 'DevicesList')
+const IspindelCalibration = lazyPage(() => import('@/pages/devices/IspindelCalibration'), 'IspindelCalibration')
 const EquipmentProfileDetail = lazyPage(() => import('@/pages/equipment-profiles/EquipmentProfileDetail'), 'EquipmentProfileDetail')
 const EquipmentProfilesList = lazyPage(() => import('@/pages/equipment-profiles/EquipmentProfilesList'), 'EquipmentProfilesList')
 const BrewfatherImport = lazyPage(() => import('@/pages/recipes/BrewfatherImport'), 'BrewfatherImport')
@@ -65,6 +66,8 @@ export function App() {
           <Route path="/equipment-profiles/:profileId" element={<EquipmentProfileDetail />} />
           <Route path="/styles" element={<StylesList />} />
           <Route path="/devices" element={<DevicesList />} />
+          <Route path="/devices/calibration" element={<IspindelCalibration />} />
+          <Route path="/devices/calibration" element={<IspindelCalibration />} />
           <Route path="/tools" element={<Tools />} />
           <Route path="/ingredients" element={<IngredientsGuide />} />
           <Route path="*" element={<Navigate to="/" replace />} />

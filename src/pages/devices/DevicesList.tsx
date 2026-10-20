@@ -170,17 +170,7 @@ export function DevicesList() {
               (192.168.4.1), après un réveil par le bouton reset si besoin. Faites deux relevés et gardez la moyenne.
             </li>
             <li>
-              Vous avez 5 couples (angle ; densité). Calculez le polynôme de degré 2 qui les relie : tableur avec
-              courbe de tendance polynomiale, ou l'outil de calibration du projet iSpindel (
-              <a
-                href="https://github.com/universam1/iSpindel"
-                className="font-medium text-indigo-600 underline"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                github.com/universam1/iSpindel
-              </a>
-              ). Le résultat s'écrit sous la forme <code>a*tilt^2 + b*tilt + c</code>.
+              Vous avez 5 couples (angle ; densité). Saisissez-les dans l'<Link to="/devices/calibration" className="font-medium text-indigo-600 underline">outil de calibration</Link> : il calcule le polynôme (degré 2 conseillé) et peut l'enregistrer dans le mémo de l'appareil. Le résultat s'écrit sous la forme <code>a*tilt*tilt + b*tilt + c</code>.
             </li>
             <li>
               Recopiez-le dans le champ <strong>Polynominal</strong> (Gravity conversion) de la page Configuration du
