@@ -106,7 +106,7 @@ describe('Brew Day : erreurs', () => {
 
   it('Terminer enregistré : passe à l’étape suivante', async () => {
     renderBrewDay()
-    await screen.findByRole('complementary')
+    await screen.findByRole('button', { name: 'Étape précédente' })
     expect(previousStep()).toBeDisabled()
     fireEvent.click(screen.getByRole('button', { name: 'Terminer' }))
     await waitFor(() => expect(previousStep()).toBeEnabled())
@@ -115,7 +115,7 @@ describe('Brew Day : erreurs', () => {
   it('Terminer non enregistré : reste sur l’étape et affiche l’erreur', async () => {
     api.updateStatus.mockRejectedValue(new Error('écriture refusée'))
     renderBrewDay()
-    await screen.findByRole('complementary')
+    await screen.findByRole('button', { name: 'Étape précédente' })
     fireEvent.click(screen.getByRole('button', { name: 'Terminer' }))
     expect(await screen.findByText('écriture refusée')).toBeInTheDocument()
     expect(previousStep()).toBeDisabled()
@@ -124,7 +124,7 @@ describe('Brew Day : erreurs', () => {
   it('Passer non enregistré : reste sur l’étape et affiche l’erreur', async () => {
     api.updateStatus.mockRejectedValue(new Error('écriture refusée'))
     renderBrewDay()
-    await screen.findByRole('complementary')
+    await screen.findByRole('button', { name: 'Étape précédente' })
     fireEvent.click(screen.getByRole('button', { name: 'Passer cette étape' }))
     expect(await screen.findByText('écriture refusée')).toBeInTheDocument()
     expect(previousStep()).toBeDisabled()
