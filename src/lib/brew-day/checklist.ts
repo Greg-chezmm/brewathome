@@ -4,7 +4,7 @@ import { formatWeightKg } from '@/lib/brew-calc/units'
 import { SPARGE_WATER_TEMP_C, type VolumeBreakdown } from '@/lib/brew-calc/volumes'
 import type { BatchStep } from '@/lib/db/queries/batches'
 import type { RecipeDetails } from '@/lib/db/queries/recipes'
-import { GRAIN_TEMP_C, mashStepLabel, strikeWaterTempFor } from './steps'
+import { boilAdditionsAt, GRAIN_TEMP_C, GROUPED_ADDITION_PREFIX, mashStepLabel, strikeWaterTempFor } from './steps'
 
 export interface ChecklistItem {
   /** Identifiant stable dans l'étape : c'est lui qui est enregistré dans `batch_steps.checked_items`. */
@@ -203,7 +203,26 @@ export function stepGuide(step: BatchStep, ctx: StepGuideContext): StepGuide {
       }
 
     case 'hop-addition':
-    case 'other-addition':
+    case 'other-addition': {
+      // Plusieurs ajouts au même moment : une case par ingrédient.
+      const grouped = step.label.startsWith(GROUPED_ADDITION_PREFIX) && step.triggerTimeMin !== null
+        ? boilAdditionsAt(ctx.recipe, step.triggerTimeMin)
+        : []
+      if (grouped.length > 1) {
+        const tips = [
+          ...(grouped.some((i) => i.stepType === 'hop-addition') ? [hopTimingTip(step.triggerTimeMin!)] : []),
+          ...(grouped.some((i) => i.stepType === 'other-addition')
+            ? ['Whirlfloc / carraghénines : à 10–15 min de la fin, ils font précipiter les protéines (casse chaude) pour une bière plus claire.']
+            : []),
+        ]
+        return {
+          checklist: [
+            ...grouped.map((item, i) => ({ id: `add-${i}`, label: `Ajouter ${item.short}` })),
+            { id: 'stir', label: 'Remuer pour bien disperser' },
+          ],
+          tips,
+        }
+      }
       return {
         checklist: [
           { id: 'add', label: step.triggerTimeMin !== null ? `Ajouter à ${step.triggerTimeMin} min de la fin` : 'Ajouter' },
@@ -216,6 +235,7 @@ export function stepGuide(step: BatchStep, ctx: StepGuideContext): StepGuide {
               : []
             : ['Whirlfloc / carraghénines : à 10–15 min de la fin, ils font précipiter les protéines (casse chaude) pour une bière plus claire.'],
       }
+    }
 
     case 'chiller-sanitize':
       return {

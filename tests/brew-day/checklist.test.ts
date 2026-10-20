@@ -67,3 +67,21 @@ describe('checklistProgress', () => {
     expect(checklistProgress(guide, mash)).toEqual({ done: 1, total: required })
   })
 })
+
+describe('stepGuide — ajouts regroupés', () => {
+  it('propose une case par ingrédient de l’étape regroupée', () => {
+    const grouped: RecipeDetails = {
+      ...recipe,
+      hops: [
+        { name: 'Cascade', amountG: 30, alphaAcidPercent: 6, timeMin: 10, use: 'boil' },
+        { name: 'Citra', amountG: 20, alphaAcidPercent: 12, timeMin: 10, use: 'boil' },
+      ],
+    }
+    const addition = buildBatchSteps(grouped, null)
+      .map((s, i) => ({ ...s, id: `g${i}`, checkedItems: [], notes: null }))
+      .find((s) => s.label.startsWith('Ajouts à'))!
+    const guide = stepGuide(addition, { recipe: grouped, volumes: null, method: 'all-grain' })
+    expect(guide.checklist.map((i) => i.label)).toEqual(['Ajouter Cascade (30 g)', 'Ajouter Citra (20 g)', 'Remuer pour bien disperser'])
+    expect(guide.tips[0]).toMatch(/Ajout tardif/)
+  })
+})

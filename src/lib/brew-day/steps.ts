@@ -146,28 +146,10 @@ function addHotSideSteps(
   add({ stepType: 'heat-to-boil', label: "Chauffer jusqu'à ébullition" })
   add({ stepType: 'boil', label: `Ébullition (${recipe.boilTimeMin} min)`, plannedDurationMin: recipe.boilTimeMin })
 
+  // Ajouts au même moment : une seule étape, avec une case par ingrédient. Le serpentin se désinfecte dans
+  // le moût bouillant, juste avant la fin (après un ajout au même moment) : il reste une étape à part.
   const boilAdditions = [
-    ...recipe.hops
-      .filter((h) => h.use === 'boil' || h.use === 'first-wort')
-      .map((h) => ({
-        stepType: 'hop-addition' as const,
-        label: `Ajout houblon : ${h.name} (${h.amountG} g)`,
-        timeMin: h.timeMin,
-      })),
-    // Extrait dès le début de l'ébullition ; sucres (candi, miel…) en fin d'ébullition, pour ne pas les caraméliser.
-    ...recipe.fermentables
-      .filter((f) => fermentableUse(f) === 'boil')
-      .map((f) => ({
-        stepType: 'other-addition' as const,
-        label: `Ajout : ${f.name} (${formatWeightKg(f.amountKg)})`,
-        timeMin: f.type === 'extract' ? recipe.boilTimeMin : Math.min(BOIL_SUGAR_MIN, recipe.boilTimeMin),
-      })),
-    ...recipe.otherIngredients.map((o) => ({
-      stepType: 'other-addition' as const,
-      label: `Ajout : ${o.name} (${o.amount})`,
-      timeMin: o.timeMin,
-    })),
-    // Le serpentin se désinfecte dans le moût bouillant, juste avant la fin (après un ajout au même moment).
+    ...groupBoilAdditions(recipe),
     {
       stepType: 'chiller-sanitize' as const,
       label: 'Plonger le serpentin pour le désinfecter',
@@ -187,6 +169,64 @@ function addHotSideSteps(
     label: transferToFermenter
       ? `Refroidissement sous 25 °C puis transfert au fermenteur (${recipe.targetVolumeL.toFixed(1)} L)`
       : 'Refroidissement sous 25 °C',
+  })
+}
+
+/** Un ingrédient à ajouter pendant l'ébullition, `timeMin` minutes avant la fin. */
+export interface BoilAdditionItem {
+  stepType: 'hop-addition' | 'other-addition'
+  /** Libellé complet quand l'ajout a son étape à lui. */
+  label: string
+  /** Libellé court (nom et quantité) quand l'ajout est regroupé avec d'autres. */
+  short: string
+  timeMin: number
+}
+
+/** Début du libellé d'une étape regroupant plusieurs ajouts : le guide s'y reconnaît. */
+export const GROUPED_ADDITION_PREFIX = 'Ajouts à '
+
+/** Ingrédients ajoutés pendant l'ébullition, du plus tôt au plus tard. */
+export function boilAdditionItems(recipe: RecipeDetails): BoilAdditionItem[] {
+  const items: BoilAdditionItem[] = [
+    ...recipe.hops
+      .filter((h) => h.use === 'boil' || h.use === 'first-wort')
+      .map((h) => {
+        const short = `${h.name} (${h.amountG} g)`
+        return { stepType: 'hop-addition' as const, label: `Ajout houblon : ${short}`, short, timeMin: h.timeMin }
+      }),
+    // Extrait dès le début de l'ébullition ; sucres (candi, miel…) en fin d'ébullition, pour ne pas les caraméliser.
+    ...recipe.fermentables
+      .filter((f) => fermentableUse(f) === 'boil')
+      .map((f) => {
+        const short = `${f.name} (${formatWeightKg(f.amountKg)})`
+        const timeMin = f.type === 'extract' ? recipe.boilTimeMin : Math.min(BOIL_SUGAR_MIN, recipe.boilTimeMin)
+        return { stepType: 'other-addition' as const, label: `Ajout : ${short}`, short, timeMin }
+      }),
+    ...recipe.otherIngredients.map((o) => {
+      const short = `${o.name} (${o.amount})`
+      return { stepType: 'other-addition' as const, label: `Ajout : ${short}`, short, timeMin: o.timeMin }
+    }),
+  ]
+  return items.sort((a, b) => b.timeMin - a.timeMin)
+}
+
+/** Ingrédients ajoutés au même moment que `timeMin`. */
+export function boilAdditionsAt(recipe: RecipeDetails, timeMin: number): BoilAdditionItem[] {
+  return boilAdditionItems(recipe).filter((i) => i.timeMin === timeMin)
+}
+
+/** Une étape par moment d'ajout ; si plusieurs ingrédients tombent au même moment, ils partagent l'étape. */
+function groupBoilAdditions(recipe: RecipeDetails) {
+  const byTime = new Map<number, BoilAdditionItem[]>()
+  for (const item of boilAdditionItems(recipe)) byTime.set(item.timeMin, [...(byTime.get(item.timeMin) ?? []), item])
+  return [...byTime].map(([timeMin, items]) => {
+    if (items.length === 1) return { stepType: items[0].stepType, label: items[0].label, timeMin }
+    const onlyHops = items.every((i) => i.stepType === 'hop-addition')
+    return {
+      stepType: onlyHops ? ('hop-addition' as const) : ('other-addition' as const),
+      label: `${GROUPED_ADDITION_PREFIX}${timeMin} min de la fin : ${items.map((i) => i.short).join(', ')}`,
+      timeMin,
+    }
   })
 }
 

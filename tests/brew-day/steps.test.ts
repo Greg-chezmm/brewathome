@@ -137,3 +137,31 @@ describe('buildBatchSteps — moment d’ajout des fermentescibles', () => {
     expect(steps.find((s) => s.stepType === 'dry-hop-addition')?.label).toBe('Houblonnage à froid au jour 6 : Citra (50 g) — 4 j')
   })
 })
+
+describe('ajouts d’ébullition au même moment', () => {
+  const grouped: RecipeDetails = {
+    ...recipe,
+    hops: [
+      { name: 'Cascade', amountG: 30, alphaAcidPercent: 6, timeMin: 10, use: 'boil' },
+      { name: 'Citra', amountG: 20, alphaAcidPercent: 12, timeMin: 10, use: 'boil' },
+      { name: 'Magnum', amountG: 15, alphaAcidPercent: 12, timeMin: 60, use: 'boil' },
+    ],
+    otherIngredients: [{ name: 'Whirlfloc', amount: '1 pastille', timeMin: 10 }],
+  }
+  const additions = buildBatchSteps(grouped, null).filter((s) => s.stepType.endsWith('-addition') && s.triggerTimeMin !== null)
+
+  it('réunit en une seule étape les ajouts prévus au même moment', () => {
+    expect(additions.map((s) => s.triggerTimeMin)).toEqual([60, 10])
+    expect(additions[1].label).toBe('Ajouts à 10 min de la fin : Cascade (30 g), Citra (20 g), Whirlfloc (1 pastille)')
+    expect(additions[1].stepType).toBe('other-addition')
+  })
+
+  it('garde le libellé habituel pour un ajout seul', () => {
+    expect(additions[0].label).toBe('Ajout houblon : Magnum (15 g)')
+  })
+
+  it('reste une étape de houblon quand il n’y a que des houblons', () => {
+    const hopsOnly = buildBatchSteps({ ...grouped, otherIngredients: [] }, null).find((s) => s.label.startsWith('Ajouts à'))
+    expect(hopsOnly?.stepType).toBe('hop-addition')
+  })
+})
