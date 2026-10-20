@@ -43,6 +43,21 @@ describe('buildBriefing', () => {
     expect(buildBriefing(steps).totalMinutes).toBe(120)
   })
 
+  it('estime la durée des étapes sans minuteur (chauffe, rinçage, refroidissement) mais pas le nettoyage', () => {
+    const steps = [
+      step('strike-water'),
+      step('mash', { plannedDurationMin: 60 }),
+      step('sparge-water'),
+      step('sparge'),
+      step('heat-to-boil'),
+      step('boil', { plannedDurationMin: 60 }),
+      step('cooling'),
+      step('pitch'),
+      step('cleanup'),
+    ]
+    expect(buildBriefing(steps).totalMinutes).toBe(25 + 60 + 25 + 25 + 60 + 30 + 10)
+  })
+
   it('ajoute le matériel propre aux étapes présentes et rappelle les risques de brûlure et de débordement', () => {
     const briefing = buildBriefing([step('sparge'), step('dry-hop-addition')])
     expect(briefing.equipment.some((e) => /rinçage/.test(e))).toBe(true)
