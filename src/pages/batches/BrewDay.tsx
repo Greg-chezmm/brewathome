@@ -31,7 +31,7 @@ import {
 } from '@/lib/brew-day/navigation'
 import { startBlocker } from '@/lib/brew-day/order'
 import { scaleVolumes, sessionRecipe, sessionVolumes } from '@/lib/brew-day/sessions'
-import { getBatchSteps, getBatchWithDetails, isStepFinished, type BatchStep } from '@/lib/db/queries/batches'
+import { getBatchSteps, getBatchWithDetails, isStepFinished, type BatchDetails, type BatchStep } from '@/lib/db/queries/batches'
 import { getEquipmentProfile } from '@/lib/db/queries/equipmentProfiles'
 
 export function BrewDay() {
@@ -179,11 +179,22 @@ export function BrewDay() {
   // Ajouts à faire et ébullitions en cours : toutes sessions confondues.
   const dueSteps = steps.filter((step) => boilTiming(steps, step, now).timing.isDue)
   // Les minuteurs principaux (empâtage, ébullition) restent visibles pendant les sous-étapes ; l'ébullition tant que l'ébullition court, ou que des ajouts en dépendent encore (même terminée).
+  // Une phase est close dès que l'étape qui la suit (chauffe pour l'empâtage, refroidissement pour l'ébullition) est entamée.
+  const phaseEnded = (s: BatchStep) => {
+    const next = s.stepType === 'mash' ? 'heat-to-boil' : 'cooling'
+    return steps.some(
+      (a) =>
+        a.stepType === next &&
+        (a.session == null || (s.session ?? null) === a.session) &&
+        (!!a.actualStartAt || isStepFinished(a.status)),
+    )
+  }
   const runningBoils = steps.filter(
     (s) =>
       (s.stepType === 'boil' || s.stepType === 'mash') &&
       !!s.actualStartAt &&
       s.id !== activeStep?.id &&
+      !phaseEnded(s) &&
       (s.status === 'in-progress' ||
         (s.stepType === 'boil' &&
           steps.some(
@@ -193,6 +204,7 @@ export function BrewDay() {
               additionTiming(a, s, 0).triggerAtSeconds !== null,
           ))),
   )
+  const stepMeasured = activeStep && stepMeasurement(batch, activeStep)
   const allDone = steps.every((s) => isStepFinished(s.status))
   const activeInSession = activeStep?.session != null
   const activeTiming = activeStep ? boilTiming(steps, activeStep, now) : undefined
@@ -263,6 +275,8 @@ export function BrewDay() {
               startBlockedBy={startBlocker(steps, activeStep)?.label ?? null}
               onStart={() => startStep(activeStep)}
               onStop={() => resetStep(activeStep)}
+              measuredGravity={stepMeasured?.gravity}
+              measuredVolumeL={stepMeasured?.volumeL}
               measurement={
                 <StepMeasurements
                   batch={batch}
@@ -307,4 +321,12 @@ export function BrewDay() {
       {overviewOpen && <OverviewSheet onClose={() => setOverviewOpen(false)}>{overview}</OverviewSheet>}
     </div>
   )
+}
+
+/** Densité et volume déjà saisis pour l'étape (chauffe : pré-ébullition ; refroidissement : fin d'ébullition). */
+function stepMeasurement(batch: BatchDetails, step: BatchStep) {
+  const m = { ...batch.measurements, ...(step.session != null ? batch.sessionMeasurements[step.session - 1] : {}) }
+  if (step.stepType === 'heat-to-boil') return { gravity: m.preBoilGravity, volumeL: m.preBoilVolumeL }
+  if (step.stepType === 'cooling') return { gravity: m.postBoilGravity, volumeL: m.postBoilVolumeL }
+  return null
 }

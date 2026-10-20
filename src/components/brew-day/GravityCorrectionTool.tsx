@@ -7,9 +7,21 @@ import {
 } from '@/lib/brew-calc/gravity-correction'
 import { FieldLabel } from '@/components/InfoTooltip'
 
-export function GravityCorrectionTool({ targetGravity }: { targetGravity?: number }) {
-  const [currentVolume, setCurrentVolume] = useState('20')
-  const [currentGravity, setCurrentGravity] = useState('')
+const DEFAULT_VOLUME_L = '20'
+
+interface GravityCorrectionToolProps {
+  targetGravity?: number
+  /** Densité déjà saisie dans les mesures de l'étape : reprise tant que l'utilisateur ne la modifie pas ici. */
+  measuredGravity?: number | null
+  /** Volume déjà saisi dans les mesures de l'étape. */
+  measuredVolumeL?: number | null
+}
+
+export function GravityCorrectionTool({ targetGravity, measuredGravity, measuredVolumeL }: GravityCorrectionToolProps) {
+  const [editedVolume, setCurrentVolume] = useState<string | null>(null)
+  const [editedGravity, setCurrentGravity] = useState<string | null>(null)
+  const currentVolume = editedVolume ?? (measuredVolumeL != null ? String(measuredVolumeL) : DEFAULT_VOLUME_L)
+  const currentGravity = editedGravity ?? (measuredGravity != null ? measuredGravity.toFixed(3) : '')
   const [goalGravity, setGoalGravity] = useState(targetGravity ? targetGravity.toFixed(3) : '')
   const [additionType, setAdditionType] = useState<FermentableAdditionType>('dme')
 

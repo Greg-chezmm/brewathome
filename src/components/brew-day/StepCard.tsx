@@ -27,6 +27,8 @@ export function StepCard({
   onStart,
   onStop,
   measurement,
+  measuredGravity,
+  measuredVolumeL,
 }: {
   step: BatchStep
   guide: StepGuide
@@ -46,6 +48,9 @@ export function StepCard({
   onStop: () => void
   /** Densité à relever à cette étape (pré-ébullition, fin d'ébullition, DI), comparée à la recette. */
   measurement?: React.ReactNode
+  /** Densité et volume déjà mesurés à cette étape, repris par l'outil de correction de densité. */
+  measuredGravity?: number | null
+  measuredVolumeL?: number | null
 }) {
   const { triggerAtSeconds, isDue } = timing
   const glossary = glossaryFor([step.label, ...guide.checklist.map((i) => i.label), ...guide.tips])
@@ -163,7 +168,11 @@ export function StepCard({
 
       {(step.stepType === 'heat-to-boil' || step.stepType === 'cooling') && (
         <ToolPanel title="Corriger la densité">
-          <GravityCorrectionTool targetGravity={recipe.estOg ?? undefined} />
+          <GravityCorrectionTool
+            targetGravity={recipe.estOg ?? undefined}
+            measuredGravity={measuredGravity}
+            measuredVolumeL={measuredVolumeL}
+          />
         </ToolPanel>
       )}
     </div>
