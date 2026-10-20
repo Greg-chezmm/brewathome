@@ -133,13 +133,13 @@ npx vitest run    # tests unitaires (brew-calc, etc.)
 npm run build     # build de production
 ```
 
-- Embouteillage (onglet du brassin) : comptage des bouteilles 33/50/75 cl et fûts 5 L, litres conditionnés comparés à la bière disponible, reprise comme volume conditionné. **Migration `0021_batches_packaging.sql` à appliquer manuellement** (SQL Editor ou `supabase db push`) avant d'enregistrer.
+- Embouteillage (onglet du brassin) : comptage des bouteilles 33/50/75 cl et fûts 5 L, litres conditionnés comparés à la bière disponible, reprise comme volume conditionné. Migration `0021_batches_packaging.sql` appliquée en prod.
 - Aide aux débutants du Brew Day : carte « Avant de commencer » (durée, matériel, sécurité), « Mots du métier » par étape, mode d'emploi du densimètre sous les champs de densité, écran de fin avec les étapes suivantes.
 - Densité cible de « Corriger la densité » arrondie à 3 décimales.
 - Mesures du Brew Day : saisie de densité en points (« 48 »), Plato (« 12,5P ») ou Brix, bouton « prévu » pour reprendre la valeur de la recette, mesures non enregistrées sauvegardées en quittant l'étape.
-- RLS : un brassin ne peut référencer qu'une recette de son propriétaire (**migration `0022_batches_recipe_owner_check.sql` à appliquer manuellement**).
+- RLS : un brassin ne peut référencer qu'une recette de son propriétaire (migration `0022_batches_recipe_owner_check.sql`, appliquée en prod).
 - Tests : délai `findBy*` porté à 5 s pour toute la suite.
-- iSpindel : second point de calibration avec la DF au densimètre (pente corrigée, sans ajouts de sucre en fermentation), décalage réglable à la main (colonne `batches.ispindel_offset`, **migration `0023_batches_ispindel_offset.sql` à appliquer manuellement**) et retour au recalage automatique. Reste à faire : historique de précision par device (les relevés ne portent pas de `device_id`).
+- iSpindel : second point de calibration avec la DF au densimètre (pente corrigée, sans ajouts de sucre en fermentation), décalage réglable à la main (colonne `batches.ispindel_offset`, migration `0023_batches_ispindel_offset.sql` appliquée en prod) et retour au recalage automatique. Reste à faire : historique de précision par device (les relevés ne portent pas de `device_id`).
 - Page Appareils : protocole de calibration d'un iSpindel (solutions sucrées, relevé de l'angle, polynôme, contrôle). Découpage : `BrewDay.tsx` 574 → 298 lignes (composants `components/brew-day/*`, hooks `useBoilAlerts` / `useStepActions`, `lib/brew-day/navigation.ts` testé) et `IngredientCards.tsx` (950 lignes) réparti dans `components/recipe/ingredient-cards/` (ré-exports conservés).
 - Ajouts d'ébullition au même moment réunis en une seule étape du Brew Day (« Ajouts à 10 min de la fin : A, B ») avec une case par ingrédient ; un ajout seul garde son libellé. Les brassins existants gardent leurs étapes séparées jusqu'à l'enregistrement de la recette du brassin (régénère les étapes à faire).
 - Création du brassin : progression visible (« étape i/4 »), message de connexion lente après 8 s, erreur claire avec nouvel essai. Enregistrement des mesures : l'affichage se met à jour tout de suite, le rechargement du brassin se fait en arrière-plan.
