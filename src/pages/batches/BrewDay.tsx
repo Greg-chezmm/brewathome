@@ -73,17 +73,19 @@ export function BrewDay() {
 
   useWakeLock(true)
 
-  const { data: batch } = useQuery({
+  const batchQuery = useQuery({
     queryKey: ['batch', batchId],
     queryFn: () => getBatchWithDetails(batchId!),
     enabled: !!batchId,
   })
-  const { data: steps } = useQuery({
+  const { data: batch } = batchQuery
+  const stepsQuery = useQuery({
     queryKey: ['batch-steps', batchId],
     queryFn: () => getBatchSteps(batchId!),
     enabled: !!batchId,
     refetchInterval: 5000,
   })
+  const { data: steps } = stepsQuery
   const equipmentProfileId = batch?.recipeSnapshot.equipmentProfileId
   const { data: equipmentProfile } = useQuery({
     queryKey: ['equipment-profile', equipmentProfileId],
@@ -171,12 +173,15 @@ export function BrewDay() {
     setOverviewOpen(false)
   }
 
-  async function run(action: () => Promise<void>) {
+  /** Exécute une écriture ; renvoie false si elle a échoué (l'erreur est alors affichée). */
+  async function run(action: () => Promise<void>): Promise<boolean> {
     setError(null)
     try {
       await action()
+      return true
     } catch (err) {
       setError((err as Error).message)
+      return false
     } finally {
       queryClient.invalidateQueries({ queryKey: ['batch-steps', batchId] })
     }
@@ -187,13 +192,13 @@ export function BrewDay() {
   }
 
   async function completeStep(step: BatchStep) {
-    await run(() => updateBatchStepStatus(step.id, 'done', { actualEndAt: new Date().toISOString() }))
+    if (!(await run(() => updateBatchStepStatus(step.id, 'done', { actualEndAt: new Date().toISOString() })))) return
     document.title = 'BrewAtHome'
     goToNextUnfinished(step)
   }
 
   async function skipStep(step: BatchStep) {
-    await run(() => updateBatchStepStatus(step.id, 'skipped'))
+    if (!(await run(() => updateBatchStepStatus(step.id, 'skipped')))) return
     goToNextUnfinished(step)
   }
 
@@ -231,6 +236,25 @@ export function BrewDay() {
       old?.map((s) => (s.id === step.id ? { ...s, notes: value } : s)),
     )
     return run(() => updateBatchStepNotes(step.id, value))
+  }
+
+  const loadError = batchQuery.error ?? stepsQuery.error
+  if (loadError && (!batch || !steps)) {
+    return (
+      <div role="alert" className="space-y-3 rounded-2xl bg-red-50 p-4 text-red-700">
+        <p>Impossible de charger le Brew Day : {loadError.message}</p>
+        <button
+          type="button"
+          className="btn-secondary"
+          onClick={() => {
+            if (batchQuery.isError) void batchQuery.refetch()
+            if (stepsQuery.isError) void stepsQuery.refetch()
+          }}
+        >
+          Réessayer
+        </button>
+      </div>
+    )
   }
 
   if (!batch || !steps || !visibleSteps || !recipe || !part) return <p className="text-slate-500">Chargement…</p>
