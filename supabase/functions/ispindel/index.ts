@@ -27,6 +27,28 @@ function plateauToSG(plato: number): number {
   return 1 + plato / (258.6 - (plato / 258.2) * 227.1)
 }
 
+// Au-dessous de ce seuil, une valeur sans unité explicite est forcément une SG
+// (une bière ne dépasse pas ~40 °P, alors qu'une SG vaut environ 1.0 à 1.2).
+const MAX_SG_WITHOUT_UNIT = 2
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function finiteNumberOrNull(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null
+}
+
+// Densité en SG, ou null si la mesure est absente ou inutilisable.
+// Un iSpindel non calibré envoie 0 : ce n'est pas une mesure, on l'ignore.
+function parseGravity(raw: unknown, unit: unknown): number | null {
+  const value = finiteNumberOrNull(raw)
+  if (value === null || value <= 0) return null
+  if (unit === 'G') return value
+  if (unit === 'P') return plateauToSG(value)
+  return value < MAX_SG_WITHOUT_UNIT ? value : plateauToSG(value)
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method !== 'POST') {
     return new Response('Method not allowed', { status: 405 })
@@ -37,12 +59,16 @@ Deno.serve(async (req: Request) => {
     return new Response(JSON.stringify({ error: 'Missing token query param' }), { status: 401 })
   }
 
-  let payload: ISpindelPayload
+  let body: unknown
   try {
-    payload = await req.json()
+    body = await req.json()
   } catch {
     return new Response(JSON.stringify({ error: 'Invalid JSON body' }), { status: 400 })
   }
+  if (!isRecord(body)) {
+    return new Response(JSON.stringify({ error: 'JSON body must be an object' }), { status: 400 })
+  }
+  const payload: ISpindelPayload = body
 
   const supabase = createClient(
     Deno.env.get('SUPABASE_URL')!,
@@ -72,24 +98,18 @@ Deno.serve(async (req: Request) => {
   }
 
   const tempUnit = payload.temp_units ?? payload.temp_unit ?? 'C'
-  const temperatureC =
-    payload.temperature === undefined
-      ? null
-      : tempUnit === 'F'
-        ? ((payload.temperature - 32) * 5) / 9
-        : payload.temperature
+  const temperature = finiteNumberOrNull(payload.temperature)
+  const temperatureC = temperature === null ? null : tempUnit === 'F' ? ((temperature - 32) * 5) / 9 : temperature
 
-  const gravityUnit = payload.gravity_unit ?? 'P'
-  const gravity =
-    payload.gravity === undefined ? null : gravityUnit === 'P' ? plateauToSG(payload.gravity) : payload.gravity
+  const gravity = parseGravity(payload.gravity, payload.gravity_unit)
 
   const { error: insertError } = await supabase.from('fermentation_readings').insert({
     batch_id: device.active_batch_id,
     source: 'ispindel',
     gravity,
     temperature_c: temperatureC,
-    battery_percent: payload.battery ?? null,
-    raw_angle: payload.angle ?? null,
+    battery_percent: finiteNumberOrNull(payload.battery),
+    raw_angle: finiteNumberOrNull(payload.angle),
   })
 
   if (insertError) {
