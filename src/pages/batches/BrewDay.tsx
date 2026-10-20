@@ -14,7 +14,7 @@ import { StepActionBar } from '@/components/brew-day/StepActionBar'
 import { StepCard } from '@/components/brew-day/StepCard'
 import { StepMeasurements } from '@/components/brew-day/StepMeasurements'
 import { StepOverview } from '@/components/brew-day/StepOverview'
-import { boilTiming, groupSteps } from '@/components/brew-day/stepMeta'
+import { additionTiming, boilTiming, groupSteps } from '@/components/brew-day/stepMeta'
 import { useAlertSound } from '@/hooks/useAlertSound'
 import { useBoilAlerts } from '@/hooks/useBoilAlerts'
 import { useNowTick } from '@/hooks/useBrewTimer'
@@ -178,8 +178,20 @@ export function BrewDay() {
   )
   // Ajouts à faire et ébullitions en cours : toutes sessions confondues.
   const dueSteps = steps.filter((step) => boilTiming(steps, step, now).timing.isDue)
+  // Les minuteurs principaux (empâtage, ébullition) restent visibles pendant les sous-étapes ; l'ébullition tant que l'ébullition court, ou que des ajouts en dépendent encore (même terminée).
   const runningBoils = steps.filter(
-    (s) => s.stepType === 'boil' && s.status === 'in-progress' && !!s.actualStartAt && s.id !== activeStep?.id,
+    (s) =>
+      (s.stepType === 'boil' || s.stepType === 'mash') &&
+      !!s.actualStartAt &&
+      s.id !== activeStep?.id &&
+      (s.status === 'in-progress' ||
+        (s.stepType === 'boil' &&
+          steps.some(
+            (a) =>
+              (a.session ?? null) === (s.session ?? null) &&
+              !isStepFinished(a.status) &&
+              additionTiming(a, s, 0).triggerAtSeconds !== null,
+          ))),
   )
   const allDone = steps.every((s) => isStepFinished(s.status))
   const activeInSession = activeStep?.session != null

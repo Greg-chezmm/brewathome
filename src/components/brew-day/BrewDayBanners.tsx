@@ -6,7 +6,7 @@ import type { BatchStep } from '@/lib/db/queries/batches'
 interface BrewDayBannersProps {
   /** Ajouts à faire maintenant, toutes sessions confondues. */
   dueSteps: BatchStep[]
-  /** Ébullitions en cours ailleurs que sur l'étape affichée. */
+  /** Minuteurs principaux (empâtage, ébullition) en cours ailleurs que sur l'étape affichée. */
   runningBoils: BatchStep[]
   brewSessions: number
   now: number
@@ -33,6 +33,7 @@ export function BrewDayBanners({ dueSteps, runningBoils, brewSessions, now, erro
         </button>
       ))}
       {runningBoils.map((boil) => {
+        // Minuteur principal de la phase (empâtage ou ébullition), gardé à l'écran pendant ses sous-étapes.
         const remainingSec = (boil.plannedDurationMin ?? 0) * 60 - boilElapsedSeconds(boil, now)
         return (
           <button
@@ -42,7 +43,7 @@ export function BrewDayBanners({ dueSteps, runningBoils, brewSessions, now, erro
             className="flex w-full items-center gap-2 rounded-2xl bg-orange-100 px-4 py-2.5 text-left text-sm font-medium text-orange-900"
           >
             <Flame size={18} className="shrink-0 text-orange-500" />
-            <span className="flex-1">Ébullition{boil.session != null && brewSessions > 1 ? ` · session ${boil.session}` : ''}</span>
+            <span className="flex-1">{boil.stepType === 'mash' ? 'Empâtage' : 'Ébullition'}{boil.session != null && brewSessions > 1 ? ` · session ${boil.session}` : ''}</span>
             <span className="font-mono font-bold tabular-nums">
               {remainingSec < 0 ? '+' : ''}
               {formatDuration(Math.abs(remainingSec))}
