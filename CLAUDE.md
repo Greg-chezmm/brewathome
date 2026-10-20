@@ -34,3 +34,46 @@ CI (`.github/workflows/deploy.yml`) runs `npm test` then `npm run build` on ever
 - **BeerXML import** — `src/lib/beerxml/` (fast-xml-parser), tested against fixtures in `tests/fixtures/beerxml/`. Import only, no export.
 - **iSpindel ingestion** — `supabase/functions/ispindel/index.ts` (Deno), authenticated by a per-device token in the URL; deploy with `supabase functions deploy ispindel --no-verify-jwt`.
 - Path alias `@/` → `src/`. Styling is Tailwind v4 via `@tailwindcss/vite` (slate/indigo theme). Tests run in jsdom with globals (`src/test/setup.ts`).
+
+## Tester les Edge Functions en local
+
+Pour tester une Edge Function Supabase (ex. supabase/functions/ispindel) sans déployer en prod :
+
+Prérequis :
+- CLI Supabase installée (via Scoop : `scoop bucket add supabase https://github.com/supabase/scoop-bucket.git` puis `scoop install supabase`)
+- Docker Desktop installé et lancé (nécessaire pour `supabase start`)
+- Deno installé pour vérifier la compilation (`deno check <fichier>`)
+
+Déroulé :
+0. Une seule fois : `supabase init` — crée `supabase/config.toml`, absent du dépôt (sans lui `supabase start` ne démarre pas). Ne pas écraser `supabase/migrations/` ni `supabase/functions/`.
+1. `supabase start` — démarre la stack locale (Postgres, API, Studio) et applique automatiquement `supabase/migrations/`
+2. Dans un terminal séparé : `supabase functions serve <nom-fonction> --no-verify-jwt`. **Ne jamais ajouter `--env-file` vers le projet distant** : les tests écriraient dans la base de production.
+3. Studio local accessible sur http://127.0.0.1:54323 : créer un utilisateur de test (Authentication > Users), puis insérer les données via le SQL Editor
+4. Insérer un brassin et un device de test (iSpindel), relié au brassin par `active_batch_id` :
+
+   ```sql
+   with u as (
+     select id from auth.users order by created_at limit 1
+   ),
+   b as (
+     insert into batches (user_id, name, status, recipe_snapshot)
+     select id, 'Brassin test iSpindel', 'fermentation', '{}'::jsonb from u
+     returning id, user_id
+   )
+   insert into devices (user_id, type, name, api_token, active_batch_id)
+   select user_id, 'ispindel', 'iSpindel test', 'test-token-local-123', id from b
+   returning id, api_token, active_batch_id;
+   ```
+
+   Le `recipe_snapshot` vide suffit pour l'ingestion, mais les pages qui le lisent (fiche brassin, Brew Day) peuvent mal s'afficher sur ce brassin.
+5. Lancer les cas de test : `.\scripts\test-ispindel.ps1 -Token test-token-local-123` (modèle pour les autres fonctions)
+6. Vérifier en base : `select recorded_at, gravity, temperature_c, battery_percent, raw_angle from fermentation_readings order by recorded_at desc limit 14;`
+7. Nettoyer (la clé étrangère `on delete cascade` supprime aussi les lectures) :
+
+   ```sql
+   delete from devices where api_token = 'test-token-local-123';
+   delete from batches where name = 'Brassin test iSpindel';
+   ```
+
+Attention : auth.users est vide sur une stack locale neuve — créer un utilisateur via Studio avant d'insérer des données liées par clé étrangère. Les colonnes `numeric` arrondissent à leur échelle (`gravity` en `numeric(5,3)` : 12.5 °P donne 1.050 en base, pas 1.0505).
+
