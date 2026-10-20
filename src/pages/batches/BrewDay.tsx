@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Link, useParams, useSearchParams } from 'react-router-dom'
+import { useParams, useSearchParams } from 'react-router-dom'
 import {
   ChevronLeft,
   ChevronRight,
@@ -13,6 +13,8 @@ import {
   VolumeX,
   X,
 } from 'lucide-react'
+import { BrewBriefing } from '@/components/brew-day/BrewBriefing'
+import { BrewDayEnd } from '@/components/brew-day/BrewDayEnd'
 import { MeasurementsPanel } from '@/components/batches/MeasurementsPanel'
 import { StepCard } from '@/components/brew-day/StepCard'
 import { StepOverview } from '@/components/brew-day/StepOverview'
@@ -22,6 +24,7 @@ import { formatDuration, useNowTick } from '@/hooks/useBrewTimer'
 import { useWakeLock } from '@/hooks/useWakeLock'
 import { fermentableUse } from '@/lib/brew-calc/gravity'
 import { checklistProgress, stepGuide, type StepGuide } from '@/lib/brew-day/checklist'
+import { startBlocker } from '@/lib/brew-day/order'
 import { derivedOg, plannedMeasurements, type MeasurementKey } from '@/lib/brew-day/measurements'
 import {
   blendedFermenter,
@@ -471,6 +474,7 @@ export function BrewDay() {
         </aside>
 
         <section className="min-w-0 space-y-4">
+          <BrewBriefing steps={steps} />
           {activeStep && (
             <StepCard
               key={activeStep.id}
@@ -485,6 +489,7 @@ export function BrewDay() {
               mashWaterL={partVolumes?.mashWaterL}
               onToggleItem={(itemId) => toggleItem(activeStep, itemId)}
               onSaveNotes={(notes) => saveStepNotes(activeStep, notes)}
+              startBlockedBy={startBlocker(steps, activeStep)?.label ?? null}
               onStart={() => startStep(activeStep)}
               onStop={() => resetStep(activeStep)}
               measurement={measurement}
@@ -501,15 +506,7 @@ export function BrewDay() {
             </button>
           )}
 
-          {allDone && (
-            <div className="rounded-3xl bg-indigo-50 p-5">
-              <p className="text-xs font-semibold uppercase tracking-wide text-indigo-400">Étape suivante · Fermentation</p>
-              <p className="mt-1 font-semibold text-slate-800">Brassage terminé, place au suivi de fermentation.</p>
-              <Link to={`/batches/${batchId}/fermentation`} className="btn-primary mt-3">
-                Suivi de fermentation →
-              </Link>
-            </div>
-          )}
+          {allDone && <BrewDayEnd batchId={batch.id} fermentationSteps={recipe.fermentationSteps} />}
         </section>
       </div>
 

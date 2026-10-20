@@ -235,6 +235,8 @@ export const batches = pgTable('batches', {
   brewSessions: smallint('brew_sessions').notNull().default(1),
   // Mesures de chaque session : volumes et densités avant/après ébullition, volume versé au fermenteur.
   sessionMeasurements: jsonb('session_measurements'),
+  // Contenants remplis à l'embouteillage : { bottle33, bottle50, bottle75, keg5 } (nombres).
+  packaging: jsonb('packaging'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [uniqueIndex('batches_user_brewfather_id_idx').on(t.userId, t.brewfatherId)])
 

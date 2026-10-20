@@ -13,7 +13,7 @@ const step = {
   checkedItems: [],
 } as unknown as BatchStep
 
-function renderCard(overrides: Partial<BatchStep>, now = Date.now()) {
+function renderCard(overrides: Partial<BatchStep>, now = Date.now(), startBlockedBy: string | null = null) {
   const onStart = vi.fn()
   const onStop = vi.fn()
   render(
@@ -29,6 +29,7 @@ function renderCard(overrides: Partial<BatchStep>, now = Date.now()) {
       mashWaterL={15}
       onToggleItem={() => undefined}
       onSaveNotes={() => undefined}
+      startBlockedBy={startBlockedBy}
       onStart={onStart}
       onStop={onStop}
     />,
@@ -54,5 +55,29 @@ describe('StepCard — minuteur', () => {
     fireEvent.click(screen.getByLabelText('Arrêter le minuteur'))
     expect(onStop).toHaveBeenCalledOnce()
     expect(screen.queryByText('Démarrer')).toBeNull()
+  })
+
+  it('pas de minuteur sur une étape sans durée prévue', () => {
+    renderCard({ stepType: 'pitch', label: 'Ensemencement', plannedDurationMin: null })
+    expect(screen.queryByText('Démarrer')).toBeNull()
+    expect(screen.queryByText('Minuteur libre')).toBeNull()
+  })
+
+  it('une étape sans durée déjà démarrée garde son chrono, pour pouvoir l’arrêter', () => {
+    const start = new Date('2026-10-17T10:00:00Z')
+    renderCard(
+      { stepType: 'pitch', plannedDurationMin: null, status: 'in-progress', actualStartAt: start.toISOString() },
+      start.getTime() + 60_000,
+    )
+    expect(screen.getByLabelText('Arrêter le minuteur')).toBeInTheDocument()
+  })
+
+  it('Démarrer est désactivé tant que l’étape précédente n’est pas finie', () => {
+    const { onStart } = renderCard({}, Date.now(), 'Empâtage à 67 °C')
+    const button = screen.getByText('Démarrer').closest('button') as HTMLButtonElement
+    expect(button).toBeDisabled()
+    expect(screen.getByText('Terminez d’abord : Empâtage à 67 °C')).toBeInTheDocument()
+    fireEvent.click(button)
+    expect(onStart).not.toHaveBeenCalled()
   })
 })

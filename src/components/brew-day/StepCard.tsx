@@ -5,6 +5,7 @@ import { GravityCorrectionTool } from '@/components/brew-day/GravityCorrectionTo
 import { StrikeWaterTool } from '@/components/brew-day/StrikeWaterTool'
 import { formatDuration, formatDurationLong } from '@/hooks/useBrewTimer'
 import type { StepGuide } from '@/lib/brew-day/checklist'
+import { glossaryFor } from '@/lib/brew-day/glossary'
 import type { BatchStep } from '@/lib/db/queries/batches'
 import type { RecipeDetails } from '@/lib/db/queries/recipes'
 import { STEP_ICONS, type AdditionTiming } from './stepMeta'
@@ -22,6 +23,7 @@ export function StepCard({
   mashWaterL,
   onToggleItem,
   onSaveNotes,
+  startBlockedBy = null,
   onStart,
   onStop,
   measurement,
@@ -38,12 +40,15 @@ export function StepCard({
   onToggleItem: (itemId: string) => void
   /** Enregistre les notes libres de l'étape (à la perte du focus). */
   onSaveNotes: (notes: string) => void
+  /** Libellé de l'étape non terminée qui empêche de démarrer le minuteur (null : rien ne bloque). */
+  startBlockedBy?: string | null
   onStart: () => void
   onStop: () => void
   /** Densité à relever à cette étape (pré-ébullition, fin d'ébullition, DI), comparée à la recette. */
   measurement?: React.ReactNode
 }) {
   const { triggerAtSeconds, isDue } = timing
+  const glossary = glossaryFor([step.label, ...guide.checklist.map((i) => i.label), ...guide.tips])
 
   return (
     <div className="space-y-4">
@@ -73,7 +78,7 @@ export function StepCard({
           </div>
         </div>
 
-        <StepTimer step={step} now={now} onStart={onStart} onStop={onStop} />
+        <StepTimer step={step} now={now} startBlockedBy={startBlockedBy} onStart={onStart} onStop={onStop} />
         <StepProgressBar step={step} now={now} timing={timing} boilElapsedSeconds={boilElapsedSeconds} />
 
         {triggerAtSeconds !== null && step.status === 'todo' && (
@@ -132,6 +137,19 @@ export function StepCard({
         </div>
       )}
 
+      {glossary.length > 0 && (
+        <ToolPanel title="Mots du métier">
+          <dl className="space-y-3 text-sm">
+            {glossary.map((entry) => (
+              <div key={entry.term}>
+                <dt className="font-semibold text-slate-800">{entry.term}</dt>
+                <dd className="text-slate-600">{entry.definition}</dd>
+              </div>
+            ))}
+          </dl>
+        </ToolPanel>
+      )}
+
       {step.stepType === 'strike-water' && (
         <ToolPanel title="Calculer la température de l'eau">
           <StrikeWaterTool
@@ -186,7 +204,19 @@ function ToolPanel({ title, children }: { title: string; children: React.ReactNo
 }
 
 /** Minuteur de l'étape, avec ses boutons Démarrer / Arrêter à portée de main. */
-function StepTimer({ step, now, onStart, onStop }: { step: BatchStep; now: number; onStart: () => void; onStop: () => void }) {
+function StepTimer({
+  step,
+  now,
+  startBlockedBy,
+  onStart,
+  onStop,
+}: {
+  step: BatchStep
+  now: number
+  startBlockedBy: string | null
+  onStart: () => void
+  onStop: () => void
+}) {
   const fmt = step.stepType === 'dry-hop-addition' ? formatDurationLong : formatDuration
 
   if (step.status === 'done') {
@@ -199,12 +229,15 @@ function StepTimer({ step, now, onStart, onStop }: { step: BatchStep; now: numbe
   }
 
   if (step.status === 'todo') {
+    // Une étape sans durée prévue n'a pas besoin de minuteur : on la termine d'un clic.
+    if (!step.plannedDurationMin) return null
     return (
       <div className="mt-4 flex items-center justify-between gap-3">
         <p className="text-sm text-slate-500">
-          {step.plannedDurationMin ? `Durée prévue : ${fmt(step.plannedDurationMin * 60)}` : 'Minuteur libre'}
+          Durée prévue : {fmt(step.plannedDurationMin * 60)}
+          {startBlockedBy && <span className="block text-xs text-amber-700">Terminez d’abord : {startBlockedBy}</span>}
         </p>
-        <button type="button" onClick={onStart} className="btn-secondary shrink-0 py-2.5">
+        <button type="button" onClick={onStart} disabled={!!startBlockedBy} className="btn-secondary shrink-0 py-2.5 disabled:opacity-40">
           <Play size={16} /> Démarrer
         </button>
       </div>

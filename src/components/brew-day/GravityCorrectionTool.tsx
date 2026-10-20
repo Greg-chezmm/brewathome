@@ -10,7 +10,7 @@ import { FieldLabel } from '@/components/InfoTooltip'
 export function GravityCorrectionTool({ targetGravity }: { targetGravity?: number }) {
   const [currentVolume, setCurrentVolume] = useState('20')
   const [currentGravity, setCurrentGravity] = useState('')
-  const [goalGravity, setGoalGravity] = useState(targetGravity ? String(targetGravity) : '')
+  const [goalGravity, setGoalGravity] = useState(targetGravity ? targetGravity.toFixed(3) : '')
   const [additionType, setAdditionType] = useState<FermentableAdditionType>('dme')
 
   const volume = Number.parseFloat(currentVolume)

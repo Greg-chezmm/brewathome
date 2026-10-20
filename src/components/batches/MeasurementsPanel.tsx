@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { FieldLabel } from '@/components/InfoTooltip'
 import { HYDROMETER_CALIBRATION_C, correctGravityForTemperature } from '@/lib/brew-calc/gravity-correction'
+import { parseGravityInput } from '@/lib/brew-calc/gravity-input'
 import type { EquipmentProfile } from '@/lib/brew-calc/types'
 import {
   MEASUREMENTS,
@@ -84,7 +85,7 @@ export function MeasurementsPanel({
   const parsed = Object.fromEntries(
     fields.map((key) => {
       const text = drafts[key].trim().replace(',', '.')
-      const reading = text === '' ? null : Number.parseFloat(text)
+      const reading = text === '' ? null : isGravityKey(key) ? parseGravityInput(text) : Number.parseFloat(text)
       const sampleTemp = sampleTempC(key)
       if (reading === null || sampleTemp === null || !isGravityKey(key)) return [key, reading]
       return [key, Math.round(correctGravityForTemperature(reading, sampleTemp) * 10000) / 10000]
@@ -92,6 +93,7 @@ export function MeasurementsPanel({
   ) as Record<MeasurementKey, number | null>
   const invalid = fields.filter((key) => {
     const value = parsed[key]
+    if (value === null && drafts[key].trim() !== '') return true
     const { min, max } = INPUT[MEASUREMENTS[key].kind]
     return value !== null && !(value >= min && value <= max)
   })
@@ -99,6 +101,22 @@ export function MeasurementsPanel({
     fields.filter((key) => parsed[key] !== measured[key]).map((key) => [key, parsed[key]]),
   ) as Partial<Record<MeasurementKey, number | null>>
   const dirty = Object.keys(changes).length > 0
+
+  // Mesures saisies mais non enregistrées : sauvegardées en quittant l'étape plutôt que perdues.
+  const pending = useRef({ changes, ready: dirty && invalid.length === 0 })
+  useEffect(() => {
+    pending.current = { changes, ready: dirty && invalid.length === 0 }
+  })
+  useEffect(
+    () => () => {
+      if (!pending.current.ready) return
+      onSave(pending.current.changes)
+        .then(() => queryClient.invalidateQueries({ queryKey: ['batch', batchId] }))
+        .catch(() => {})
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  )
 
   async function save(e: React.FormEvent) {
     e.preventDefault()
@@ -144,6 +162,7 @@ export function MeasurementsPanel({
   return (
     <form onSubmit={save} className="rounded-3xl border border-slate-200 bg-white p-5">
       <p className="mb-3 font-semibold text-slate-800">{title}</p>
+      {fields.some((key) => MEASUREMENTS[key].kind === 'gravity') && <HydrometerHowTo />}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         {fields.map((key) => {
           const meta = MEASUREMENTS[key]
@@ -175,7 +194,14 @@ export function MeasurementsPanel({
                 />
                 {meta.kind !== 'gravity' && <span className="text-sm text-slate-500">{meta.unit}</span>}
                 {planned[key] !== null && (
-                  <span className="text-xs text-slate-500">prévu {formatValue(key, planned[key]!)}</span>
+                  <button
+                    type="button"
+                    onClick={() => setDrafts({ ...drafts, [key]: toDraft(key, Number(planned[key]!.toFixed(input.decimals))) })}
+                    className="text-xs text-slate-500 underline decoration-dotted hover:text-indigo-600"
+                    aria-label={`Reprendre la valeur prévue — ${label}`}
+                  >
+                    prévu {formatValue(key, planned[key]!)}
+                  </button>
                 )}
               </div>
               {isGravityKey(key) && (
@@ -212,7 +238,9 @@ export function MeasurementsPanel({
               )}
               {invalid.includes(key) && (
                 <p className="mt-1 text-xs text-red-600">
-                  Valeur attendue entre {input.min} et {input.max}.
+                  {drafts[key].trim() !== '' && parsed[key] === null
+                    ? 'Valeur illisible.'
+                    : `Valeur attendue entre ${input.min} et ${input.max}.`}
                 </p>
               )}
               <MeasurementResult measurementKey={key} measured={measured[key]} planned={planned[key]} />
@@ -225,6 +253,9 @@ export function MeasurementsPanel({
           {saving ? 'Enregistrement…' : 'Enregistrer'}
         </button>
         {error && <p className="text-xs text-red-600">{error}</p>}
+        {dirty && invalid.length === 0 && !saving && (
+          <p className="text-xs text-amber-700">Non enregistré : sera sauvegardé en quittant l’étape.</p>
+        )}
       </div>
       {efficiencies.length > 0 && (
         <dl className="mt-4 grid grid-cols-1 gap-2 border-t border-slate-100 pt-3 text-sm sm:grid-cols-2">
@@ -293,4 +324,21 @@ function MeasurementResult({
   }
 
   return null
+}
+
+/** Mode d'emploi du densimètre, pour qui n'en a jamais tenu un. */
+function HydrometerHowTo() {
+  return (
+    <details className="mb-3 rounded-2xl bg-slate-50 p-3 text-sm text-slate-600">
+      <summary className="cursor-pointer font-medium text-indigo-700">Comment mesurer la densité ?</summary>
+      <ol className="mt-2 list-decimal space-y-1 pl-5">
+        <li>Désinfectez l’éprouvette et le densimètre, puis prélevez environ 100 à 150 ml de moût (une éprouvette presque pleine).</li>
+        <li>Laissez refroidir l’échantillon vers 20 °C : un moût chaud paraît plus léger, la lecture serait fausse. Sinon, saisissez sa température ci-dessous, l’app corrige.</li>
+        <li>Plongez le densimètre en le faisant tourner pour chasser les bulles, qui le soulèvent et faussent la lecture.</li>
+        <li>Saisie : « 1,048 », « 48 » (points) ou « 12,5P » (Plato) sont acceptés.</li>
+        <li>Lisez au bas du ménisque, l’œil au niveau du liquide, sans que le densimètre touche les parois.</li>
+        <li>Ne remettez jamais l’échantillon dans le fermenteur (risque d’infection) : buvez-le ou jetez-le.</li>
+      </ol>
+    </details>
+  )
 }

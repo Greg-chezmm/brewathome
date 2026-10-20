@@ -1,4 +1,5 @@
 import { effectiveMashSteps, mainMashTempC } from '@/lib/brew-calc/mash'
+import { normalizePackaging, type PackagingKey } from '@/lib/brew-day/bottling'
 import type { MeasurementKey, MeasurementValues } from '@/lib/brew-day/measurements'
 import { estimateRecipeStats, REFERENCE_MASH_TEMP_C } from '@/lib/brew-calc/recipe-stats'
 import type { EquipmentProfile } from '@/lib/brew-calc/types'
@@ -110,6 +111,8 @@ export interface BatchDetails extends BatchSummary {
   brewSessions: number
   /** Mesures de chaque session (une entrée par session) ; leurs totaux alimentent `measurements`. */
   sessionMeasurements: SessionMeasurements[]
+  /** Contenants remplis à l'embouteillage (zéro partout tant que rien n'est saisi). */
+  packaging: Record<PackagingKey, number>
 }
 
 /**
@@ -296,6 +299,8 @@ function batchFromRow(data: Record<string, any>): BatchDetails {
     // Colonnes ajoutées en 0017 : un brassin d'une session tant que la migration n'est pas appliquée.
     brewSessions: clampBrewSessions(data.brew_sessions ?? 1),
     sessionMeasurements: normalizeSessionMeasurements(data.session_measurements, clampBrewSessions(data.brew_sessions ?? 1)),
+    // Colonne ajoutée en 0021 : absente (undefined) tant que la migration n'est pas appliquée.
+    packaging: normalizePackaging(data.packaging),
   }
 }
 
@@ -509,6 +514,12 @@ async function regenerateBatchSteps(
 
 export async function deleteBatch(batchId: string): Promise<void> {
   const { error } = await supabase.from('batches').delete().eq('id', batchId)
+  if (error) throw error
+}
+
+/** Enregistre le nombre de contenants remplis à l'embouteillage. */
+export async function updateBatchPackaging(batchId: string, packaging: Record<PackagingKey, number>): Promise<void> {
+  const { error } = await supabase.from('batches').update({ packaging: toJson(packaging) }).eq('id', batchId)
   if (error) throw error
 }
 

@@ -18,6 +18,7 @@ const BatchLayout = lazyPage(() => import('@/components/batches/BatchLayout'), '
 const BatchesHistory = lazyPage(() => import('@/pages/batches/BatchesHistory'), 'BatchesHistory')
 const BatchesList = lazyPage(() => import('@/pages/batches/BatchesList'), 'BatchesList')
 const BatchEditRecipe = lazyPage(() => import('@/pages/batches/BatchEditRecipe'), 'BatchEditRecipe')
+const BatchBottling = lazyPage(() => import('@/pages/batches/BatchBottling'), 'BatchBottling')
 const BatchFermentation = lazyPage(() => import('@/pages/batches/BatchFermentation'), 'BatchFermentation')
 const BatchOverview = lazyPage(() => import('@/pages/batches/BatchOverview'), 'BatchOverview')
 const BrewDay = lazyPage(() => import('@/pages/batches/BrewDay'), 'BrewDay')
@@ -56,6 +57,7 @@ export function App() {
           <Route path="/batches/:batchId" element={<BatchLayout />}>
             <Route index element={<BatchOverview />} />
             <Route path="fermentation" element={<BatchFermentation />} />
+            <Route path="bottling" element={<BatchBottling />} />
             <Route path="edit-recipe" element={<BatchEditRecipe />} />
             <Route path="brew-day" element={<BrewDay />} />
           </Route>

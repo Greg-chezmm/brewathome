@@ -134,6 +134,13 @@
       "when": 1792328408638,
       "tag": "0018_yeast_sachet_g",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1792497222477,
+      "tag": "0021_batches_packaging",
+      "breakpoints": true
     }
   ]
 }

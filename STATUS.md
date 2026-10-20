@@ -77,7 +77,7 @@ Application personnelle de brassage de bière maison (type Brewfather/Little Boc
 - Chaque étape a une **checklist de gestes à cocher** (sous-sous-étapes, enregistrées en base dans `batch_steps.checked_items`) et des **conseils** affichés au moment où ils servent (`src/lib/brew-day/checklist.ts`). Points et étapes facultatifs (test à l'iode, mash-out…) ; toute étape peut être « passée ».
 - Saisie des mesures à l'étape où elles se font (densités avec correction de température de l'échantillon, ramenées à 20 °C) : pH et **température d'empâtage réellement atteinte** à l'empâtage (`batches.mash_temp_reached_c`, comparée à la cible et reprise au résumé Recette / Brassin), volume et densité pré-ébullition à la montée en ébullition, fin d'ébullition au refroidissement, appoint/volume fermenteur/DI à l'ensemencement ; efficacités affichées aussitôt. DF saisissable depuis le bandeau « densité stable » du suivi de fermentation.
 - **Notes libres par étape** (`batch_steps.notes`) : un champ « Notes de l'étape » sous la checklist de chaque étape (observations, écarts…), enregistré à la perte du focus avec mise à jour optimiste (le rafraîchissement auto toutes les 5 s ne l'écrase pas).
-- Minuteur par étape, persistant en base (survit à un rafraîchissement de page) : Démarrer à côté de la durée prévue, Arrêter sous le compte à rebours, Terminer dans la barre du bas. Terminer une étape enchaîne sur la suivante.
+- Minuteur sur les seules étapes qui ont une durée prévue (empâtage, paliers, ébullition, whirlpool, dry hop), persistant en base (survit à un rafraîchissement de page) : Démarrer à côté de la durée prévue (grisé tant que les étapes précédentes ne sont pas terminées ; en 2 sessions, seules les étapes de la même session et les communes comptent), Arrêter sous le compte à rebours, Terminer dans la barre du bas. Terminer une étape enchaîne sur la suivante.
 - Alertes sonores + bandeau rouge + changement du titre d'onglet quand un ajout arrive à échéance ; rappel du minuteur d'ébullition quand on consulte une autre étape.
 - **Brassin en 2 sessions** (`src/lib/brew-day/sessions.ts`, migration `0017`) : la recette est brassée en deux fois le même jour vers un seul fermenteur. Chaque session reçoit la moitié du grain, des sucres et houblons d'ébullition et du volume, avec ses propres étapes chaudes (`batch_steps.session`), son ébullition, ses alertes et ses mesures (`batches.session_measurements`) ; levure, ajouts en fermentation et dry hop restent communs. Ordre par session ; sélecteur « Toutes / Session 1 / Session 2 » dans l'URL (`?session=2`) pour suivre une session par onglet. Les totaux des sessions (volumes additionnés, densités moyennées) alimentent les mesures du brassin, donc le résumé et l'historique ; la DI du mélange (pondérée par les volumes versés, appoint compris) est proposée à l'ensemencement.
 - Wake Lock (écran qui reste allumé) pendant tout le Brew Day.
@@ -132,3 +132,11 @@ npx tsc -b        # typecheck
 npx vitest run    # tests unitaires (brew-calc, etc.)
 npm run build     # build de production
 ```
+
+- Embouteillage (onglet du brassin) : comptage des bouteilles 33/50/75 cl et fûts 5 L, litres conditionnés comparés à la bière disponible, reprise comme volume conditionné. **Migration `0021_batches_packaging.sql` à appliquer manuellement** (SQL Editor ou `supabase db push`) avant d'enregistrer.
+- Aide aux débutants du Brew Day : carte « Avant de commencer » (durée, matériel, sécurité), « Mots du métier » par étape, mode d'emploi du densimètre sous les champs de densité, écran de fin avec les étapes suivantes.
+- Densité cible de « Corriger la densité » arrondie à 3 décimales.
+- Mesures du Brew Day : saisie de densité en points (« 48 »), Plato (« 12,5P ») ou Brix, bouton « prévu » pour reprendre la valeur de la recette, mesures non enregistrées sauvegardées en quittant l'étape.
+- RLS : un brassin ne peut référencer qu'une recette de son propriétaire (**migration `0022_batches_recipe_owner_check.sql` à appliquer manuellement**).
+- Tests : délai `findBy*` porté à 5 s pour toute la suite.
+

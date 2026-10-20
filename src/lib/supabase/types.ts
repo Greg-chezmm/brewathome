@@ -85,6 +85,7 @@ export type Database = {
           name: string
           notes: string | null
           og_measured: number | null
+          packaging: Json | null
           packaging_volume_l: number | null
           post_boil_gravity_measured: number | null
           post_boil_volume_measured_l: number | null
@@ -111,6 +112,7 @@ export type Database = {
           name: string
           notes?: string | null
           og_measured?: number | null
+          packaging?: Json | null
           packaging_volume_l?: number | null
           post_boil_gravity_measured?: number | null
           post_boil_volume_measured_l?: number | null
@@ -137,6 +139,7 @@ export type Database = {
           name?: string
           notes?: string | null
           og_measured?: number | null
+          packaging?: Json | null
           packaging_volume_l?: number | null
           post_boil_gravity_measured?: number | null
           post_boil_volume_measured_l?: number | null

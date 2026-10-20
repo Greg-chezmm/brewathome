@@ -270,7 +270,7 @@ export function stepGuide(step: BatchStep, ctx: StepGuideContext): StepGuide {
               (ctx.sessions ?? 1) > 1
                 ? `Les ${ctx.sessions} sessions sont dans le fermenteur : compléter à ${fmtL(recipe.targetVolumeL)} si besoin et bien oxygéner (secouer, remuer)`
                 : volumes
-                  ? `Transférer ${fmtL(volumes.volumeIntoFermenterL)} dans le fermenteur désinfecté, en laissant chuter le moût pour l'oxygéner`
+                  ? `Transférer ${fmtL(volumes.volumeIntoFermenterL)} dans le fermenteur désinfecté, en laissant le trub au fond de la cuve et chuter le moût pour l'oxygéner`
                   : "Transférer dans le fermenteur désinfecté, en laissant chuter le moût pour l'oxygéner",
           },
           {
