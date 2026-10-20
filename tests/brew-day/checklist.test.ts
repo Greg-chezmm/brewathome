@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { checklistProgress, stepGuide } from '@/lib/brew-day/checklist'
 import { buildBatchSteps } from '@/lib/brew-day/steps'
+import type { VolumeBreakdown } from '@/lib/brew-calc/volumes'
 import type { BatchStep } from '@/lib/db/queries/batches'
 import type { RecipeDetails } from '@/lib/db/queries/recipes'
 
@@ -50,6 +51,21 @@ describe('stepGuide', () => {
   it('marks the iodine test and the mash-out as optional', () => {
     expect(stepGuide(step('mash'), ctx).checklist.find((i) => i.id === 'iodine')?.optional).toBe(true)
     expect(stepGuide(step('mash-out'), ctx).optional).toBe(true)
+  })
+
+  it('sort le sac après le rinçage (BIAB), pas à la montée en ébullition', () => {
+    const volumes = { mashWaterL: 18, spargeWaterL: 6, preBoilVolumeL: 25 } as VolumeBreakdown
+    const biab = { recipe, volumes, method: 'biab' as const }
+    // Sans profil d'équipement, la recette n'a pas d'étape de rinçage : on en fabrique une.
+    const ids = (type: BatchStep['stepType']) =>
+      stepGuide({ ...step('boil'), stepType: type }, biab).checklist.map((i) => i.id)
+    expect(ids('sparge')).toContain('bag-out')
+    expect(ids('heat-to-boil')).not.toContain('bag-out')
+  })
+
+  it('sort le sac à la montée en ébullition quand il n’y a pas de rinçage (BIAB)', () => {
+    const biab = { recipe, volumes: null, method: 'biab' as const }
+    expect(stepGuide(step('heat-to-boil'), biab).checklist.map((i) => i.id)).toContain('bag-out')
   })
 
   it('names the yeast and expected OG when pitching', () => {

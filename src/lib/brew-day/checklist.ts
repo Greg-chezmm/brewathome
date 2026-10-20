@@ -34,6 +34,8 @@ export interface StepGuideContext {
 
 const fmtL = (l: number) => `${l.toFixed(1)} L`
 
+const BAG_OUT = { id: 'bag-out', label: 'Sortir le sac et le laisser égoutter (sans trop presser)' }
+
 /** Guide (checklist + conseils) d'une étape du Brew Day, déduit de la recette et du matériel. */
 export function stepGuide(step: BatchStep, ctx: StepGuideContext): StepGuide {
   const { recipe, volumes, method } = ctx
@@ -50,6 +52,7 @@ export function stepGuide(step: BatchStep, ctx: StepGuideContext): StepGuide {
     optional: true,
   }
   const biab = method === 'biab'
+  const hasSparge = !!volumes && volumes.spargeWaterL > 0
   const yeast = recipe.yeasts[0]
   const lager = yeast?.style === 'lager'
   const fermentTemp = lager ? '10–12 °C' : '18–20 °C'
@@ -167,6 +170,8 @@ export function stepGuide(step: BatchStep, ctx: StepGuideContext): StepGuide {
           { id: 'filter', label: "Ouvrir le robinet et récolter le moût clair dans la cuve d'ébullition" },
           { id: 'rinse', label: volumes ? `Rincer lentement avec ${fmtL(volumes.spargeWaterL)} à ${SPARGE_WATER_TEMP_C} °C` : `Rincer lentement à ${SPARGE_WATER_TEMP_C} °C` },
           { id: 'volume', label: volumes ? `Arrêter à ${fmtL(volumes.preBoilVolumeL)} collectés (pré-ébullition)` : 'Arrêter au volume pré-ébullition prévu' },
+          // Le sac reste en place pendant la filtration et le rinçage : on le sort une fois le rinçage fini.
+          ...(biab ? [BAG_OUT] : []),
         ],
         tips: [
           'Le vorlauf retient les particules fines dans le lit de grain, qui sert de filtre.',
@@ -177,7 +182,7 @@ export function stepGuide(step: BatchStep, ctx: StepGuideContext): StepGuide {
     case 'heat-to-boil':
       return {
         checklist: [
-          ...(biab ? [{ id: 'bag-out', label: 'Sortir le sac et le laisser égoutter (sans trop presser)' }] : []),
+          ...(biab && !hasSparge ? [BAG_OUT] : []),
           ...recipe.hops
             .filter((h) => h.use === 'first-wort')
             .map((h, i) => ({ id: `fwh-${i}`, label: `Ajouter ${h.amountG} g de ${h.name} (first wort) dès maintenant` })),
