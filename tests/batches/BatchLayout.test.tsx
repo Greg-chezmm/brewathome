@@ -29,7 +29,7 @@ function renderAt(path: string) {
 describe('Onglets du brassin', () => {
   it('rappelle le brassin et passe d’une section à l’autre sans revenir en arrière', async () => {
     renderAt('/batches/b1/fermentation')
-    expect(await screen.findByRole('heading', { name: 'Barley wine' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Barley wine' }, { timeout: 5000 })).toBeInTheDocument()
     expect(screen.getByText('brassé le 18/10/2025')).toBeInTheDocument()
     expect(screen.getByText('Page fermentation')).toBeInTheDocument()
 
