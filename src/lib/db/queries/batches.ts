@@ -112,6 +112,22 @@ export interface BatchDetails extends BatchSummary {
   sessionMeasurements: SessionMeasurements[]
 }
 
+/**
+ * Insère les étapes d'un brassin tout juste créé. Si l'insertion échoue, supprime le brassin
+ * (supabase-js n'offre pas de transaction) : pas de brassin au Brew Day vide, et un nouvel essai
+ * ne crée pas de doublon. C'est l'erreur d'insertion qui est remontée, quoi qu'il arrive au nettoyage.
+ */
+async function insertStepsOrDiscardBatch(batchId: string, steps: NewBatchStep[]): Promise<void> {
+  const { error } = await supabase.from('batch_steps').insert(steps.map((s) => toStepRow(batchId, s)))
+  if (!error) return
+  try {
+    await supabase.from('batches').delete().eq('id', batchId)
+  } catch {
+    // Nettoyage au mieux : l'erreur d'insertion, remontée ci-dessous, reste la cause à signaler.
+  }
+  throw error
+}
+
 /** Valide une recette en brassin : snapshot figé + génération des étapes de brew day. */
 export async function createBatchFromRecipe(
   userId: string,
@@ -151,9 +167,7 @@ export async function createBatchFromRecipe(
 
   const batchId = batch.id as string
 
-  const steps = buildBatchSteps(recipe, equipmentProfile, brewSessions)
-  const { error: stepsError } = await supabase.from('batch_steps').insert(steps.map((s) => toStepRow(batchId, s)))
-  if (stepsError) throw stepsError
+  await insertStepsOrDiscardBatch(batchId, buildBatchSteps(recipe, equipmentProfile, brewSessions))
 
   await updateRecipeStatus(recipeId, 'validated')
 
@@ -205,9 +219,7 @@ export async function createBatchFromBrewfather(userId: string, imported: Brewfa
   const batchId = batch.id as string
 
   if (imported.status === 'planned' || imported.status === 'brew_day') {
-    const steps = buildBatchSteps(recipe, equipmentProfile)
-    const { error: stepsError } = await supabase.from('batch_steps').insert(steps.map((s) => toStepRow(batchId, s)))
-    if (stepsError) throw stepsError
+    await insertStepsOrDiscardBatch(batchId, buildBatchSteps(recipe, equipmentProfile))
   }
   return batchId
 }

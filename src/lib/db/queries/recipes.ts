@@ -332,7 +332,18 @@ export async function createRecipe(userId: string, input: RecipeInput): Promise<
     .single()
   if (error) throw error
   const recipeId = data.id as string
-  await replaceChildRows(recipeId, input)
+  try {
+    await replaceChildRows(recipeId, input)
+  } catch (error) {
+    // Pas de recette vide : on retire celle qu'on vient de créer (les ingrédients déjà insérés
+    // l'ont été par `replaceChildRows`). Nettoyage au mieux : l'erreur d'origine reste la cause à signaler.
+    try {
+      await supabase.from('recipes').delete().eq('id', recipeId)
+    } catch {
+      // ignoré volontairement, voir ci-dessus
+    }
+    throw error
+  }
   return recipeId
 }
 
