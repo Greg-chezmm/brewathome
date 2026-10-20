@@ -19,7 +19,7 @@ import { FermentationReminders } from '@/components/batches/FermentationReminder
 import { MeasurementsPanel } from '@/components/batches/MeasurementsPanel'
 import { PrimingTool } from '@/components/tools/PrimingTool'
 import { ConnectionBadge } from '@/components/devices/ConnectionBadge'
-import { getBatchSteps, getBatchWithDetails } from '@/lib/db/queries/batches'
+import { getBatchSteps, getBatchWithDetails, updateBatchIspindelOffset } from '@/lib/db/queries/batches'
 import { getBrewfatherAccount } from '@/lib/db/queries/brewfather'
 import { listDevices, setDeviceActiveBatch } from '@/lib/db/queries/devices'
 import {
@@ -33,7 +33,8 @@ import { seriesWithGaps } from '@/lib/fermentation/chart'
 import { batchFermentationAdditionsGravity, plannedMeasurements } from '@/lib/brew-day/measurements'
 import { currentGravity, fermentationAdditionsAddedAt, fermentationProgress } from '@/lib/fermentation/progress'
 import { fermentationStartTime, primingTemperatureC } from '@/lib/fermentation/plan'
-import { applyGravityOffset, gravityOffset } from '@/lib/fermentation/calibration'
+import { applyCalibration, gravityCalibration, manualCalibration } from '@/lib/fermentation/calibration'
+import { IspindelCalibrationNote } from '@/components/batches/IspindelCalibrationNote'
 import { gravityStability } from '@/lib/fermentation/stability'
 
 /** Relevés affichés avant « Tout afficher » : un iSpindel en envoie ~100 par jour. */
@@ -146,13 +147,19 @@ export function BatchFermentation() {
   const additionsAddedAt = fermentationAdditionsAddedAt(batchSteps ?? [])
   // L'iSpindel est peu précis : la DI saisie au densimètre est la référence, et les densités reçues
   // sont décalées d'autant (calcul à la volée, les relevés bruts restent intacts en base).
-  const calibration = gravityOffset(
-    all.map((r, i) => ({ time: times[i], gravity: r.gravity })),
-    batch?.measurements.og ?? null,
-    additionsAddedAt,
-  )
-  const gravityShift = showRawGravity ? 0 : (calibration?.offset ?? 0)
-  const correctedGravity = (gravity: number | null) => applyGravityOffset(gravity, gravityShift)
+  // Un décalage réglé à la main prime ; sinon DI (et DF si disponible) au densimètre.
+  const manualOffset = batch?.ispindelOffset ?? null
+  const calibration =
+    manualOffset !== null
+      ? manualCalibration(manualOffset)
+      : gravityCalibration(
+          all.map((r, i) => ({ time: times[i], gravity: r.gravity })),
+          batch?.measurements.og ?? null,
+          batch?.measurements.fg ?? null,
+          additionsAddedAt,
+        )
+  const activeCalibration = showRawGravity ? null : calibration
+  const correctedGravity = (gravity: number | null) => applyCalibration(gravity, activeCalibration)
   const gravitySeries = seriesWithGaps(all.map((r, i) => ({ time: times[i], value: correctedGravity(r.gravity) })))
   const correctedReadings = all.map((r, i) => ({ time: times[i], gravity: correctedGravity(r.gravity) }))
   // Seulement pendant la fermentation : une fois le brassin conditionné, l'alerte n'a plus d'objet.
@@ -363,18 +370,15 @@ export function BatchFermentation() {
               `, + ${Math.round(additionGravity * 1000)} points de sucre ajouté en fermentation`}
             {progress.progressPercent !== null && progress.progressPercent > 100 && ' · plus sèche que prévu'}.
           </p>
-          {calibration && (
-            <p className="mt-1 flex flex-wrap items-center gap-x-2 text-xs text-slate-500">
-              <span>
-                {showRawGravity
-                  ? 'Densités brutes de l’iSpindel.'
-                  : `iSpindel recalé sur la DI au densimètre : ${calibration.offset >= 0 ? '+' : '−'}${Math.abs(calibration.offset * 1000).toFixed(1)} point${Math.abs(calibration.offset * 1000) >= 2 ? 's' : ''} (médiane de ${calibration.count} relevés du départ : ${calibration.anchorGravity.toFixed(3)}).`}
-              </span>
-              <button type="button" onClick={() => setShowRawGravity(!showRawGravity)} className="font-medium text-indigo-600 hover:underline">
-                {showRawGravity ? 'Appliquer le recalage' : 'Voir les valeurs brutes'}
-              </button>
-            </p>
-          )}
+          <IspindelCalibrationNote
+            calibration={calibration}
+            showRaw={showRawGravity}
+            onToggleRaw={() => setShowRawGravity(!showRawGravity)}
+            onSaveManualOffset={async (offset) => {
+              await updateBatchIspindelOffset(batchId!, offset)
+              await queryClient.invalidateQueries({ queryKey: ['batch', batchId] })
+            }}
+          />
         </div>
       )}
 
@@ -407,9 +411,9 @@ export function BatchFermentation() {
                 tick={{ fontSize: 11, fill: TEMPERATURE_COLOR }}
                 stroke={TEMPERATURE_COLOR}
               />
-              <Tooltip content={({ active, label }) => (active ? <ReadingTooltip reading={nearestReading(all, times, Number(label))} ogAt={ogAt} gravityShift={gravityShift} /> : null)} />
+              <Tooltip content={({ active, label }) => (active ? <ReadingTooltip reading={nearestReading(all, times, Number(label))} ogAt={ogAt} correct={correctedGravity} /> : null)} />
               <Legend />
-              {gravityShift !== 0 && (
+              {activeCalibration !== null && (
                 <Line yAxisId="gravity" type="monotone" data={rawGravitySeries} dataKey="value" name="iSpindel brut" stroke="#94a3b8" strokeDasharray="4 3" strokeWidth={1} dot={false} isAnimationActive={false} />
               )}
               <Line yAxisId="gravity" type="monotone" data={gravitySeries} dataKey="value" name="Densité" stroke={GRAVITY_COLOR} strokeWidth={2} dot={dots} isAnimationActive={false} />
@@ -499,16 +503,16 @@ function nearestReading(readings: FermentationReading[], times: number[], time: 
 function ReadingTooltip({
   reading,
   ogAt,
-  gravityShift,
+  correct,
 }: {
   reading: FermentationReading | undefined
   ogAt: (time: number) => number | null
-  gravityShift: number
+  correct: (gravity: number | null) => number | null
 }) {
   if (!reading) return null
   // DI effective à l'instant du relevé : le sucre ajouté en fermentation ne compte qu'après son ajout.
   const og = ogAt(new Date(reading.recordedAt).getTime())
-  const gravity = applyGravityOffset(reading.gravity, gravityShift)
+  const gravity = correct(reading.gravity)
   const abv = og !== null && gravity !== null ? fermentationProgress(og, gravity, null).abv : null
   return (
     <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs shadow-sm">
@@ -516,7 +520,7 @@ function ReadingTooltip({
       {gravity !== null && reading.gravity !== null && (
         <p style={{ color: GRAVITY_COLOR }}>
           Densité : {gravity.toFixed(3)}
-          {gravityShift !== 0 && <span className="text-slate-400"> (iSpindel {reading.gravity.toFixed(3)})</span>}
+          {gravity !== reading.gravity && <span className="text-slate-400"> (iSpindel {reading.gravity.toFixed(3)})</span>}
         </p>
       )}
       {reading.temperatureC !== null && (

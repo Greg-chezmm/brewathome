@@ -85,6 +85,7 @@ export type Database = {
           name: string
           notes: string | null
           og_measured: number | null
+          ispindel_offset: number | null
           packaging: Json | null
           packaging_volume_l: number | null
           post_boil_gravity_measured: number | null
@@ -112,6 +113,7 @@ export type Database = {
           name: string
           notes?: string | null
           og_measured?: number | null
+          ispindel_offset?: number | null
           packaging?: Json | null
           packaging_volume_l?: number | null
           post_boil_gravity_measured?: number | null
@@ -139,6 +141,7 @@ export type Database = {
           name?: string
           notes?: string | null
           og_measured?: number | null
+          ispindel_offset?: number | null
           packaging?: Json | null
           packaging_volume_l?: number | null
           post_boil_gravity_measured?: number | null

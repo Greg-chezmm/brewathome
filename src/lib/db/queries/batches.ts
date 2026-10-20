@@ -113,6 +113,8 @@ export interface BatchDetails extends BatchSummary {
   sessionMeasurements: SessionMeasurements[]
   /** Contenants remplis à l'embouteillage (zéro partout tant que rien n'est saisi). */
   packaging: Record<PackagingKey, number>
+  /** Décalage manuel (SG) des densités de l'iSpindel ; null = recalage automatique sur la DI. */
+  ispindelOffset: number | null
 }
 
 /**
@@ -301,6 +303,8 @@ function batchFromRow(data: Record<string, any>): BatchDetails {
     sessionMeasurements: normalizeSessionMeasurements(data.session_measurements, clampBrewSessions(data.brew_sessions ?? 1)),
     // Colonne ajoutée en 0021 : absente (undefined) tant que la migration n'est pas appliquée.
     packaging: normalizePackaging(data.packaging),
+    // Colonne ajoutée en 0023 : absente tant que la migration n'est pas appliquée.
+    ispindelOffset: data.ispindel_offset ?? null,
   }
 }
 
@@ -518,6 +522,12 @@ export async function deleteBatch(batchId: string): Promise<void> {
 }
 
 /** Enregistre le nombre de contenants remplis à l'embouteillage. */
+/** Décalage manuel (SG) des densités de l'iSpindel ; `null` revient au recalage automatique. */
+export async function updateBatchIspindelOffset(batchId: string, offset: number | null): Promise<void> {
+  const { error } = await supabase.from('batches').update({ ispindel_offset: offset }).eq('id', batchId)
+  if (error) throw error
+}
+
 export async function updateBatchPackaging(batchId: string, packaging: Record<PackagingKey, number>): Promise<void> {
   const { error } = await supabase.from('batches').update({ packaging: toJson(packaging) }).eq('id', batchId)
   if (error) throw error

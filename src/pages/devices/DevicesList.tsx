@@ -143,6 +143,66 @@ export function DevicesList() {
         </ol>
       </details>
 
+      <details className="card-tinted">
+        <summary className="cursor-pointer font-semibold text-slate-900">
+          Comment calibrer un iSpindel ? (angle → densité)
+        </summary>
+        <div className="mt-3 space-y-3 text-sm text-slate-700">
+          <p>
+            L'iSpindel mesure un <strong>angle d'inclinaison</strong> ; le <strong>polynôme</strong> le convertit en
+            densité. Chaque appareil a le sien : à refaire à la première utilisation, et si vous avez changé la
+            batterie, le lest ou le firmware (le passage en version 7 efface la configuration).
+          </p>
+          <ol className="list-decimal space-y-2 pl-5">
+            <li>
+              <strong>Matériel :</strong> un densimètre fiable, une éprouvette haute (ou un grand bocal), du sucre
+              blanc, une balance, de l'eau tiède et un thermomètre. Prévoyez 5 solutions, de 1,000 à environ 1,080.
+            </li>
+            <li>
+              <strong>Préparer les solutions</strong> (à peu près, pour 1 L d'eau) : 1,000 = eau seule ; 1,020 ≈ 50 g
+              de sucre ; 1,040 ≈ 100 g ; 1,060 ≈ 150 g ; 1,080 ≈ 200 g. Dissolvez bien le sucre et laissez refroidir
+              à <strong>20 °C</strong> : le densimètre et l'iSpindel sont étalonnés à cette température.
+            </li>
+            <li>
+              Pour chaque solution : mesurez la <strong>densité exacte au densimètre</strong> (la valeur lue, pas la
+              valeur visée). Plongez l'iSpindel, attendez qu'il se stabilise (flottaison droite, sans bulle collée
+              ni contact avec la paroi), puis notez l'<strong>angle (tilt)</strong> de la page <strong>Info</strong> du portail
+              (192.168.4.1), après un réveil par le bouton reset si besoin. Faites deux relevés et gardez la moyenne.
+            </li>
+            <li>
+              Vous avez 5 couples (angle ; densité). Calculez le polynôme de degré 2 qui les relie : tableur avec
+              courbe de tendance polynomiale, ou l'outil de calibration du projet iSpindel (
+              <a
+                href="https://github.com/universam1/iSpindel"
+                className="font-medium text-indigo-600 underline"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                github.com/universam1/iSpindel
+              </a>
+              ). Le résultat s'écrit sous la forme <code>a*tilt^2 + b*tilt + c</code>.
+            </li>
+            <li>
+              Recopiez-le dans le champ <strong>Polynominal</strong> (Gravity conversion) de la page Configuration du
+              portail. Le polynôme doit être calculé dans l'unité que le portail affiche (°Plato ou SG, selon le
+              réglage du portail) : convertissez vos relevés avant le calcul si besoin. Enregistrez aussi le polynôme dans le bloc « Réglages de l'iSpindel » de l'appareil
+              ci-dessous, avec l'angle dans l'eau du robinet.
+            </li>
+            <li>
+              <strong>Contrôle :</strong> remettez l'iSpindel dans l'eau à 20 °C. Il doit afficher 1,000 à ±0,002.
+              Vérifiez aussi une solution intermédiaire : l'écart doit rester inférieur à 0,003.
+            </li>
+          </ol>
+          <p className="rounded-xl bg-white/60 p-3">
+            <strong>Bon à savoir :</strong> la température fausse un peu la mesure (±0,001 pour 5 °C). L'iSpindel
+            compense via son capteur ; mesurez donc toujours à température stable. Une fois dans le moût, le
+            recalage de l'application (page <strong>Suivi de fermentation</strong>) corrige le reste à partir de la
+            densité initiale mesurée au densimètre, et, si vous saisissez la densité finale, de la pente aussi. Il peut
+            aussi se régler à la main, en points de densité.
+          </p>
+        </div>
+      </details>
+
       <form onSubmit={handleCreate} className="card flex flex-wrap items-end gap-3">
         <div>
           <FieldLabel>Nom</FieldLabel>

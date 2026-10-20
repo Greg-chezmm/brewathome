@@ -237,6 +237,8 @@ export const batches = pgTable('batches', {
   sessionMeasurements: jsonb('session_measurements'),
   // Contenants remplis à l'embouteillage : { bottle33, bottle50, bottle75, keg5 } (nombres).
   packaging: jsonb('packaging'),
+  // Décalage manuel (SG) des densités de l'iSpindel ; NULL = recalage automatique sur la DI au densimètre.
+  ispindelOffset: numeric('ispindel_offset', { precision: 6, scale: 4 }),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [uniqueIndex('batches_user_brewfather_id_idx').on(t.userId, t.brewfatherId)])
 

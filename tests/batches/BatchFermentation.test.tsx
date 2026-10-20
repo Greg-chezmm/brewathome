@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { BatchFermentation } from '@/pages/batches/BatchFermentation'
+import { updateBatchIspindelOffset } from '@/lib/db/queries/batches'
 
 vi.mock('recharts', async (importOriginal) => ({
   ...(await importOriginal<typeof import('recharts')>()),
@@ -11,6 +12,7 @@ vi.mock('recharts', async (importOriginal) => ({
 const page = vi.hoisted(() => ({ status: 'completed', plateau: false, flatStart: false }))
 
 vi.mock('@/lib/db/queries/batches', () => ({
+  updateBatchIspindelOffset: vi.fn(async () => undefined),
   BATCH_STATUS_LABELS: { completed: 'Terminé', fermentation: 'Fermentation' },
   getBatchWithDetails: async () => ({
     id: 'b1',
@@ -125,7 +127,7 @@ describe('Suivi de fermentation', () => {
     try {
       renderPage()
       // Relevés de départ à 1.100 pour une DI mesurée de 1.105 : +5 points sur toutes les densités.
-      expect(await screen.findByText(/iSpindel recalé sur la DI au densimètre : \+5\.0 points/)).toBeInTheDocument()
+      expect(await screen.findByText(/iSpindel recalé sur la DI au densimètre : \+5,0 pts/)).toBeInTheDocument()
       // Brut : 1.047 ; recalé : 1.052, d'où (1.105 − 1.052) × 131,25 ≈ 6,9 %.
       expect(screen.getByText('1.052')).toBeInTheDocument()
       expect(screen.getByText('≈ 6,9 %')).toBeInTheDocument()
@@ -135,6 +137,14 @@ describe('Suivi de fermentation', () => {
     } finally {
       page.flatStart = false
     }
+  })
+
+  it('permet de régler le décalage de l’iSpindel à la main', async () => {
+    renderPage()
+    fireEvent.click(await screen.findByText('Régler à la main'))
+    fireEvent.change(screen.getByLabelText('Décalage manuel en points'), { target: { value: '-3' } })
+    fireEvent.click(screen.getByText('Enregistrer'))
+    await waitFor(() => expect(updateBatchIspindelOffset).toHaveBeenCalledWith('b1', -0.003))
   })
 
   it('pas d’alerte de stabilité sur un brassin terminé', async () => {

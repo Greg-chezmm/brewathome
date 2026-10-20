@@ -63,6 +63,8 @@ export default defineConfig({
     exclude: [...configDefaults.exclude, '.claude/**'],
     globals: true,
     setupFiles: ['./src/test/setup.ts'],
+    // Sous charge (suite complète en parallèle), 5 s par test ne suffisent pas toujours.
+    testTimeout: 15000,
     // jsdom ne sert qu'aux tests de composants (.tsx) : le créer pour chaque fichier de calcul pur coûtait
     // l'essentiel de la durée des tests ; vmThreads le garde d'un fichier à l'autre (isolation conservée).
     projects: [

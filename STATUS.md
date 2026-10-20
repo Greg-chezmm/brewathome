@@ -139,4 +139,6 @@ npm run build     # build de production
 - Mesures du Brew Day : saisie de densité en points (« 48 »), Plato (« 12,5P ») ou Brix, bouton « prévu » pour reprendre la valeur de la recette, mesures non enregistrées sauvegardées en quittant l'étape.
 - RLS : un brassin ne peut référencer qu'une recette de son propriétaire (**migration `0022_batches_recipe_owner_check.sql` à appliquer manuellement**).
 - Tests : délai `findBy*` porté à 5 s pour toute la suite.
+- iSpindel : second point de calibration avec la DF au densimètre (pente corrigée, sans ajouts de sucre en fermentation), décalage réglable à la main (colonne `batches.ispindel_offset`, **migration `0023_batches_ispindel_offset.sql` à appliquer manuellement**) et retour au recalage automatique. Reste à faire : historique de précision par device (les relevés ne portent pas de `device_id`).
+- Page Appareils : protocole de calibration d'un iSpindel (solutions sucrées, relevé de l'angle, polynôme, contrôle). Découpage : `BrewDay.tsx` 574 → 298 lignes (composants `components/brew-day/*`, hooks `useBoilAlerts` / `useStepActions`, `lib/brew-day/navigation.ts` testé) et `IngredientCards.tsx` (950 lignes) réparti dans `components/recipe/ingredient-cards/` (ré-exports conservés).
 

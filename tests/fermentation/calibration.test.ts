@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { applyGravityOffset, gravityOffset } from '@/lib/fermentation/calibration'
+import { applyCalibration, applyGravityOffset, gravityCalibration, gravityOffset, manualCalibration } from '@/lib/fermentation/calibration'
 
 const H = 3_600_000
 const t0 = Date.UTC(2026, 0, 1)
@@ -46,5 +46,45 @@ describe('Décalage de l’iSpindel d’après la DI au densimètre', () => {
     expect(applyGravityOffset(1.071, 0.003)).toBe(1.074)
     expect(applyGravityOffset(null, 0.003)).toBeNull()
     expect(applyGravityOffset(1.02, 0)).toBe(1.02)
+  })
+})
+
+describe('Calibration en deux points (DI et DF au densimètre)', () => {
+  const start = [at(0, 1.071), at(1, 1.071), at(2, 1.071)]
+  const end = [at(300, 1.013), at(301, 1.013), at(302, 1.013)]
+
+  it('corrige décalage et pente : l’iSpindel retombe sur la DF mesurée', () => {
+    const cal = gravityCalibration([...start, ...end], 1.074, 1.012, null)!
+    expect(cal.twoPoint).toBe(true)
+    // chute réelle 62 points, chute iSpindel 58 points
+    expect(cal.scale).toBeCloseTo(62 / 58, 5)
+    expect(applyCalibration(1.071, cal)).toBeCloseTo(1.074, 4)
+    expect(applyCalibration(1.013, cal)).toBeCloseTo(1.012, 3)
+  })
+
+  it('sans DF : décalage seul', () => {
+    const cal = gravityCalibration([...start, ...end], 1.074, null, null)!
+    expect(cal.twoPoint).toBe(false)
+    expect(cal.scale).toBe(1)
+    expect(applyCalibration(1.013, cal)).toBeCloseTo(1.016, 4)
+  })
+
+  it('ajouts de sucre en fermentation : décalage seul', () => {
+    const cal = gravityCalibration([...start, ...end], 1.074, 1.012, t0 + 100 * H)!
+    expect(cal.twoPoint).toBe(false)
+  })
+
+  it('DF aberrante (pente hors plage) : décalage seul', () => {
+    const stuck = [at(300, 1.05), at(301, 1.05), at(302, 1.05)]
+    expect(gravityCalibration([...start, ...stuck], 1.074, 1.0, null)!.twoPoint).toBe(false)
+  })
+
+  it('pas assez de relevés de fin : décalage seul', () => {
+    expect(gravityCalibration([...start, at(300, 1.013)], 1.074, 1.012, null)!.twoPoint).toBe(false)
+  })
+
+  it('décalage manuel : ajoute simplement le décalage', () => {
+    expect(applyCalibration(1.05, manualCalibration(-0.002))).toBeCloseTo(1.048, 4)
+    expect(applyCalibration(null, manualCalibration(0.01))).toBeNull()
   })
 })
