@@ -62,6 +62,9 @@ export default defineConfig({
     // Copies de travail des agents Claude Code (.claude/worktrees) : leurs tests ne sont pas ceux du dépôt.
     exclude: [...configDefaults.exclude, '.claude/**'],
     globals: true,
+    // Valeurs factices : certains tests importent le vrai client Supabase (qui exige ces variables) sans jamais
+    // l'appeler ; la CI n'a pas de .env.local.
+    env: { VITE_SUPABASE_URL: 'http://localhost:54321', VITE_SUPABASE_ANON_KEY: 'test-anon-key' },
     setupFiles: ['./src/test/setup.ts'],
     // Sous charge (suite complète en parallèle), 5 s par test ne suffisent pas toujours.
     testTimeout: 15000,
