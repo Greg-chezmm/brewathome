@@ -11,7 +11,14 @@ export function useWakeLock(enabled: boolean) {
 
     async function acquire() {
       try {
-        lockRef.current = await navigator.wakeLock.request('screen')
+        const lock = await navigator.wakeLock.request('screen')
+        if (cancelled) {
+          // Démonté pendant la requête : le nettoyage est déjà passé, ce verrou ne serait jamais libéré.
+          lock.release().catch(() => {})
+          return
+        }
+        lockRef.current?.release().catch(() => {})
+        lockRef.current = lock
       } catch {
         // Permission refusée ou appareil en économie d'énergie : on continue
         // sans wake lock, les alertes sonores restent le filet de secours
