@@ -1,13 +1,16 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '@/lib/auth/AuthProvider'
 import { ActionBar } from '@/components/ActionBar'
 import { SessionsChoice } from '@/components/batches/SessionsChoice'
 import { exceedsKettle } from '@/lib/brew-day/sessions'
-import { createBatchFromRecipe } from '@/lib/db/queries/batches'
+import { CREATE_BATCH_PHASES, createBatchFromRecipe } from '@/lib/db/queries/batches'
 import { getEquipmentProfile } from '@/lib/db/queries/equipmentProfiles'
 import { getRecipeWithDetails } from '@/lib/db/queries/recipes'
+
+/** Délai après lequel la création est signalée comme plus longue que d'habitude. */
+const SLOW_CREATION_MS = 8000
 
 export function RecipeValidate() {
   const { recipeId } = useParams<{ recipeId: string }>()
@@ -30,17 +33,30 @@ export function RecipeValidate() {
   // Tant que l'utilisateur n'a pas choisi : 2 sessions si la recette déborde de la cuve.
   const [sessionsChoice, setSessionsChoice] = useState<number | null>(null)
   const [saving, setSaving] = useState(false)
+  const [phase, setPhase] = useState(0)
+  const [slow, setSlow] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const effectiveName = name || recipe?.name || ''
   const brewSessions = sessionsChoice ?? (recipe && exceedsKettle(recipe, equipmentProfile) ? 2 : 1)
 
+  // Au-delà de quelques secondes, on rassure : la création enchaîne plusieurs écritures et reste normale.
+  useEffect(() => {
+    if (!saving) return
+    const timer = setTimeout(() => setSlow(true), SLOW_CREATION_MS)
+    return () => {
+      clearTimeout(timer)
+      setSlow(false)
+    }
+  }, [saving])
+
   async function handleValidate() {
     if (!user || !recipeId) return
     setSaving(true)
+    setPhase(0)
     setError(null)
     try {
-      const batchId = await createBatchFromRecipe(user.id, recipeId, effectiveName, brewDate || null, brewSessions)
+      const batchId = await createBatchFromRecipe(user.id, recipeId, effectiveName, brewDate || null, brewSessions, setPhase)
       navigate(`/batches/${batchId}`)
     } catch (err) {
       setError((err as Error).message)
@@ -78,7 +94,23 @@ export function RecipeValidate() {
           />
         </div>
         <SessionsChoice recipe={recipe} equipment={equipmentProfile} value={brewSessions} onChange={setSessionsChoice} />
-        {error && <p className="text-sm text-red-600">{error}</p>}
+        {saving && (
+          <div role="status" className="space-y-1 rounded-lg bg-indigo-50 p-3 text-sm text-indigo-900">
+            <p className="font-medium">
+              {CREATE_BATCH_PHASES[phase]}… (étape {phase + 1}/{CREATE_BATCH_PHASES.length})
+            </p>
+            <p className="text-indigo-700">
+              {slow
+                ? 'Ça prend plus de temps que d’habitude : la connexion est lente. Ne quittez pas la page, le brassin s’ouvrira tout seul.'
+                : 'Quelques secondes suffisent en général.'}
+            </p>
+          </div>
+        )}
+        {error && (
+          <p role="alert" className="text-sm text-red-600">
+            Le brassin n’a pas pu être créé : {error}. Vous pouvez réessayer.
+          </p>
+        )}
       </div>
 
       <ActionBar>

@@ -133,6 +133,14 @@ async function insertStepsOrDiscardBatch(batchId: string, steps: NewBatchStep[])
   throw error
 }
 
+/** Phases de la création d'un brassin, dans l'ordre : sert à montrer où en est l'enregistrement. */
+export const CREATE_BATCH_PHASES = [
+  'Lecture de la recette',
+  'Enregistrement du brassin',
+  'Génération des étapes du Brew Day',
+  'Finalisation',
+] as const
+
 /** Valide une recette en brassin : snapshot figé + génération des étapes de brew day. */
 export async function createBatchFromRecipe(
   userId: string,
@@ -140,7 +148,9 @@ export async function createBatchFromRecipe(
   name: string,
   brewDate: string | null,
   brewSessions = 1,
+  onPhase: (phaseIndex: number) => void = () => {},
 ): Promise<string> {
+  onPhase(0)
   const savedRecipe = await getRecipeWithDetails(recipeId)
   const equipmentProfile = savedRecipe.equipmentProfileId ? await getEquipmentProfile(savedRecipe.equipmentProfileId) : null
   // Estimations recalculées au moment de figer la recette (le cache en base peut dater d'un ancien moteur).
@@ -154,6 +164,7 @@ export async function createBatchFromRecipe(
     estAbv: stats.abv,
   }
 
+  onPhase(1)
   const { data: batch, error } = await supabase
     .from('batches')
     .insert({
@@ -172,8 +183,10 @@ export async function createBatchFromRecipe(
 
   const batchId = batch.id as string
 
+  onPhase(2)
   await insertStepsOrDiscardBatch(batchId, buildBatchSteps(recipe, equipmentProfile, brewSessions))
 
+  onPhase(3)
   await updateRecipeStatus(recipeId, 'validated')
 
   return batchId

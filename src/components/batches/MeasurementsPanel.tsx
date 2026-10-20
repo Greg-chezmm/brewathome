@@ -14,7 +14,7 @@ import {
   type MeasurementKind,
   type MeasurementValues,
 } from '@/lib/brew-day/measurements'
-import { updateBatchMeasurements } from '@/lib/db/queries/batches'
+import { updateBatchMeasurements, type BatchDetails } from '@/lib/db/queries/batches'
 import type { RecipeDetails } from '@/lib/db/queries/recipes'
 
 const INPUT: Record<MeasurementKind, { step: string; min: number; max: number; decimals: number }> = {
@@ -51,7 +51,7 @@ export function MeasurementsPanel({
   title = 'Mesures',
   labels,
   suggestions,
-  onSave = (changes) => updateBatchMeasurements(batchId, changes),
+  onSave: customSave,
 }: {
   batchId: string
   fields: MeasurementKey[]
@@ -68,6 +68,7 @@ export function MeasurementsPanel({
   onSave?: (changes: Partial<Record<MeasurementKey, number | null>>) => Promise<void>
 }) {
   const queryClient = useQueryClient()
+  const onSave = customSave ?? ((changes: Partial<Record<MeasurementKey, number | null>>) => updateBatchMeasurements(batchId, changes))
   const [drafts, setDrafts] = useState(() =>
     Object.fromEntries(fields.map((key) => [key, toDraft(key, measured[key])])) as Record<MeasurementKey, string>,
   )
@@ -125,7 +126,15 @@ export function MeasurementsPanel({
     setError(null)
     try {
       await onSave(changes)
-      await queryClient.invalidateQueries({ queryKey: ['batch', batchId] })
+      if (!customSave) {
+        // Mise à jour immédiate de l'affichage ; le rechargement du brassin se fait en arrière-plan.
+        queryClient.setQueryData<BatchDetails>(['batch', batchId], (old) =>
+          old && { ...old, measurements: { ...old.measurements, ...changes } },
+        )
+        void queryClient.invalidateQueries({ queryKey: ['batch', batchId] })
+      } else {
+        await queryClient.invalidateQueries({ queryKey: ['batch', batchId] })
+      }
     } catch (err) {
       setError((err as Error).message)
     } finally {
