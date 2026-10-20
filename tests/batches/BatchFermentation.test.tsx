@@ -8,7 +8,7 @@ vi.mock('recharts', async (importOriginal) => ({
   ...(await importOriginal<typeof import('recharts')>()),
   ResponsiveContainer: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }))
-const page = vi.hoisted(() => ({ status: 'completed', plateau: false }))
+const page = vi.hoisted(() => ({ status: 'completed', plateau: false, flatStart: false }))
 
 vi.mock('@/lib/db/queries/batches', () => ({
   BATCH_STATUS_LABELS: { completed: 'Terminé', fermentation: 'Fermentation' },
@@ -49,7 +49,12 @@ vi.mock('@/lib/db/queries/fermentation', () => ({
       id: `r${i}`,
       // Plateau : un relevé par heure, densité qui cesse de baisser après 20 h (à 1.020).
       recordedAt: new Date(Date.UTC(2025, 9, 19) + i * (page.plateau ? 3_600_000 : 900_000)).toISOString(),
-      gravity: page.plateau ? Math.max(1.02, 1.1 - i * 0.004) : 1.1 - i * 0.0005,
+      // flatStart : densité immobile les 3 premières heures, comme un iSpindel qui vient d'être mis dans le moût.
+      gravity: page.plateau
+        ? Math.max(1.02, 1.1 - i * 0.004)
+        : page.flatStart
+          ? 1.1 - Math.max(0, i - 12) * 0.0005
+          : 1.1 - i * 0.0005,
       temperatureC: 18,
       source: 'ispindel',
       comment: null,
@@ -95,6 +100,7 @@ describe('Suivi de fermentation', () => {
     page.plateau = true
     try {
       renderPage()
+      fireEvent.click(await screen.findByText('Voir les valeurs brutes'))
       expect(await screen.findByText(/Densité stable à 1.020 depuis 4 jours/)).toBeInTheDocument()
       expect(screen.getByText(/Atténuation apparente 81 %/)).toBeInTheDocument()
       expect(screen.getByLabelText('Densité finale (DF)')).toHaveAttribute('placeholder', '1.017')
@@ -106,11 +112,29 @@ describe('Suivi de fermentation', () => {
 
   it('montre l’alcool déjà produit, calculé depuis la DI', async () => {
     renderPage()
-    // Derniers relevés autour de 1.041 : (1.105 − 1.041) × 131,25 ≈ 8,4 %.
+    // Valeurs brutes de l'iSpindel : derniers relevés autour de 1.041, (1.105 − 1.041) × 131,25 ≈ 8,4 %.
+    fireEvent.click(await screen.findByText('Voir les valeurs brutes'))
     expect(await screen.findByText('≈ 8,4 %')).toBeInTheDocument()
     expect(screen.getByText('1.041')).toBeInTheDocument()
     expect(screen.getByText('Vers la DF prévue (1.017)')).toBeInTheDocument()
     expect(screen.getByText(/Calculé depuis la DI mesurée : 1.105/)).toBeInTheDocument()
+  })
+
+  it('recale l’iSpindel sur la DI au densimètre, et permet de revoir les valeurs brutes', async () => {
+    page.flatStart = true
+    try {
+      renderPage()
+      // Relevés de départ à 1.100 pour une DI mesurée de 1.105 : +5 points sur toutes les densités.
+      expect(await screen.findByText(/iSpindel recalé sur la DI au densimètre : \+5\.0 points/)).toBeInTheDocument()
+      // Brut : 1.047 ; recalé : 1.052, d'où (1.105 − 1.052) × 131,25 ≈ 6,9 %.
+      expect(screen.getByText('1.052')).toBeInTheDocument()
+      expect(screen.getByText('≈ 6,9 %')).toBeInTheDocument()
+      fireEvent.click(screen.getByText('Voir les valeurs brutes'))
+      expect(await screen.findByText('1.047')).toBeInTheDocument()
+      expect(screen.getByText('Densités brutes de l’iSpindel.')).toBeInTheDocument()
+    } finally {
+      page.flatStart = false
+    }
   })
 
   it('pas d’alerte de stabilité sur un brassin terminé', async () => {
