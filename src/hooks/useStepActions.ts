@@ -22,13 +22,27 @@ export function useStepActions({ batchId, onAdvance, onReset }: StepActionsOptio
   const [error, setError] = useState<string | null>(null)
   const stepsKey = ['batch-steps', batchId]
 
-  /** Exécute une écriture ; renvoie false si elle a échoué (l'erreur est alors affichée). */
-  async function run(action: () => Promise<void>): Promise<boolean> {
+  /**
+   * Exécute une écriture ; renvoie false si elle a échoué (l'erreur est alors affichée).
+   * `patch` est appliqué tout de suite au cache : l'écran réagit sans attendre l'écriture ni le rechargement
+   * (parfois lents), et revient à l'état d'avant si l'écriture échoue.
+   */
+  async function run(action: () => Promise<void>, patch?: { stepId: string; changes: Partial<BatchStep> }): Promise<boolean> {
     setError(null)
+    let previous: BatchStep[] | undefined
+    if (patch) {
+      // Un rechargement déjà en route renverrait l'état d'avant et effacerait la modification.
+      await queryClient.cancelQueries({ queryKey: stepsKey })
+      previous = queryClient.getQueryData<BatchStep[]>(stepsKey)
+      queryClient.setQueryData<BatchStep[]>(stepsKey, (old) =>
+        old?.map((s) => (s.id === patch.stepId ? { ...s, ...patch.changes } : s)),
+      )
+    }
     try {
       await action()
       return true
     } catch (err) {
+      if (patch && previous) queryClient.setQueryData(stepsKey, previous)
       setError((err as Error).message)
       return false
     } finally {
@@ -37,24 +51,40 @@ export function useStepActions({ batchId, onAdvance, onReset }: StepActionsOptio
   }
 
   function startStep(step: BatchStep) {
-    return run(() => updateBatchStepStatus(step.id, 'in-progress', { actualStartAt: new Date().toISOString() }))
+    const actualStartAt = new Date().toISOString()
+    return run(() => updateBatchStepStatus(step.id, 'in-progress', { actualStartAt }), {
+      stepId: step.id,
+      changes: { status: 'in-progress', actualStartAt },
+    })
   }
 
   async function completeStep(step: BatchStep) {
-    if (!(await run(() => updateBatchStepStatus(step.id, 'done', { actualEndAt: new Date().toISOString() })))) return
+    const actualEndAt = new Date().toISOString()
+    const saved = await run(() => updateBatchStepStatus(step.id, 'done', { actualEndAt }), {
+      stepId: step.id,
+      changes: { status: 'done', actualEndAt },
+    })
+    if (!saved) return
     document.title = 'BrewAtHome'
     onAdvance(step)
   }
 
   async function skipStep(step: BatchStep) {
-    if (!(await run(() => updateBatchStepStatus(step.id, 'skipped')))) return
+    const saved = await run(() => updateBatchStepStatus(step.id, 'skipped'), {
+      stepId: step.id,
+      changes: { status: 'skipped' },
+    })
+    if (!saved) return
     onAdvance(step)
   }
 
   function resetStep(step: BatchStep) {
     onReset(step)
     document.title = 'BrewAtHome'
-    return run(() => resetBatchStep(step.id))
+    return run(() => resetBatchStep(step.id), {
+      stepId: step.id,
+      changes: { status: 'todo', actualStartAt: null, actualEndAt: null },
+    })
   }
 
   function toggleItem(step: BatchStep, itemId: string) {
