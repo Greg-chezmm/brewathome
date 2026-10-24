@@ -1,4 +1,6 @@
 import { effectiveMashSteps, mainMashTempC } from '@/lib/brew-calc/mash'
+import { normalizeCosts, type CostLine } from '@/lib/batches/costs'
+import { normalizeTastings, type Tasting } from '@/lib/batches/tastings'
 import { normalizePackaging, type PackagingKey } from '@/lib/brew-day/bottling'
 import type { MeasurementKey, MeasurementValues } from '@/lib/brew-day/measurements'
 import { estimateRecipeStats, REFERENCE_MASH_TEMP_C } from '@/lib/brew-calc/recipe-stats'
@@ -115,6 +117,14 @@ export interface BatchDetails extends BatchSummary {
   packaging: Record<PackagingKey, number>
   /** Décalage manuel (SG) des densités de l'iSpindel ; null = recalage automatique sur la DI. */
   ispindelOffset: number | null
+  /** Dégustations, de la plus récente à la plus ancienne. */
+  tastings: Tasting[]
+  /** Date d'embouteillage (AAAA-MM-JJ) ; null tant qu'elle n'est pas saisie. */
+  bottledAt: string | null
+  /** Durée de refermentation voulue (jours) ; null = durée par défaut. */
+  conditioningDays: number | null
+  /** Prix saisis sur ce brassin (ingrédients et frais libres), en euros. */
+  costs: CostLine[]
 }
 
 /**
@@ -318,6 +328,11 @@ function batchFromRow(data: Record<string, any>): BatchDetails {
     packaging: normalizePackaging(data.packaging),
     // Colonne ajoutée en 0023 : absente tant que la migration n'est pas appliquée.
     ispindelOffset: data.ispindel_offset ?? null,
+    // Colonnes ajoutées en 0025 : absentes (undefined) tant que la migration n'est pas appliquée.
+    tastings: normalizeTastings(data.tastings),
+    bottledAt: data.bottled_at ?? null,
+    conditioningDays: data.conditioning_days ?? null,
+    costs: normalizeCosts(data.costs),
   }
 }
 
@@ -551,6 +566,27 @@ export async function deleteBatch(batchId: string): Promise<void> {
 /** Décalage manuel (SG) des densités de l'iSpindel ; `null` revient au recalage automatique. */
 export async function updateBatchIspindelOffset(batchId: string, offset: number | null): Promise<void> {
   const { error } = await supabase.from('batches').update({ ispindel_offset: offset }).eq('id', batchId)
+  if (error) throw error
+}
+
+export async function updateBatchTastings(batchId: string, tastings: Tasting[]): Promise<void> {
+  const { error } = await supabase.from('batches').update({ tastings: toJson(tastings) }).eq('id', batchId)
+  if (error) throw error
+}
+
+export async function updateBatchConditioning(
+  batchId: string,
+  { bottledAt, conditioningDays }: { bottledAt: string | null; conditioningDays: number | null },
+): Promise<void> {
+  const { error } = await supabase
+    .from('batches')
+    .update({ bottled_at: bottledAt, conditioning_days: conditioningDays })
+    .eq('id', batchId)
+  if (error) throw error
+}
+
+export async function updateBatchCosts(batchId: string, costs: CostLine[]): Promise<void> {
+  const { error } = await supabase.from('batches').update({ costs: toJson(costs) }).eq('id', batchId)
   if (error) throw error
 }
 

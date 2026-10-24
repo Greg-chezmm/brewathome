@@ -80,6 +80,10 @@ export type Database = {
           fg_measured: number | null
           id: string
           ispindel_offset: number | null
+          bottled_at: string | null
+          conditioning_days: number | null
+          costs: Json
+          tastings: Json
           mash_ph_measured: number | null
           mash_temp_reached_c: number | null
           max_fermentation_temp_c: number | null
@@ -108,6 +112,10 @@ export type Database = {
           fg_measured?: number | null
           id?: string
           ispindel_offset?: number | null
+          bottled_at?: string | null
+          conditioning_days?: number | null
+          costs?: Json
+          tastings?: Json
           mash_ph_measured?: number | null
           mash_temp_reached_c?: number | null
           max_fermentation_temp_c?: number | null
@@ -136,6 +144,10 @@ export type Database = {
           fg_measured?: number | null
           id?: string
           ispindel_offset?: number | null
+          bottled_at?: string | null
+          conditioning_days?: number | null
+          costs?: Json
+          tastings?: Json
           mash_ph_measured?: number | null
           mash_temp_reached_c?: number | null
           max_fermentation_temp_c?: number | null
