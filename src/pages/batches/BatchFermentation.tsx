@@ -18,6 +18,7 @@ import { FermentationPlan } from '@/components/batches/FermentationPlan'
 import { FermentationReminders } from '@/components/batches/FermentationReminders'
 import { MeasurementsPanel } from '@/components/batches/MeasurementsPanel'
 import { PrimingTool } from '@/components/tools/PrimingTool'
+import { BatchDeviceLink } from '@/components/devices/BatchDeviceLink'
 import { ConnectionBadge } from '@/components/devices/ConnectionBadge'
 import { getBatchSteps, getBatchWithDetails, updateBatchIspindelOffset } from '@/lib/db/queries/batches'
 import { getBrewfatherAccount, hasBrewfatherAccount } from '@/lib/db/queries/brewfather'
@@ -204,13 +205,7 @@ export function BatchFermentation() {
 
   return (
     <div className="space-y-8">
-      {linkedDevices.length === 0 && (
-        <div className="flex justify-end">
-          <Link to="/devices" className="btn-secondary btn-sm">
-            📡 Associer un iSpindel
-          </Link>
-        </div>
-      )}
+      {linkedDevices.length === 0 && batchId && <BatchDeviceLink batchId={batchId} />}
 
       {stability?.stable && batch && (
         <div role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">

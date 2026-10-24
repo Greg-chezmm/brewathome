@@ -13,6 +13,7 @@ import { SoundToggle } from '@/components/brew-day/SoundToggle'
 import { StepActionBar } from '@/components/brew-day/StepActionBar'
 import { StepCard } from '@/components/brew-day/StepCard'
 import { StepMeasurements } from '@/components/brew-day/StepMeasurements'
+import { BatchDeviceLink } from '@/components/devices/BatchDeviceLink'
 import { StepOverview } from '@/components/brew-day/StepOverview'
 import { additionTiming, boilTiming, groupSteps } from '@/components/brew-day/stepMeta'
 import { useSoundSetting } from '@/hooks/useAlertSound'
@@ -267,16 +268,19 @@ export function BrewDay() {
               measuredGravity={stepMeasured?.gravity}
               measuredVolumeL={stepMeasured?.volumeL}
               measurement={
-                <StepMeasurements
-                  batch={batch}
-                  step={activeStep}
-                  recipe={recipe}
-                  part={part}
-                  planned={planned}
-                  plannedSession={plannedSession}
-                  equipment={equipmentProfile}
-                  brewSessions={brewSessions}
-                />
+                <>
+                  <StepMeasurements
+                    batch={batch}
+                    step={activeStep}
+                    recipe={recipe}
+                    part={part}
+                    planned={planned}
+                    plannedSession={plannedSession}
+                    equipment={equipmentProfile}
+                    brewSessions={brewSessions}
+                  />
+                  {activeStep.stepType === 'pitch' && <BatchDeviceLink batchId={batch.id} />}
+                </>
               }
             />
           )}

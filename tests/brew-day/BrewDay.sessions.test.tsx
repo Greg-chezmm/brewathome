@@ -36,6 +36,7 @@ const recipe = vi.hoisted(
 const saved = vi.hoisted(() => ({ sessionMeasurements: vi.fn(async () => {}) }))
 const page = vi.hoisted(() => ({ session2: { postBoilGravity: null as number | null, fermenterVolumeL: null as number | null } }))
 
+vi.mock('@/lib/auth/AuthProvider', () => ({ useAuth: () => ({ user: { id: 'u1' } }) }))
 vi.mock('@/lib/supabase/client', () => ({ supabase: {} }))
 vi.mock('@/lib/db/queries/equipmentProfiles', () => ({ getEquipmentProfile: async () => null }))
 vi.mock('@/lib/db/queries/batches', async (importOriginal) => ({
