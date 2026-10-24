@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import {
   resetBatchStep,
-  updateBatchStepChecklist,
+  toggleBatchStepItem,
   updateBatchStepNotes,
   updateBatchStepStatus,
   type BatchStep,
@@ -88,14 +88,14 @@ export function useStepActions({ batchId, onAdvance, onReset }: StepActionsOptio
   }
 
   function toggleItem(step: BatchStep, itemId: string) {
-    const checkedItems = step.checkedItems.includes(itemId)
-      ? step.checkedItems.filter((id) => id !== itemId)
-      : [...step.checkedItems, itemId]
-    // Mise à jour optimiste : la case réagit immédiatement, même avec un réseau lent.
-    queryClient.setQueryData<BatchStep[]>(stepsKey, (old) =>
-      old?.map((s) => (s.id === step.id ? { ...s, checkedItems } : s)),
-    )
-    return run(() => updateBatchStepChecklist(step.id, checkedItems))
+    const checked = !step.checkedItems.includes(itemId)
+    const checkedItems = checked ? [...step.checkedItems, itemId] : step.checkedItems.filter((id) => id !== itemId)
+    // Mise à jour optimiste (appliquée par `run`, avec retour arrière en cas d'échec) : la case réagit
+    // immédiatement. On n'envoie que la case touchée, la base fusionne avec ce que l'autre appareil a coché.
+    return run(() => toggleBatchStepItem(step.id, itemId, checked).then(() => undefined), {
+      stepId: step.id,
+      changes: { checkedItems },
+    })
   }
 
   function saveStepNotes(step: BatchStep, notes: string) {

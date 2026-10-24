@@ -366,9 +366,22 @@ export async function resetBatchStep(stepId: string): Promise<void> {
   if (error) throw error
 }
 
-export async function updateBatchStepChecklist(stepId: string, checkedItems: string[]): Promise<void> {
-  const { error } = await supabase.from('batch_steps').update({ checked_items: checkedItems }).eq('id', stepId)
+/**
+ * Coche ou décoche une seule case d'une étape et rend la liste à jour. C'est la base qui modifie le tableau
+ * (RPC `toggle_checked_item`, migration 0024) : deux appareils qui cochent au même moment s'additionnent
+ * au lieu de s'écraser, ce que ferait l'envoi du tableau entier.
+ */
+export async function toggleBatchStepItem(stepId: string, itemId: string, checked: boolean): Promise<string[]> {
+  const { data, error } = await supabase.rpc('toggle_checked_item', {
+    p_step_id: stepId,
+    p_item: itemId,
+    p_checked: checked,
+  })
   if (error) throw error
+  // NULL : étape inexistante ou qui n'appartient pas à l'utilisateur (la RLS la masque).
+  if (data === null) throw new Error('Étape introuvable : la case n’a pas été enregistrée.')
+  if (!Array.isArray(data)) throw new Error('Réponse inattendue de la base pour les cases cochées.')
+  return data as string[]
 }
 
 /** Enregistre les notes libres d'une étape (null/chaîne vide efface). */
