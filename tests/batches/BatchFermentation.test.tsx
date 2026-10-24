@@ -38,7 +38,8 @@ vi.mock('@/lib/db/queries/batches', () => ({
     },
   }),
 }))
-vi.mock('@/lib/db/queries/brewfather', () => ({ getBrewfatherAccount: async () => ({ userId: 'u', apiKey: 'k' }) }))
+const brewfatherApi = vi.hoisted(() => ({ getAccount: vi.fn(async () => ({ userId: 'u', apiKey: 'k' })), hasAccount: vi.fn(async () => true) }))
+vi.mock('@/lib/db/queries/brewfather', () => ({ getBrewfatherAccount: brewfatherApi.getAccount, hasBrewfatherAccount: brewfatherApi.hasAccount }))
 vi.mock('@/lib/db/queries/devices', () => ({
   listDevices: async () => [
     { id: 'd1', name: 'iSpindel Vert', activeBatchId: 'b1', lastSeenAt: new Date().toISOString(), settings: {} },
@@ -156,5 +157,21 @@ describe('Suivi de fermentation', () => {
   it('propose d’importer les relevés du brassin Brewfather d’origine', async () => {
     renderPage()
     expect(await screen.findByText('Importer les relevés')).toBeInTheDocument()
+  })
+
+  it('ne lit pas la clé d’API Brewfather tant qu’on n’importe rien', async () => {
+    brewfatherApi.getAccount.mockClear()
+    renderPage()
+    await screen.findByText('Importer les relevés')
+    expect(brewfatherApi.getAccount).not.toHaveBeenCalled()
+  })
+
+  it('ne propose pas l’import sans compte Brewfather relié', async () => {
+    brewfatherApi.hasAccount.mockClear()
+    brewfatherApi.hasAccount.mockResolvedValueOnce(false)
+    renderPage()
+    await waitFor(() => expect(brewfatherApi.hasAccount).toHaveBeenCalled())
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(screen.queryByText('Importer les relevés')).toBeNull()
   })
 })

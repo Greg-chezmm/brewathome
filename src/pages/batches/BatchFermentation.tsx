@@ -20,7 +20,7 @@ import { MeasurementsPanel } from '@/components/batches/MeasurementsPanel'
 import { PrimingTool } from '@/components/tools/PrimingTool'
 import { ConnectionBadge } from '@/components/devices/ConnectionBadge'
 import { getBatchSteps, getBatchWithDetails, updateBatchIspindelOffset } from '@/lib/db/queries/batches'
-import { getBrewfatherAccount } from '@/lib/db/queries/brewfather'
+import { getBrewfatherAccount, hasBrewfatherAccount } from '@/lib/db/queries/brewfather'
 import { listDevices, setDeviceActiveBatch } from '@/lib/db/queries/devices'
 import {
   addFermentationReading,
@@ -76,9 +76,10 @@ export function BatchFermentation() {
     queryFn: () => getBatchSteps(batchId!),
     enabled: !!batchId,
   })
-  const { data: brewfatherAccount } = useQuery({
-    queryKey: ['brewfather-account'],
-    queryFn: getBrewfatherAccount,
+  // Seule l'existence du compte est mise en cache : la clé d'API n'est lue qu'au clic sur l'import.
+  const { data: hasBrewfather } = useQuery({
+    queryKey: ['brewfather-account-linked'],
+    queryFn: hasBrewfatherAccount,
     enabled: !!batch?.brewfatherId,
   })
 
@@ -117,10 +118,12 @@ export function BatchFermentation() {
   }
 
   async function handleBrewfatherImport() {
-    if (!batchId || !batch?.brewfatherId || !brewfatherAccount) return
+    if (!batchId || !batch?.brewfatherId || !hasBrewfather) return
     setImporting(true)
     setImportMessage(null)
     try {
+      const brewfatherAccount = await getBrewfatherAccount()
+      if (!brewfatherAccount) throw new Error('Aucun compte Brewfather relié : renseigne ta clé dans Brewfather.')
       const source = await listBrewfatherBatchReadings(brewfatherAccount, batch.brewfatherId)
       const rows = brewfatherReadingsToImport(source, (readings ?? []).map((r) => r.recordedAt))
       const added = await insertFermentationReadings(batchId, rows)
@@ -281,7 +284,7 @@ export function BatchFermentation() {
         </div>
       ))}
 
-      {batch?.brewfatherId && brewfatherAccount && (
+      {batch?.brewfatherId && hasBrewfather && (
         <div className="card flex flex-wrap items-center justify-between gap-3">
           <div className="text-sm">
             <p className="font-semibold text-slate-900">Relevés Brewfather</p>

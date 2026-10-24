@@ -1,3 +1,4 @@
+import { useQueryClient } from '@tanstack/react-query'
 import type { Session, User } from '@supabase/supabase-js'
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import { authRedirect, supabase } from '@/lib/supabase/client'
@@ -30,6 +31,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
   const [notice, setNotice] = useState<string | null>(null)
+  const queryClient = useQueryClient()
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -38,12 +40,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false)
     })
 
-    const { data: subscription } = supabase.auth.onAuthStateChange((_event, newSession) => {
+    const { data: subscription } = supabase.auth.onAuthStateChange((event, newSession) => {
+      // Fin de session (bouton, autre onglet, expiration) : plus rien du compte ne doit rester en mémoire,
+      // clé Brewfather comprise, pour le prochain utilisateur de cet onglet.
+      if (event === 'SIGNED_OUT') queryClient.clear()
       setSession(newSession)
     })
 
     return () => subscription.subscription.unsubscribe()
-  }, [])
+  }, [queryClient])
 
   async function signUp(email: string, password: string) {
     // Le lien de confirmation ramène sur l'app (sinon Supabase renvoie vers son « Site URL »).
@@ -70,6 +75,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function signOut() {
     await supabase.auth.signOut()
+    queryClient.clear()
   }
 
   return (

@@ -125,7 +125,7 @@ Application personnelle de brassage de bière maison (type Brewfather/Little Boc
 - **Notes de dégustation** par brassin : note sur 5, aspect, arôme, goût, à changer la prochaine fois ; visibles dans l'historique et depuis la recette.
 - **Suivi du conditionnement** : date d'embouteillage et date « prête à boire » calculée (refermentation ~2–3 semaines), avec un rappel.
 - **Écritures concurrentes** (reste) : `session_measurements` : verrou optimiste (colonne version) ou RPC avec `FOR UPDATE` ; `cancelQueries` avant la mise à jour optimiste de `saveStepNotes`, et verrou par étape contre le double clic sur « Terminer ». (Cases cochées : fait, voir plus bas.)
-- **Suites de la revue de code (LOW)** : clé Brewfather (gravité LOW) : vérifier ses droits côté Brewfather, désactiver l'inscription publique de Supabase, `queryClient.clear()` à la déconnexion, ne lire la clé qu'à l'import.
+- **Clé Brewfather (gravité LOW, reste)** : vérifier ses droits côté Brewfather ; décider si l'inscription publique de Supabase reste ouverte (chacun saisit sa propre clé, RLS par utilisateur) ; chiffrement côté serveur écarté (Edge Function, trop lourd pour un usage perso).
 
 ## Comment vérifier l'état du code
 
@@ -156,3 +156,4 @@ npm run build     # build de production
 - Version en ligne : le menu (barre latérale PC, menu « Plus » mobile) affiche « v0.0.0 · commit · date du build » (`src/lib/version.ts`, valeurs injectées par `define` dans `vite.config.ts` : `GITHUB_SHA` en CI, git en local).
 - Revue LOW : UID d'agenda distincts pour deux ajouts de même nom (le premier garde sa clé), entités numériques BeerXML réservées (`&#38;`, `&#60;`…) gardées en entités et points de code invalides remplacés par U+FFFD.
 - Revue LOW, fin : le formulaire de recette refuse un volume cible ≤ 0 (`recipeFormErrors`), l'import BeerXML rejette une recette sans `BATCH_SIZE` valide, `calculateStrikeWaterTempC` ne divise plus par un ratio ≤ 0 ; code mort supprimé (`calculateABV`, `calculateABV_Hall`, `calculateOG`, leurs tests passant par `computeRecipe`).
+- Clé Brewfather : le cache de l'appli est vidé à la déconnexion (bouton ou fin de session ailleurs, `AuthProvider`) ; la page de fermentation ne met plus la clé en cache (`hasBrewfatherAccount` ne la lit pas, elle n'est lue qu'au clic sur l'import).
