@@ -22,6 +22,7 @@ import {
   totalFermentationDays,
 } from '@/lib/brew-calc/fermentation-profile'
 import type { YeastAmountUnit } from '@/lib/brew-calc/types'
+import { ScaleRecipe } from '@/components/recipe/ScaleRecipe'
 import { deleteRecipe, duplicateRecipe, getRecipeWithDetails } from '@/lib/db/queries/recipes'
 import { getEquipmentProfile } from '@/lib/db/queries/equipmentProfiles'
 import { ActionBar } from '@/components/ActionBar'
@@ -337,6 +338,7 @@ export function RecipeDetail() {
         <button type="button" onClick={handleDuplicate} className="btn-secondary" title="Créer une copie de cette recette à modifier">
           <Copy size={16} /> Dupliquer
         </button>
+        <ScaleRecipe recipe={recipe} />
         <button type="button" onClick={handleExport} className="btn-secondary" title="Télécharger au format BeerXML (Brewfather, BeerSmith, Little Bock…)">
           <Download size={16} /> BeerXML
         </button>
