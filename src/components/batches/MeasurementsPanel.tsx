@@ -69,9 +69,13 @@ export function MeasurementsPanel({
 }) {
   const queryClient = useQueryClient()
   const onSave = customSave ?? ((changes: Partial<Record<MeasurementKey, number | null>>) => updateBatchMeasurements(batchId, changes))
-  const [drafts, setDrafts] = useState(() =>
-    Object.fromEntries(fields.map((key) => [key, toDraft(key, measured[key])])) as Record<MeasurementKey, string>,
-  )
+  // Seuls les champs saisis ici sont mémorisés : les autres reflètent toujours le brassin, de sorte qu'une
+  // mesure enregistrée depuis un autre appareil n'est ni masquée ni réécrite par un brouillon périmé.
+  const [edits, setEdits] = useState<Partial<Record<MeasurementKey, string>>>({})
+  const drafts = Object.fromEntries(
+    fields.map((key) => [key, edits[key] ?? toDraft(key, measured[key])]),
+  ) as Record<MeasurementKey, string>
+  const setDraft = (key: MeasurementKey, text: string) => setEdits((current) => ({ ...current, [key]: text }))
   // Température de l'échantillon (facultative) : la densité lue est ramenée à 20 °C avant enregistrement.
   const [sampleTemps, setSampleTemps] = useState<Partial<Record<MeasurementKey, string>>>({})
   const [saving, setSaving] = useState(false)
@@ -99,7 +103,7 @@ export function MeasurementsPanel({
     return value !== null && !(value >= min && value <= max)
   })
   const changes = Object.fromEntries(
-    fields.filter((key) => parsed[key] !== measured[key]).map((key) => [key, parsed[key]]),
+    fields.filter((key) => edits[key] !== undefined && parsed[key] !== measured[key]).map((key) => [key, parsed[key]]),
   ) as Partial<Record<MeasurementKey, number | null>>
   const dirty = Object.keys(changes).length > 0
 
@@ -124,6 +128,7 @@ export function MeasurementsPanel({
     if (invalid.length > 0 || !dirty) return
     setSaving(true)
     setError(null)
+    const submitted = edits
     try {
       await onSave(changes)
       if (!customSave) {
@@ -135,6 +140,10 @@ export function MeasurementsPanel({
       } else {
         await queryClient.invalidateQueries({ queryKey: ['batch', batchId] })
       }
+      // Les champs enregistrés redeviennent ceux du brassin ; une frappe faite pendant l'envoi est conservée.
+      setEdits((current) =>
+        Object.fromEntries(Object.entries(current).filter(([key, text]) => !(key in changes) || text !== submitted[key as MeasurementKey])),
+      )
     } catch (err) {
       setError((err as Error).message)
     } finally {
@@ -197,7 +206,7 @@ export function MeasurementsPanel({
                   inputMode="decimal"
                   value={drafts[key]}
                   placeholder={planned[key] !== null ? toDraft(key, Number(planned[key]!.toFixed(input.decimals))) : ''}
-                  onChange={(e) => setDrafts({ ...drafts, [key]: e.target.value })}
+                  onChange={(e) => setDraft(key, e.target.value)}
                   aria-label={label}
                   className="field-input w-32"
                 />
@@ -205,7 +214,7 @@ export function MeasurementsPanel({
                 {planned[key] !== null && (
                   <button
                     type="button"
-                    onClick={() => setDrafts({ ...drafts, [key]: toDraft(key, Number(planned[key]!.toFixed(input.decimals))) })}
+                    onClick={() => setDraft(key, toDraft(key, Number(planned[key]!.toFixed(input.decimals))))}
                     className="text-xs text-slate-500 underline decoration-dotted hover:text-indigo-600"
                     aria-label={`Reprendre la valeur prévue — ${label}`}
                   >
@@ -239,7 +248,7 @@ export function MeasurementsPanel({
               {suggestion && (
                 <button
                   type="button"
-                  onClick={() => setDrafts({ ...drafts, [key]: toDraft(key, Number(suggestion.value.toFixed(input.decimals))) })}
+                  onClick={() => setDraft(key, toDraft(key, Number(suggestion.value.toFixed(input.decimals))))}
                   className="mt-1 text-xs font-medium text-indigo-600 hover:underline"
                 >
                   {suggestion.label} : {formatValue(key, suggestion.value)} — reprendre
