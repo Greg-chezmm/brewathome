@@ -16,6 +16,12 @@ export function calculateDilutionWater(
   currentGravity: number,
   targetGravity: number,
 ): DilutionResult {
+  if (!(currentVolumeL > 0)) {
+    throw new Error('Le volume à diluer doit être supérieur à 0.')
+  }
+  if (!(targetGravity > 1)) {
+    throw new Error('La densité cible doit être supérieure à 1.000.')
+  }
   if (targetGravity >= currentGravity) {
     throw new Error(
       'La densité cible doit être inférieure à la densité mesurée pour calculer une dilution.',

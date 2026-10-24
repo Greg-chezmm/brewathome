@@ -94,6 +94,29 @@ export function computeRecipe(input: RecipeStatsInput): RecipeCalculation {
   const volumes = equipment ? calculateVolumes(targetVolumeL, grainKg, boilTimeMin, equipment) : null
   const calculationVolumeL = volumes?.endOfBoilColdVolumeL ?? targetVolumeL
 
+  // Volume nul ou négatif (saisie en cours, import incohérent) : aucune densité ni amertume calculable.
+  // On rend un résultat neutre plutôt que des Infinity/NaN qui se propageraient jusqu'à l'affichage.
+  if (!(calculationVolumeL > 0) || (volumes && !(volumes.preBoilVolumeL > 0))) {
+    return {
+      og: 1,
+      fg: 1,
+      ibu: 0,
+      srm: 0,
+      abv: 0,
+      ebc: 0,
+      volumes,
+      calculationVolumeL,
+      preBoilGravity: volumes ? 1 : null,
+      postBoilGravity: 1,
+      boilGravity: 1,
+      ibuByHop: [],
+      attenuationPercent: adjustAttenuationForMashTemp(
+        yeasts[0]?.attenuationPercent ?? DEFAULT_ATTENUATION_PERCENT,
+        mashTempC,
+      ),
+    }
+  }
+
   // §2 — Densités. Les ajouts en fermentation comptent dans la DI, pas dans le moût bouilli.
   const boiledPoints = extractPointsLiters(fermentables, mashEfficiencyPercent, ['mash', 'boil'])
   const allPoints = extractPointsLiters(fermentables, mashEfficiencyPercent)

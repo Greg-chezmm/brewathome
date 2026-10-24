@@ -158,6 +158,7 @@ export function isGravityKey(key: MeasurementKey): key is GravityKey {
 
 /** Atténuation apparente (%) entre deux densités. */
 export function apparentAttenuation(og: number, fg: number): number {
+  if (!(og > 1)) return 0
   return ((og - fg) / (og - 1)) * 100
 }
 

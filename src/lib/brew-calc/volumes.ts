@@ -48,6 +48,11 @@ export function postBoilLossesL(profile: EquipmentProfile): number {
   return profile.hopAbsorptionL + profile.deadspaceL
 }
 
+/** Contraction thermique en fraction, plafonnée à 50 % : à 100 % et plus, le volume à chaud n'existerait plus. */
+function clampedShrinkage(profile: EquipmentProfile): number {
+  return Math.min(Math.max(profile.thermalShrinkagePercent, 0), 50) / 100
+}
+
 /**
  * Calcule les volumes à rebours depuis le volume visé en fermenteur (specs §1) :
  * fin d'ébullition à froid = fermenteur + pertes ; à chaud = ÷ (1 − contraction) ;
@@ -62,7 +67,7 @@ export function calculateVolumes(
   profile: EquipmentProfile,
 ): VolumeBreakdown {
   const endOfBoilColdVolumeL = fermenterVolumeL + postBoilLossesL(profile)
-  const postBoilVolumeL = endOfBoilColdVolumeL / (1 - profile.thermalShrinkagePercent / 100)
+  const postBoilVolumeL = endOfBoilColdVolumeL / (1 - clampedShrinkage(profile))
   const preBoilVolumeL = postBoilVolumeL + profile.evaporationRateLPerHour * (boilTimeMin / 60)
   const totalWaterNeededL =
     preBoilVolumeL + grainWeightKg * profile.grainAbsorptionLPerKg + profile.mashTunDeadspaceL
@@ -95,7 +100,7 @@ export function estimateFinalVolumeFromPreBoil(
   profile: EquipmentProfile,
 ): number {
   const postBoilVolumeL = preBoilVolumeL - profile.evaporationRateLPerHour * (boilTimeMin / 60)
-  const endOfBoilColdVolumeL = postBoilVolumeL * (1 - profile.thermalShrinkagePercent / 100)
+  const endOfBoilColdVolumeL = postBoilVolumeL * (1 - clampedShrinkage(profile))
   return endOfBoilColdVolumeL - postBoilLossesL(profile)
 }
 
