@@ -16,6 +16,16 @@ const parser = new XMLParser({
   isArray: (tagName) => ALWAYS_ARRAY_TAGS.has(tagName),
 })
 
+/** Caractères que le XML réserve : leur entité numérique doit rester une entité, sinon le document n'est plus valide. */
+const XML_RESERVED_ENTITIES: Record<number, string> = { 34: '&quot;', 38: '&amp;', 39: '&apos;', 60: '&lt;', 62: '&gt;' }
+
+function decodeCodePoint(codePoint: number): string {
+  if (XML_RESERVED_ENTITIES[codePoint]) return XML_RESERVED_ENTITIES[codePoint]
+  // Point de code hors Unicode (ou NUL / substitut) : caractère de remplacement plutôt qu'une exception.
+  if (codePoint < 1 || codePoint > 0x10ffff || (codePoint >= 0xd800 && codePoint <= 0xdfff)) return '�'
+  return String.fromCodePoint(codePoint)
+}
+
 /**
  * fast-xml-parser ne décode que les 5 entités XML standard par défaut.
  * Les exports Little Bock utilisent des entités numériques HTML (&#233; etc.)
@@ -23,8 +33,8 @@ const parser = new XMLParser({
  */
 function decodeNumericEntities(xml: string): string {
   return xml
-    .replace(/&#(\d+);/g, (_, dec: string) => String.fromCodePoint(Number.parseInt(dec, 10)))
-    .replace(/&#x([0-9a-fA-F]+);/g, (_, hex: string) => String.fromCodePoint(Number.parseInt(hex, 16)))
+    .replace(/&#(\d+);/g, (_, dec: string) => decodeCodePoint(Number.parseInt(dec, 10)))
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, hex: string) => decodeCodePoint(Number.parseInt(hex, 16)))
 }
 
 function toNumber(value: unknown, fallback = 0): number {

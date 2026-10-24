@@ -83,3 +83,26 @@ describe('Agenda', () => {
     expect(url.searchParams.get('dates')).toMatch(/^\d{8}T\d{6}Z\/\d{8}T\d{6}Z$/)
   })
 })
+
+describe('Rappels — clés stables (UID de l’agenda)', () => {
+  it('deux ajouts de même nom ont des clés distinctes, la première gardant la clé historique', () => {
+    const twice: Fermentable[] = [
+      { name: 'Sucre candi', type: 'sugar', amountKg: 0.3, colorLovibond: 1, yieldPercent: 100, use: 'fermentation' },
+      { name: 'Sucre candi', type: 'sugar', amountKg: 0.2, colorLovibond: 1, yieldPercent: 100, use: 'fermentation' },
+    ]
+    const keys = fermentationReminders({ steps, hops, fermentables: twice, start }).map((r) => r.key)
+    expect(new Set(keys).size).toBe(keys.length)
+    expect(keys).toContain('addition-Sucre candi')
+  })
+
+  it('les UID de l’.ics sont tous différents', () => {
+    const twice: Fermentable[] = [
+      { name: 'Miel', type: 'sugar', amountKg: 0.3, colorLovibond: 1, yieldPercent: 100, use: 'fermentation' },
+      { name: 'Miel', type: 'sugar', amountKg: 0.2, colorLovibond: 1, yieldPercent: 100, use: 'fermentation' },
+    ]
+    const list = fermentationReminders({ steps, hops, fermentables: twice, start })
+    const ics = remindersToIcs(list, { id: 'b1', name: 'Test' })
+    const uids = ics.split('\r\n').filter((l) => l.startsWith('UID:'))
+    expect(new Set(uids).size).toBe(uids.length)
+  })
+})

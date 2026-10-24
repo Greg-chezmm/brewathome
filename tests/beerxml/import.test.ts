@@ -94,3 +94,24 @@ describe('parseBeerXML — real Little Bock exports', () => {
     expect(errors.length).toBeGreaterThan(0)
   })
 })
+
+describe('parseBeerXML — entités numériques', () => {
+  const xml = (name: string) =>
+    `<RECIPES><RECIPE><NAME>${name}</NAME><VERSION>1</VERSION><TYPE>All Grain</TYPE><BATCH_SIZE>10</BATCH_SIZE><BOIL_TIME>60</BOIL_TIME><EFFICIENCY>72</EFFICIENCY><FERMENTABLES></FERMENTABLES><HOPS></HOPS><YEASTS></YEASTS></RECIPE></RECIPES>`
+
+  it('décode les accents', () => {
+    expect(parseBeerXML(xml('Blonde d&#233;go&#xFB;t&#233;e')).recipes[0].name).toBe('Blonde dégoûtée')
+  })
+
+  it('garde & et < littéraux sans casser le XML', () => {
+    const { recipes, errors } = parseBeerXML(xml('Brune &#38; Blonde &#60;2&#62;'))
+    expect(errors).toEqual([])
+    expect(recipes[0].name).toBe('Brune & Blonde <2>')
+  })
+
+  it('ne plante pas sur un point de code invalide', () => {
+    const { recipes, errors } = parseBeerXML(xml('Bizarre &#99999999;'))
+    expect(() => parseBeerXML(xml('x &#xFFFFFFFF;'))).not.toThrow()
+    expect(errors.length + recipes.length).toBeGreaterThan(0)
+  })
+})

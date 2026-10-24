@@ -65,9 +65,13 @@ export function fermentationReminders({
 }): FermentationReminder[] {
   const reminders: Omit<FermentationReminder, 'time'>[] = []
 
+  const additionKeys = new Map<string, number>()
   for (const f of fermentables.filter((f) => fermentableUse(f) === 'fermentation')) {
+    // Deux ajouts de même nom : le premier garde la clé historique (UID déjà dans l'agenda), les suivants un suffixe.
+    const seen = (additionKeys.get(f.name) ?? 0) + 1
+    additionKeys.set(f.name, seen)
     reminders.push({
-      key: `addition-${f.name}`,
+      key: seen === 1 ? `addition-${f.name}` : `addition-${f.name}-${seen}`,
       title: `Ajout en fermentation : ${f.name} (${formatWeightKg(f.amountKg)})`,
       description: 'Dissoudre dans un peu d’eau bouillie refroidie, puis verser doucement dans le fermenteur.',
       day: additionDays[f.name] ?? DEFAULT_FERMENTATION_ADDITION_DAY,
