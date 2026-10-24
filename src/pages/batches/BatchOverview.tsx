@@ -7,6 +7,7 @@ import { MeasurementsPanel } from '@/components/batches/MeasurementsPanel'
 import { NewRecipeVersion } from '@/components/batches/NewRecipeVersion'
 import { SessionsChoice } from '@/components/batches/SessionsChoice'
 import { calculateFG } from '@/lib/brew-calc/gravity'
+import { DEFAULT_CONDITIONING_DAYS, readyLabel, todayIso } from '@/lib/batches/conditioning'
 import {
   MEASUREMENTS,
   apparentAttenuation,
@@ -107,6 +108,8 @@ export function BatchOverview() {
     queryClient.invalidateQueries({ queryKey: ['batch-steps', batchId] })
   }
 
+  const readyText = readyLabel(batch.conditioningStart, batch.conditioningDays ?? DEFAULT_CONDITIONING_DAYS, todayIso())
+
   async function handleDelete() {
     if (!batchId) return
     if (!confirm('Supprimer définitivement ce brassin (étapes et lectures de fermentation incluses) ?')) return
@@ -136,6 +139,12 @@ export function BatchOverview() {
           <NewRecipeVersion batch={batch} equipment={equipmentProfile} equipmentLoading={equipmentLoading} />
         </div>
       </section>
+
+      {readyText && (
+        <p role="status" className="card text-sm font-semibold text-slate-900">
+          {readyText}
+        </p>
+      )}
 
       {(batch.status === 'planned' || sessions > 1) && (
         <section className="card">

@@ -29,14 +29,14 @@ describe('écritures des dégustations, du conditionnement et du coût', () => {
     expect(eq).toHaveBeenCalledWith('id', 'b1')
   })
 
-  it('enregistre la date d’embouteillage et la durée de conditionnement', async () => {
-    await updateBatchConditioning('b1', { bottledAt: '2026-10-24', conditioningDays: 14 })
-    expect(update).toHaveBeenCalledWith({ bottled_at: '2026-10-24', conditioning_days: 14 })
+  it('enregistre le début du conditionnement et la durée de conditionnement', async () => {
+    await updateBatchConditioning('b1', { conditioningStart: '2026-10-24', conditioningDays: 14 })
+    expect(update).toHaveBeenCalledWith({ conditioning_start: '2026-10-24', conditioning_days: 14 })
   })
 
   it('efface la date et la durée avec null', async () => {
-    await updateBatchConditioning('b1', { bottledAt: null, conditioningDays: null })
-    expect(update).toHaveBeenCalledWith({ bottled_at: null, conditioning_days: null })
+    await updateBatchConditioning('b1', { conditioningStart: null, conditioningDays: null })
+    expect(update).toHaveBeenCalledWith({ conditioning_start: null, conditioning_days: null })
   })
 
   it('enregistre les lignes de coût', async () => {
@@ -46,7 +46,7 @@ describe('écritures des dégustations, du conditionnement et du coût', () => {
 
   it.each([
     ['dégustations', () => updateBatchTastings('b1', [])],
-    ['conditionnement', () => updateBatchConditioning('b1', { bottledAt: null, conditioningDays: null })],
+    ['conditionnement', () => updateBatchConditioning('b1', { conditioningStart: null, conditioningDays: null })],
     ['coût', () => updateBatchCosts('b1', [])],
   ])('lève l’erreur de la base (%s)', async (_name, call) => {
     eq.mockResolvedValue({ error: new Error('hors ligne') })

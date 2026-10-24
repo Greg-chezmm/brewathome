@@ -9,6 +9,8 @@ import {
   remainingAsContainers,
   type PackagingKey,
 } from '@/lib/brew-day/bottling'
+import { suggestedConditioningStart } from '@/lib/batches/conditioning'
+import { ConditioningCard } from '@/components/batches/ConditioningCard'
 import { getBatchWithDetails, updateBatchMeasurements, updateBatchPackaging } from '@/lib/db/queries/batches'
 import { getEquipmentProfile } from '@/lib/db/queries/equipmentProfiles'
 
@@ -79,6 +81,7 @@ export function BatchBottling() {
   }
 
   return (
+    <div className="space-y-6">
     <div className="card space-y-4">
       <div>
         <h2 className="text-lg font-semibold text-slate-900">Embouteillage</h2>
@@ -172,6 +175,14 @@ export function BatchBottling() {
           Volume conditionné enregistré : {fmtL(savedL, 2)} (utilisé par le résumé et l'historique).
         </p>
       )}
+    </div>
+    <ConditioningCard
+      key={`${batch.conditioningStart}-${batch.conditioningDays}`}
+      batchId={batch.id}
+      conditioningStart={batch.conditioningStart}
+      conditioningDays={batch.conditioningDays}
+      suggestedStart={suggestedConditioningStart(batch.brewDate, batch.recipeSnapshot?.fermentationSteps)}
+    />
     </div>
   )
 }

@@ -242,8 +242,8 @@ export const batches = pgTable('batches', {
   ispindelOffset: numeric('ispindel_offset', { precision: 6, scale: 4 }),
   // Dégustations : liste de { id, date, rating (1 à 5), appearance, aroma, taste, changeNext }.
   tastings: jsonb('tastings').notNull().default([]),
-  // Embouteillage : date et durée de refermentation voulue (NULL = 21 jours) ; la date « prête à boire » en est déduite.
-  bottledAt: date('bottled_at'),
+  // Conditionnement : date de début (fin de fermentation, modifiable) et durée de refermentation voulue (NULL = 21 jours) ; la date « prête à boire » en est déduite.
+  conditioningStart: date('conditioning_start'),
   conditioningDays: smallint('conditioning_days'),
   // Coût : liste de { label, amount } en euros, sur le brassin et jamais sur la recette (les prix changent d'une année à l'autre).
   costs: jsonb('costs').notNull().default([]),

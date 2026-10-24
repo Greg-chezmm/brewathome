@@ -21,7 +21,7 @@ describe('migration 0025', () => {
 
   it.each([
     ['tastings', "jsonb NOT NULL DEFAULT '[]'::jsonb"],
-    ['bottled_at', 'date'],
+    ['conditioning_start', 'date'],
     ['conditioning_days', 'smallint'],
     ['costs', "jsonb NOT NULL DEFAULT '[]'::jsonb"],
   ])('ajoute %s à batches, sans échouer si elle existe déjà', (column, type) => {
@@ -42,11 +42,11 @@ describe('migration 0025', () => {
     expect(flat).not.toMatch(/CREATE TABLE|CREATE POLICY|DROP /i)
   })
 
-  it.each(['tastings', 'bottled_at', 'conditioning_days', 'costs'])('%s est dans types.ts', (column) => {
+  it.each(['tastings', 'conditioning_start', 'conditioning_days', 'costs'])('%s est dans types.ts', (column) => {
     expect(types).toContain(`${column}:`)
   })
 
-  it.each(['tastings', 'bottledAt', 'conditioningDays', 'costs'])('%s est dans schema.ts', (field) => {
+  it.each(['tastings', 'conditioningStart', 'conditioningDays', 'costs'])('%s est dans schema.ts', (field) => {
     expect(schema).toContain(`${field}:`)
   })
 })

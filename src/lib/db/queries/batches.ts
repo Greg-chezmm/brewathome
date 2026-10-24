@@ -119,8 +119,8 @@ export interface BatchDetails extends BatchSummary {
   ispindelOffset: number | null
   /** Dégustations, de la plus récente à la plus ancienne. */
   tastings: Tasting[]
-  /** Date d'embouteillage (AAAA-MM-JJ) ; null tant qu'elle n'est pas saisie. */
-  bottledAt: string | null
+  /** Début du conditionnement (AAAA-MM-JJ) ; null tant qu'elle n'est pas saisie. */
+  conditioningStart: string | null
   /** Durée de refermentation voulue (jours) ; null = durée par défaut. */
   conditioningDays: number | null
   /** Prix saisis sur ce brassin (ingrédients et frais libres), en euros. */
@@ -330,7 +330,7 @@ function batchFromRow(data: Record<string, any>): BatchDetails {
     ispindelOffset: data.ispindel_offset ?? null,
     // Colonnes ajoutées en 0025 : absentes (undefined) tant que la migration n'est pas appliquée.
     tastings: normalizeTastings(data.tastings),
-    bottledAt: data.bottled_at ?? null,
+    conditioningStart: data.conditioning_start ?? null,
     conditioningDays: data.conditioning_days ?? null,
     costs: normalizeCosts(data.costs),
   }
@@ -576,11 +576,11 @@ export async function updateBatchTastings(batchId: string, tastings: Tasting[]):
 
 export async function updateBatchConditioning(
   batchId: string,
-  { bottledAt, conditioningDays }: { bottledAt: string | null; conditioningDays: number | null },
+  { conditioningStart, conditioningDays }: { conditioningStart: string | null; conditioningDays: number | null },
 ): Promise<void> {
   const { error } = await supabase
     .from('batches')
-    .update({ bottled_at: bottledAt, conditioning_days: conditioningDays })
+    .update({ conditioning_start: conditioningStart, conditioning_days: conditioningDays })
     .eq('id', batchId)
   if (error) throw error
 }

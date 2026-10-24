@@ -1,5 +1,41 @@
 import { describe, expect, it } from 'vitest'
-import { DEFAULT_CONDITIONING_DAYS, daysUntilReady, readyDate, readyLabel } from '@/lib/batches/conditioning'
+import {
+  DEFAULT_CONDITIONING_DAYS,
+  daysUntilReady,
+  readyDate,
+  readyLabel,
+  suggestedConditioningStart,
+  todayIso,
+} from '@/lib/batches/conditioning'
+
+describe('suggestedConditioningStart', () => {
+  it('date du brassin + durée du plan de fermentation', () => {
+    const steps = [{ days: 10 }, { days: 4 }, { days: 2 }]
+    expect(suggestedConditioningStart('2026-10-24', steps)).toBe('2026-11-09')
+  })
+
+  it('passe les fins de mois et d’année', () => {
+    expect(suggestedConditioningStart('2026-12-25', [{ days: 14 }])).toBe('2027-01-08')
+  })
+
+  it('ne propose rien sans date de brassage ou sans plan de fermentation', () => {
+    expect(suggestedConditioningStart(null, [{ days: 10 }])).toBeNull()
+    expect(suggestedConditioningStart('2026-10-24', [])).toBeNull()
+    expect(suggestedConditioningStart('2026-10-24', undefined)).toBeNull()
+    expect(suggestedConditioningStart('2026-10-24', [{ days: 0 }])).toBeNull()
+  })
+
+  it('ignore les durées invalides', () => {
+    expect(suggestedConditioningStart('2026-10-24', [{ days: 7 }, { days: Number.NaN }, { days: -2 }])).toBe('2026-10-31')
+  })
+})
+
+describe('todayIso', () => {
+  it('donne le jour local, pas le jour UTC (23 h 30 reste le même jour)', () => {
+    expect(todayIso(new Date(2026, 9, 24, 23, 30))).toBe('2026-10-24')
+    expect(todayIso(new Date(2026, 0, 5, 0, 10))).toBe('2026-01-05')
+  })
+})
 
 describe('readyDate', () => {
   it('ajoute 21 jours par défaut', () => {
@@ -58,7 +94,7 @@ describe('readyLabel', () => {
     expect(readyLabel('2026-10-24', 21, '2026-11-15')).toBe('Prête à boire depuis 1 jour (14/11/2026)')
   })
 
-  it('rend null sans date d’embouteillage', () => {
+  it('rend null sans début du conditionnement', () => {
     expect(readyLabel(null, 21, '2026-11-09')).toBeNull()
   })
 })
