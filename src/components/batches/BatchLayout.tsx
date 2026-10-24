@@ -1,3 +1,4 @@
+import { RouteErrorBoundary } from '@/components/RouteErrorBoundary'
 import { Suspense } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link, Outlet, useParams } from 'react-router-dom'
@@ -40,9 +41,11 @@ export function BatchLayout() {
           <BatchTabs batchId={batchId!} />
         </div>
       </div>
-      <Suspense fallback={<p className="text-slate-500">Chargement…</p>}>
-        <Outlet />
-      </Suspense>
+      <RouteErrorBoundary>
+        <Suspense fallback={<p className="text-slate-500">Chargement…</p>}>
+          <Outlet />
+        </Suspense>
+      </RouteErrorBoundary>
     </div>
   )
 }

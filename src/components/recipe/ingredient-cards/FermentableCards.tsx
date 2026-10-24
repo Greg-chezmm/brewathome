@@ -59,7 +59,7 @@ export function FermentableCards({
               onRemove={() => onChange(fermentables.filter((_, idx) => idx !== i))}
               {...reorder(fermentables, i, onChange)}
             />
-            <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-5">
+            <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-[minmax(9.5rem,1.5fr)_repeat(4,minmax(0,1fr))]">
               <Field label="Poids">
                 <WeightInput valueKg={f.amountKg} onChange={(amountKg) => update(i, { amountKg })} />
               </Field>

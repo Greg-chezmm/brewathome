@@ -1,3 +1,4 @@
+import { RouteErrorBoundary } from '@/components/RouteErrorBoundary'
 import { Suspense, useEffect, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { NavLink, Outlet, useLocation, useMatch } from 'react-router-dom'
@@ -110,9 +111,11 @@ export function Layout() {
           }
         >
           {/* Pages chargées à la demande (voir App) : le menu reste affiché pendant le téléchargement. */}
-          <Suspense fallback={<p className="text-slate-500">Chargement…</p>}>
-            <Outlet />
-          </Suspense>
+          <RouteErrorBoundary>
+            <Suspense fallback={<p className="text-slate-500">Chargement…</p>}>
+              <Outlet />
+            </Suspense>
+          </RouteErrorBoundary>
         </main>
       </div>
 
