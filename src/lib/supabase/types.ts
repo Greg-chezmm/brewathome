@@ -79,13 +79,13 @@ export type Database = {
           fermenter_top_up_l: number | null
           fg_measured: number | null
           id: string
+          ispindel_offset: number | null
           mash_ph_measured: number | null
           mash_temp_reached_c: number | null
           max_fermentation_temp_c: number | null
           name: string
           notes: string | null
           og_measured: number | null
-          ispindel_offset: number | null
           packaging: Json | null
           packaging_volume_l: number | null
           post_boil_gravity_measured: number | null
@@ -107,13 +107,13 @@ export type Database = {
           fermenter_top_up_l?: number | null
           fg_measured?: number | null
           id?: string
+          ispindel_offset?: number | null
           mash_ph_measured?: number | null
           mash_temp_reached_c?: number | null
           max_fermentation_temp_c?: number | null
           name: string
           notes?: string | null
           og_measured?: number | null
-          ispindel_offset?: number | null
           packaging?: Json | null
           packaging_volume_l?: number | null
           post_boil_gravity_measured?: number | null
@@ -135,13 +135,13 @@ export type Database = {
           fermenter_top_up_l?: number | null
           fg_measured?: number | null
           id?: string
+          ispindel_offset?: number | null
           mash_ph_measured?: number | null
           mash_temp_reached_c?: number | null
           max_fermentation_temp_c?: number | null
           name?: string
           notes?: string | null
           og_measured?: number | null
-          ispindel_offset?: number | null
           packaging?: Json | null
           packaging_volume_l?: number | null
           post_boil_gravity_measured?: number | null
@@ -689,7 +689,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      toggle_checked_item: {
+        Args: { p_checked: boolean; p_item: string; p_step_id: string }
+        Returns: Json
+      }
     }
     Enums: {
       [_ in never]: never

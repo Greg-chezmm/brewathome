@@ -1,5 +1,6 @@
 import {
   date,
+  index,
   integer,
   jsonb,
   numeric,
@@ -240,7 +241,10 @@ export const batches = pgTable('batches', {
   // Décalage manuel (SG) des densités de l'iSpindel ; NULL = recalage automatique sur la DI au densimètre.
   ispindelOffset: numeric('ispindel_offset', { precision: 6, scale: 4 }),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-}, (t) => [uniqueIndex('batches_user_brewfather_id_idx').on(t.userId, t.brewfatherId)])
+}, (t) => [
+  uniqueIndex('batches_user_brewfather_id_idx').on(t.userId, t.brewfatherId),
+  index('batches_recipe_id_idx').on(t.recipeId),
+])
 
 export const batchSteps = pgTable('batch_steps', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -285,7 +289,7 @@ export const batchSteps = pgTable('batch_steps', {
   session: smallint('session'),
   // Notes libres saisies sur l'étape pendant le Brew Day (observations, écarts…).
   notes: text('notes'),
-})
+}, (t) => [index('batch_steps_batch_id_order_index_idx').on(t.batchId, t.orderIndex)])
 
 export const fermentationReadings = pgTable('fermentation_readings', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -301,7 +305,7 @@ export const fermentationReadings = pgTable('fermentation_readings', {
   batteryPercent: numeric('battery_percent', { precision: 5, scale: 2 }),
   rawAngle: numeric('raw_angle', { precision: 6, scale: 2 }),
   comment: text('comment'),
-})
+}, (t) => [index('fermentation_readings_batch_id_recorded_at_idx').on(t.batchId, t.recordedAt)])
 
 export const devices = pgTable('devices', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -320,7 +324,10 @@ export const devices = pgTable('devices', {
   // Dernier envoi reçu (token valide), même sans brassin suivi : sert à afficher « connecté ».
   lastSeenAt: timestamp('last_seen_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-})
+}, (t) => [
+  index('devices_user_id_idx').on(t.userId),
+  index('devices_active_batch_id_idx').on(t.activeBatchId),
+])
 
 // Accès à l'API Brewfather (lecture des recettes) : un compte par utilisateur.
 // La clé est générée par l'utilisateur dans Brewfather (Paramètres → API, droit
