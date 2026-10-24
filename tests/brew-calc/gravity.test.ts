@@ -1,8 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { calculateFG, calculateOG } from '@/lib/brew-calc/gravity'
+import { calculateFG } from '@/lib/brew-calc/gravity'
+import { computeRecipe } from '@/lib/brew-calc/recipe-stats'
 import type { Fermentable } from '@/lib/brew-calc/types'
 
-describe('calculateOG', () => {
+/** OG sans équipement : volume cible = volume de calcul, efficacité d'empâtage donnée. */
+const calculateOG = (fermentables: Fermentable[], volumeL: number, mashEfficiencyPercent: number) =>
+  computeRecipe({ fermentables, hops: [], yeasts: [], targetVolumeL: volumeL, mashEfficiencyPercent, ibuFormula: 'tinseth' }).og
+
+describe('OG (computeRecipe)', () => {
   it('matches a hand-computed reference recipe (Weyermann Pale Ale malt, 2.2kg, 82.2% yield, BIAB 13L, 72% efficiency)', () => {
     const fermentables: Fermentable[] = [
       { name: 'Malt Pale Ale', type: 'grain', amountKg: 2.2, colorLovibond: 3, yieldPercent: 82.2 },

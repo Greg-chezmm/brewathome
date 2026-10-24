@@ -10,6 +10,7 @@ import { adjustHopForIbu, bitteringHopIndex, scaleFermentablesToOg, scaleHopsToI
 import { estimateFinalVolumeFromPreBoil, SPARGE_WATER_TEMP_C } from '@/lib/brew-calc/volumes'
 import type { Fermentable, Hop, IBUFormulaName, OtherIngredient, Yeast } from '@/lib/brew-calc/types'
 import { listEquipmentProfiles } from '@/lib/db/queries/equipmentProfiles'
+import { recipeFormErrors } from '@/lib/recipe/validation'
 import { getIngredientHistory } from '@/lib/db/queries/ingredientHistory'
 import type { RecipeInput } from '@/lib/db/queries/recipes'
 import { ActionBar } from '@/components/ActionBar'
@@ -233,10 +234,13 @@ export function RecipeForm({
     return { text: `« ${bitteringName} » : ${before}${result.amountG} g pour ${target} IBU.` }
   }
 
+  const formErrors = recipeFormErrors(value)
+
   return (
     <form
       onSubmit={(e) => {
         e.preventDefault()
+        if (formErrors.length > 0) return
         onSubmit()
       }}
       // Écran large : formulaire à gauche, chiffres clés et style à droite (colonne collée en haut).
@@ -536,7 +540,12 @@ export function RecipeForm({
         </div>
 
         <ActionBar aboveStatsBar>
-          <button type="submit" disabled={saving} className="btn-primary">
+          {formErrors.map((message) => (
+            <p key={message} role="alert" className="text-sm text-red-600">
+              {message}
+            </p>
+          ))}
+          <button type="submit" disabled={saving || formErrors.length > 0} className="btn-primary">
             {saving ? 'Enregistrement…' : submitLabel}
           </button>
         </ActionBar>

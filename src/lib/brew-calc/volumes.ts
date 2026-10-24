@@ -116,5 +116,7 @@ export function calculateStrikeWaterTempC(
   grainTempC: number,
   waterToGrainRatioLPerKg: number,
 ): number {
-  return targetMashTempC + (0.4 * (targetMashTempC - grainTempC)) / waterToGrainRatioLPerKg
+  // Ratio absent ou aberrant : pas de bilan thermique possible, on vise la température du palier.
+  if (!(waterToGrainRatioLPerKg > 0)) return targetMashTempC
+  return targetMashTempC + (0.4* (targetMashTempC - grainTempC)) / waterToGrainRatioLPerKg
 }

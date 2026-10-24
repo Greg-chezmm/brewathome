@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { parseBeerXML } from '@/lib/beerxml/import'
 import { resolveBjcpStyleId } from '@/lib/beerxml/mapping'
-import { calculateOG } from '@/lib/brew-calc/gravity'
+import { computeRecipe } from '@/lib/brew-calc/recipe-stats'
 
 const FIXTURES_DIR = join(__dirname, '..', 'fixtures', 'beerxml')
 
@@ -82,7 +82,14 @@ describe('parseBeerXML — real Little Bock exports', () => {
     for (const file of ['whipa.xml', 'barley_wine__ma_recette_.xml', 'brune_forte.xml', 'rye_irish_red_ale.xml']) {
       const { recipes } = parseBeerXML(loadFixture(file))
       const recipe = recipes[0]
-      const computedOG = calculateOG(recipe.fermentables, recipe.targetVolumeL, recipe.mashEfficiencyPercent)
+      const computedOG = computeRecipe({
+        fermentables: recipe.fermentables,
+        hops: [],
+        yeasts: [],
+        targetVolumeL: recipe.targetVolumeL,
+        mashEfficiencyPercent: recipe.mashEfficiencyPercent,
+        ibuFormula: 'tinseth',
+      }).og
       const expectedOG = recipe.sourceEstimates.og!
       expect(Math.abs(computedOG - expectedOG), file).toBeLessThan(0.01)
     }
@@ -114,4 +121,20 @@ describe('parseBeerXML — entités numériques', () => {
     expect(() => parseBeerXML(xml('x &#xFFFFFFFF;'))).not.toThrow()
     expect(errors.length + recipes.length).toBeGreaterThan(0)
   })
+})
+
+describe('parseBeerXML — volume de brassin invalide', () => {
+  const xml = (batchSize: string) =>
+    `<RECIPES><RECIPE><NAME>Sans volume</NAME><VERSION>1</VERSION><TYPE>All Grain</TYPE>${batchSize}<BOIL_TIME>60</BOIL_TIME><EFFICIENCY>72</EFFICIENCY><FERMENTABLES></FERMENTABLES><HOPS></HOPS><YEASTS></YEASTS></RECIPE></RECIPES>`
+
+  it.each([['absent', ''], ['nul', '<BATCH_SIZE>0</BATCH_SIZE>'], ['négatif', '<BATCH_SIZE>-3</BATCH_SIZE>']])(
+    'rejette la recette quand BATCH_SIZE est %s, avec un message clair',
+    (_label, tag) => {
+      const { recipes, errors } = parseBeerXML(xml(tag))
+      expect(recipes).toEqual([])
+      expect(errors).toHaveLength(1)
+      expect(errors[0].recipeName).toBe('Sans volume')
+      expect(errors[0].message).toMatch(/BATCH_SIZE/)
+    },
+  )
 })

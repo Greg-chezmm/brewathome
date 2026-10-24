@@ -204,6 +204,11 @@ function mapMashSteps(raw: Record<string, unknown> | undefined): MashStep[] {
 }
 
 function mapRecipe(raw: Record<string, unknown>): ParsedRecipeDraft {
+  // Sans volume, aucune densité ni amertume n'est calculable : mieux vaut refuser que créer une recette vide.
+  if (!(toNumber(raw.BATCH_SIZE) > 0)) {
+    throw new Error('Volume de brassin (BATCH_SIZE) absent ou nul dans le fichier.')
+  }
+
   const fermentablesContainer = raw.FERMENTABLES as { FERMENTABLE?: Record<string, unknown>[] } | undefined
   const hopsContainer = raw.HOPS as { HOP?: Record<string, unknown>[] } | undefined
   const yeastsContainer = raw.YEASTS as { YEAST?: Record<string, unknown>[] } | undefined

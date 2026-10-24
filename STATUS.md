@@ -125,7 +125,7 @@ Application personnelle de brassage de bière maison (type Brewfather/Little Boc
 - **Notes de dégustation** par brassin : note sur 5, aspect, arôme, goût, à changer la prochaine fois ; visibles dans l'historique et depuis la recette.
 - **Suivi du conditionnement** : date d'embouteillage et date « prête à boire » calculée (refermentation ~2–3 semaines), avec un rappel.
 - **Écritures concurrentes** (reste) : `session_measurements` : verrou optimiste (colonne version) ou RPC avec `FOR UPDATE` ; `cancelQueries` avant la mise à jour optimiste de `saveStepNotes`, et verrou par étape contre le double clic sur « Terminer ». (Cases cochées : fait, voir plus bas.)
-- **Suites de la revue de code (LOW)** : validation des formulaires (volume cible ≤ 0, `BATCH_SIZE` ≤ 0 à l'import) ; ratio eau/grain ≤ 0 dans `volumes.ts` ; suppression de `calculateABV`, `calculateABV_Hall` et `calculateOG` (utilisés par les tests seulement) ; clé Brewfather (gravité LOW) : vérifier ses droits côté Brewfather, désactiver l'inscription publique de Supabase, `queryClient.clear()` à la déconnexion, ne lire la clé qu'à l'import.
+- **Suites de la revue de code (LOW)** : clé Brewfather (gravité LOW) : vérifier ses droits côté Brewfather, désactiver l'inscription publique de Supabase, `queryClient.clear()` à la déconnexion, ne lire la clé qu'à l'import.
 
 ## Comment vérifier l'état du code
 
@@ -155,3 +155,4 @@ npm run build     # build de production
 - Brew Day : les cases cochées passent par `toggleBatchStepItem` (RPC `toggle_checked_item`) : on n'envoie que la case touchée, deux appareils ne s'écrasent plus ; la mise à jour optimiste passe par `run` (annulation du rechargement en cours, retour arrière si l'écriture échoue). Garde-fous de division : volume ≤ 0 (`computeRecipe` rend un résultat neutre), dilution (cible ≤ 1, volume ≤ 0), atténuation (DI ≤ 1 rend 0), contraction thermique plafonnée à 50 %.
 - Version en ligne : le menu (barre latérale PC, menu « Plus » mobile) affiche « v0.0.0 · commit · date du build » (`src/lib/version.ts`, valeurs injectées par `define` dans `vite.config.ts` : `GITHUB_SHA` en CI, git en local).
 - Revue LOW : UID d'agenda distincts pour deux ajouts de même nom (le premier garde sa clé), entités numériques BeerXML réservées (`&#38;`, `&#60;`…) gardées en entités et points de code invalides remplacés par U+FFFD.
+- Revue LOW, fin : le formulaire de recette refuse un volume cible ≤ 0 (`recipeFormErrors`), l'import BeerXML rejette une recette sans `BATCH_SIZE` valide, `calculateStrikeWaterTempC` ne divise plus par un ratio ≤ 0 ; code mort supprimé (`calculateABV`, `calculateABV_Hall`, `calculateOG`, leurs tests passant par `computeRecipe`).

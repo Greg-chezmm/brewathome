@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { calculateDilutionWater } from '@/lib/brew-calc/gravity-correction'
 import { computeRecipe, type RecipeStatsInput } from '@/lib/brew-calc/recipe-stats'
-import { calculateVolumes } from '@/lib/brew-calc/volumes'
+import { calculateStrikeWaterTempC, calculateVolumes } from '@/lib/brew-calc/volumes'
 import { apparentAttenuation } from '@/lib/brew-day/measurements'
 import type { EquipmentProfile } from '@/lib/brew-calc/types'
 
@@ -82,5 +82,15 @@ describe('calculateVolumes — contraction thermique aberrante', () => {
 
   it('ne change pas le cas normal (4 %)', () => {
     expect(calculateVolumes(20, 5, 60, profile).postBoilVolumeL).toBeCloseTo(23 / 0.96, 8)
+  })
+})
+
+describe('calculateStrikeWaterTempC — ratio eau/grain ≤ 0', () => {
+  it.each([0, -1])('rend la température visée, sans Infinity, pour un ratio de %s', (ratio) => {
+    expect(calculateStrikeWaterTempC(66, 20, ratio)).toBe(66)
+  })
+
+  it('ne change pas le cas normal', () => {
+    expect(calculateStrikeWaterTempC(66, 20, 3)).toBeCloseTo(66 + (0.4 * 46) / 3, 8)
   })
 })

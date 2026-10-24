@@ -7,15 +7,6 @@ import type { Fermentable, FermentableUse } from './types'
  */
 const SUCROSE_PPG = 46
 
-/** Densité initiale (OG) estimée à partir de la recette, tous usages confondus. */
-export function calculateOG(
-  fermentables: Fermentable[],
-  volumeL: number,
-  mashEfficiencyPercent: number,
-): number {
-  return 1 + extractPointsLiters(fermentables, mashEfficiencyPercent) / volumeL / 1000
-}
-
 /** Conversion PPG (points·gal/lb) → points·L/kg. */
 export const PPG_TO_PKL = 8.345
 
