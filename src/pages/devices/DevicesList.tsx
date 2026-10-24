@@ -13,6 +13,7 @@ import {
   type ISpindelSettings,
 } from '@/lib/db/queries/devices'
 import { listBatches } from '@/lib/db/queries/batches'
+import { batchTitle } from '@/lib/batches/title'
 import { FieldLabel, InfoTooltip } from '@/components/InfoTooltip'
 import { ConnectionBadge } from '@/components/devices/ConnectionBadge'
 
@@ -271,7 +272,7 @@ export function DevicesList() {
                   ?.filter((b) => b.status !== 'completed' || b.id === device.activeBatchId)
                   .map((b) => (
                     <option key={b.id} value={b.id}>
-                      {b.name}
+                      {batchTitle(b)}
                       {b.status === 'completed' ? ' (terminé)' : ''}
                     </option>
                   ))}

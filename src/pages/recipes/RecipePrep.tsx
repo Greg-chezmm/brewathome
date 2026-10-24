@@ -123,7 +123,11 @@ export function RecipePrep() {
           {recipe.otherIngredients.map((o, i) => (
             <PrepRow key={i} value={o.amount}>
               {o.name}
-              {o.timeMin !== null && o.timeMin !== undefined ? ` · ${o.timeMin} min` : ''}
+              {o.use === 'fermentation'
+                ? ` · en fermentation${o.day != null ? `, jour ${o.day}` : ''}${o.contactDays ? `, ${o.contactDays} j de contact` : ''}`
+                : o.timeMin !== null && o.timeMin !== undefined
+                  ? ` · ${o.timeMin} min`
+                  : ''}
             </PrepRow>
           ))}
         </PrepSection>

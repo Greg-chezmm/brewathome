@@ -47,9 +47,17 @@ export interface OtherIngredient {
   name: string
   /** Quantité en texte libre (ex: "1 tablette", "5 g", "1 c. à café") — les ajouts divers (clarifiant, nutriment...) n'ont pas d'unité commune. */
   amount: string
-  /** Temps restant en ébullition au moment de l'ajout (minutes), même convention que pour les houblons. */
+  /** Temps restant en ébullition au moment de l'ajout (minutes), même convention que pour les houblons. Sans effet en fermentation. */
   timeMin: number
+  /** Moment de l'ajout. Absent : ébullition. En fermentation (copeaux de chêne, fruits, épices…), le calcul de la bière n'en tient pas compte. */
+  use?: OtherIngredientUse
+  /** Ajout en fermentation : jour d'ajout, compté depuis l'ensemencement (à défaut, jour par défaut des rappels). */
+  day?: number
+  /** Ajout en fermentation : durée de contact avec la bière, en jours (retrait ensuite). Absent : pas de retrait prévu. */
+  contactDays?: number
 }
+
+export type OtherIngredientUse = 'boil' | 'fermentation'
 
 export type YeastType = 'dry' | 'liquid'
 export type YeastStyle = 'ale' | 'lager'

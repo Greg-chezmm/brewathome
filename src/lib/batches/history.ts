@@ -7,6 +7,7 @@ import {
   plannedMeasurements,
 } from '@/lib/brew-day/measurements'
 import type { BatchDetails } from '@/lib/db/queries/batches'
+import { batchTitle } from './title'
 
 /** Un brassin dans l'historique : ce que prévoyait sa recette et ce qui a été mesuré. */
 export interface BatchHistoryRow {
@@ -53,7 +54,7 @@ export function batchHistoryRow(batch: BatchDetails, shrinkagePercent?: number):
   const actualAbv = both(og, fg, (o, f) => measuredAbv(recipe, o, f, fermenterVolumeL))
   return {
     id: batch.id,
-    name: batch.name,
+    name: batchTitle(batch),
     date: batch.brewDate ?? batch.createdAt,
     status: batch.status,
     plannedOg: planned.og,

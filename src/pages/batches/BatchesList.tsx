@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { BATCH_STATUS_LABELS, listBatches } from '@/lib/db/queries/batches'
+import { batchTitle } from '@/lib/batches/title'
 
 export function BatchesList() {
   const { data: batches, isLoading, error } = useQuery({ queryKey: ['batches'], queryFn: listBatches })
@@ -25,7 +26,7 @@ export function BatchesList() {
           <li key={b.id}>
             <Link to={`/batches/${b.id}`} className="card-link">
               <div className="flex items-center justify-between">
-                <h2 className="font-semibold text-slate-900">{b.name}</h2>
+                <h2 className="font-semibold text-slate-900">{batchTitle(b)}</h2>
                 <span className="badge">{BATCH_STATUS_LABELS[b.status]}</span>
               </div>
               {b.brewDate && <p className="text-sm text-slate-500">Brassage le {b.brewDate}</p>}

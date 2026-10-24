@@ -165,3 +165,25 @@ describe('ajouts d’ébullition au même moment', () => {
     expect(hopsOnly?.stepType).toBe('hop-addition')
   })
 })
+
+describe('ajouts divers en fermentation (copeaux de chêne…)', () => {
+  const oak: RecipeDetails = {
+    ...recipe,
+    otherIngredients: [
+      { name: 'Whirlfloc', amount: '1 pastille', timeMin: 10 },
+      { name: 'Copeaux de chêne', amount: '65 g', timeMin: 0, use: 'fermentation', day: 14, contactDays: 21 },
+    ],
+  }
+
+  it('génère une étape dédiée, avec jour et durée de contact, hors de l’ébullition', () => {
+    const steps = buildBatchSteps(oak, null)
+    const addition = steps.find((s) => s.stepType === 'other-fermentation-addition')
+    expect(addition?.label).toBe('Ajout en fermentation au jour 14 : Copeaux de chêne (65 g) — 21 j de contact')
+    expect(addition?.plannedDurationMin).toBe(21 * 24 * 60)
+    expect(steps.filter((s) => s.stepType === 'other-addition').map((s) => s.label)).toEqual(['Ajout : Whirlfloc (1 pastille)'])
+  })
+
+  it('n’est pas confondu avec un ajout de sucre (le calcul d’alcool ne l’attend pas)', () => {
+    expect(buildBatchSteps(oak, null).some((s) => s.stepType === 'fermentation-addition')).toBe(false)
+  })
+})

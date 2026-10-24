@@ -56,7 +56,9 @@ export function sessionRecipe(recipe: RecipeDetails, sessions: number): RecipeDe
       fermentableUse(f) === 'fermentation' ? f : { ...f, amountKg: f.amountKg / sessions },
     ),
     hops: recipe.hops.map((h) => (h.use === 'dry-hop' ? h : { ...h, amountG: h.amountG / sessions })),
-    otherIngredients: recipe.otherIngredients.map((o) => ({ ...o, amount: `${o.amount} ÷ ${sessions}` })),
+    otherIngredients: recipe.otherIngredients.map((o) =>
+      o.use === 'fermentation' ? o : { ...o, amount: `${o.amount} ÷ ${sessions}` },
+    ),
   }
 }
 

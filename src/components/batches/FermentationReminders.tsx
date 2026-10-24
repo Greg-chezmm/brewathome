@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { CalendarPlus, Download } from 'lucide-react'
 import type { FermentationStep } from '@/lib/brew-calc/fermentation-profile'
 import { fermentableUse } from '@/lib/brew-calc/gravity'
-import type { Fermentable, Hop } from '@/lib/brew-calc/types'
+import type { Fermentable, Hop, OtherIngredient } from '@/lib/brew-calc/types'
 import {
   DEFAULT_FERMENTATION_ADDITION_DAY,
   DEFAULT_REMINDER_TIME,
@@ -35,6 +35,7 @@ export function FermentationReminders({
   steps,
   hops,
   fermentables,
+  otherIngredients,
   start,
   now,
 }: {
@@ -42,6 +43,7 @@ export function FermentationReminders({
   steps: FermentationStep[]
   hops: Hop[]
   fermentables: Fermentable[]
+  otherIngredients?: OtherIngredient[]
   /** Début de la fermentation (ms) ; null si rien ne permet de le dater. */
   start: number | null
   now: number
@@ -61,7 +63,7 @@ export function FermentationReminders({
     )
   }
 
-  const upcoming = fermentationReminders({ steps, hops, fermentables, start, additionDays, time }).filter((r) => r.time > now)
+  const upcoming = fermentationReminders({ steps, hops, fermentables, otherIngredients, start, additionDays, time }).filter((r) => r.time > now)
 
   function download() {
     const blob = new Blob([remindersToIcs(upcoming, batch)], { type: 'text/calendar;charset=utf-8' })

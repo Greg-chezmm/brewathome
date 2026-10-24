@@ -72,6 +72,7 @@ export type Database = {
       }
       batches: {
         Row: {
+          batch_number: number | null
           brew_date: string | null
           brew_sessions: number
           brewfather_id: string | null
@@ -104,6 +105,7 @@ export type Database = {
           volume_measured_l: number | null
         }
         Insert: {
+          batch_number?: number | null
           brew_date?: string | null
           brew_sessions?: number
           brewfather_id?: string | null
@@ -136,6 +138,7 @@ export type Database = {
           volume_measured_l?: number | null
         }
         Update: {
+          batch_number?: number | null
           brew_date?: string | null
           brew_sessions?: number
           brewfather_id?: string | null
@@ -518,27 +521,36 @@ export type Database = {
       recipe_other_ingredients: {
         Row: {
           amount: string
+          contact_days: number | null
+          day: number | null
           id: string
           name: string
           recipe_id: string
           sort_order: number
           time_min: number
+          use: string | null
         }
         Insert: {
           amount: string
+          contact_days?: number | null
+          day?: number | null
           id?: string
           name: string
           recipe_id: string
           sort_order?: number
           time_min?: number
+          use?: string | null
         }
         Update: {
           amount?: string
+          contact_days?: number | null
+          day?: number | null
           id?: string
           name?: string
           recipe_id?: string
           sort_order?: number
           time_min?: number
+          use?: string | null
         }
         Relationships: [
           {

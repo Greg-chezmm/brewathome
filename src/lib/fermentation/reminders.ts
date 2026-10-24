@@ -6,7 +6,7 @@ import {
   type FermentationStep,
 } from '@/lib/brew-calc/fermentation-profile'
 import { fermentableUse } from '@/lib/brew-calc/gravity'
-import type { Fermentable, Hop } from '@/lib/brew-calc/types'
+import type { Fermentable, Hop, OtherIngredient } from '@/lib/brew-calc/types'
 import { formatWeightKg } from '@/lib/brew-calc/units'
 import { fermentationDayTime } from './plan'
 
@@ -51,6 +51,7 @@ export function fermentationReminders({
   steps,
   hops,
   fermentables,
+  otherIngredients = [],
   start,
   additionDays = {},
   time = DEFAULT_REMINDER_TIME,
@@ -58,6 +59,8 @@ export function fermentationReminders({
   steps: FermentationStep[]
   hops: Hop[]
   fermentables: Fermentable[]
+  /** Autres ajouts : ceux « en fermentation » (copeaux, épices…) ont leur rappel d'ajout et de retrait. */
+  otherIngredients?: OtherIngredient[]
   start: number
   /** Jour choisi pour chaque ajout en fermentation (par nom) ; à défaut `DEFAULT_FERMENTATION_ADDITION_DAY`. */
   additionDays?: Record<string, number>
@@ -77,6 +80,26 @@ export function fermentationReminders({
       day: additionDays[f.name] ?? DEFAULT_FERMENTATION_ADDITION_DAY,
     })
   }
+
+  otherIngredients
+    .filter((o) => o.use === 'fermentation')
+    .forEach((o, i) => {
+      const day = o.day ?? DEFAULT_FERMENTATION_ADDITION_DAY
+      reminders.push({
+        key: `other-${i}`,
+        title: `Ajout en fermentation : ${o.name} (${o.amount})`,
+        description: 'Dans un sachet ou une boule inox désinfectés, en limitant l’entrée d’air dans le fermenteur.',
+        day,
+      })
+      if (o.contactDays) {
+        reminders.push({
+          key: `other-${i}-remove`,
+          title: `Retirer : ${o.name}`,
+          description: 'Fin du temps de contact : goûter, puis retirer ou soutirer si le résultat est là.',
+          day: day + o.contactDays,
+        })
+      }
+    })
 
   dryHopEvents(hops, steps).forEach((d, i) => {
     reminders.push({

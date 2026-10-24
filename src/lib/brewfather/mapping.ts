@@ -144,11 +144,27 @@ function mapFermentationSteps(recipe: BrewfatherRecipe): FermentationStep[] {
     })
 }
 
+function miscAmount(m: BrewfatherMisc): string {
+  return [m.amount, m.unit].filter((part) => part !== undefined && part !== '').join(' ')
+}
+
 function mapBoilMisc(m: BrewfatherMisc): OtherIngredient {
+  return { name: m.name?.trim() || 'Ajout', amount: miscAmount(m), timeMin: num(m.time) }
+}
+
+/** Usages Brewfather d'un ajout fait dans le fermenteur. */
+const FERMENTATION_MISC_USES = ['primary', 'secondary']
+
+/** Ajout en fermentation (copeaux de chêne…) : `time` y est une durée de contact, en jours sauf `timeIsDays: false`. */
+function mapFermentationMisc(m: BrewfatherMisc): OtherIngredient {
+  const time = num(m.time)
+  const contactDays = m.timeIsDays === false ? Math.round(time / 1440) : time
   return {
     name: m.name?.trim() || 'Ajout',
-    amount: [m.amount, m.unit].filter((part) => part !== undefined && part !== '').join(' '),
-    timeMin: num(m.time),
+    amount: miscAmount(m),
+    timeMin: 0,
+    use: 'fermentation',
+    ...(contactDays > 0 && { contactDays }),
   }
 }
 
@@ -241,7 +257,13 @@ export function brewfatherRecipeToDraft(recipe: BrewfatherRecipe): ParsedRecipeD
     fermentables: (recipe.fermentables ?? []).map(mapFermentable),
     hops: (recipe.hops ?? []).map((h) => mapHop(h, hopstandTempC)),
     yeasts: (recipe.yeasts ?? []).map(mapYeast),
-    otherIngredients: (recipe.miscs ?? []).filter((m) => lower(m.use) === 'boil').map(mapBoilMisc),
+    otherIngredients: (recipe.miscs ?? []).flatMap((m) =>
+      lower(m.use) === 'boil'
+        ? [mapBoilMisc(m)]
+        : FERMENTATION_MISC_USES.includes(lower(m.use))
+          ? [mapFermentationMisc(m)]
+          : [],
+    ),
     sourceEstimates: {
       og: recipe.og,
       fg: recipe.fg,

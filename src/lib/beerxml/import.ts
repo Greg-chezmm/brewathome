@@ -167,16 +167,20 @@ function mapFermentationSteps(raw: Record<string, unknown>): FermentationStep[] 
     })
 }
 
-/** Divers ajoutés en ébullition (clarifiant, épices…) : quantité affichée telle quelle, à défaut AMOUNT. */
+/** Divers ajoutés en ébullition (clarifiant, épices…) ou en fermentation (copeaux, fruits…) : quantité affichée telle quelle, à défaut AMOUNT. */
 function mapBoilMiscs(raw: Record<string, unknown>): OtherIngredient[] {
-  const container = raw.MISCS as { MISC?: Record<string, unknown>[] } | undefined
-  return (container?.MISC ?? [])
-    .filter((m) => String(m.USE ?? '').toLowerCase() === 'boil')
-    .map((m) => ({
-      name: String(m.NAME ?? 'Ajout'),
-      amount: String(m.DISPLAY_AMOUNT ?? '').trim() || (toNumber(m.AMOUNT) > 0 ? String(toNumber(m.AMOUNT)) : ''),
-      timeMin: toNumber(m.TIME),
-    }))
+  const container = raw.MISCS as { MISC?: Record<string, unknown> | Record<string, unknown>[] } | undefined
+  return [container?.MISC ?? []].flat().flatMap((m): OtherIngredient[] => {
+    const use = String(m.USE ?? '').toLowerCase()
+    const fermentation = use === 'primary' || use === 'secondary'
+    if (use !== 'boil' && !fermentation) return []
+    const name = String(m.NAME ?? 'Ajout')
+    const amount = String(m.DISPLAY_AMOUNT ?? '').trim() || (toNumber(m.AMOUNT) > 0 ? String(toNumber(m.AMOUNT)) : '')
+    if (!fermentation) return [{ name, amount, timeMin: toNumber(m.TIME) }]
+    // BeerXML exprime TIME en minutes : converti en jours de contact.
+    const contactDays = Math.round(toNumber(m.TIME) / 1440)
+    return [{ name, amount, timeMin: 0, use: 'fermentation', ...(contactDays > 0 && { contactDays }) }]
+  })
 }
 
 function mapStyle(raw: Record<string, unknown> | undefined): ParsedRecipeDraft['style'] {

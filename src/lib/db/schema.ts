@@ -169,6 +169,10 @@ export const recipeOtherIngredients = pgTable('recipe_other_ingredients', {
   name: text('name').notNull(),
   amount: text('amount').notNull(),
   timeMin: integer('time_min').notNull().default(10),
+  // Moment d'ajout ; null = ébullition. En fermentation : jour d'ajout (depuis l'ensemencement) et durée de contact.
+  use: text('use', { enum: ['boil', 'fermentation'] }),
+  day: integer('day'),
+  contactDays: integer('contact_days'),
   sortOrder: integer('sort_order').notNull().default(0),
 })
 
@@ -247,9 +251,12 @@ export const batches = pgTable('batches', {
   conditioningDays: smallint('conditioning_days'),
   // Coût : liste de { label, amount } en euros, sur le brassin et jamais sur la recette (les prix changent d'une année à l'autre).
   costs: jsonb('costs').notNull().default([]),
+  // Numéro du brassin, propre à l'utilisateur : attribué à la création (trigger `assign_batch_number`), modifiable.
+  batchNumber: integer('batch_number'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [
   uniqueIndex('batches_user_brewfather_id_idx').on(t.userId, t.brewfatherId),
+  uniqueIndex('batches_user_id_batch_number_idx').on(t.userId, t.batchNumber),
   index('batches_recipe_id_idx').on(t.recipeId),
 ])
 
@@ -278,6 +285,7 @@ export const batchSteps = pgTable('batch_steps', {
       'cleanup',
       'dry-hop-addition',
       'fermentation-addition',
+      'other-fermentation-addition',
     ],
   }).notNull(),
   label: text('label').notNull(),

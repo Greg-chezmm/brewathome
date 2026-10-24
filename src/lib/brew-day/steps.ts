@@ -90,6 +90,17 @@ export function buildBatchSteps(recipe: RecipeDetails, equipmentProfile: Equipme
     })
   }
 
+  // Copeaux de chêne, fruits, épices… : même logique que le dry hop (jour d'ajout, durée de contact, retrait).
+  for (const o of recipe.otherIngredients.filter((o) => o.use === 'fermentation')) {
+    const day = o.day != null ? ` au jour ${o.day}` : ''
+    const contact = o.contactDays ? ` — ${o.contactDays} j de contact` : ''
+    add({
+      stepType: 'other-fermentation-addition',
+      label: `Ajout en fermentation${day} : ${o.name} (${o.amount})${contact}`,
+      plannedDurationMin: o.contactDays ? o.contactDays * 24 * 60 : null,
+    })
+  }
+
   return steps
 }
 
@@ -202,7 +213,7 @@ export function boilAdditionItems(recipe: RecipeDetails): BoilAdditionItem[] {
         const timeMin = f.type === 'extract' ? recipe.boilTimeMin : Math.min(BOIL_SUGAR_MIN, recipe.boilTimeMin)
         return { stepType: 'other-addition' as const, label: `Ajout : ${short}`, short, timeMin }
       }),
-    ...recipe.otherIngredients.map((o) => {
+    ...recipe.otherIngredients.filter((o) => o.use !== 'fermentation').map((o) => {
       const short = `${o.name} (${o.amount})`
       return { stepType: 'other-addition' as const, label: `Ajout : ${short}`, short, timeMin: o.timeMin }
     }),

@@ -355,6 +355,19 @@ export function stepGuide(step: BatchStep, ctx: StepGuideContext): StepGuide {
           "Ce sucre n'est pas dans la DI mesurée au Brew Day : l'app l'ajoute pour estimer l'alcool.",
         ],
       }
+
+    case 'other-fermentation-addition':
+      return {
+        checklist: [
+          { id: 'sanitize', label: 'Désinfecter le sachet ou la boule inox, et tremper les copeaux / épices (alcool, eau bouillante)' },
+          { id: 'add', label: "Ajouter dans le fermenteur en limitant l'entrée d'air" },
+          { id: 'remove', label: 'Retirer ou soutirer à la fin du temps de contact', optional: true },
+        ],
+        tips: [
+          'Goûte régulièrement : le bois ou les épices se rattrapent mal une fois trop extraits, il vaut mieux retirer un peu tôt.',
+          "Cet ajout ne change pas la DI ni l'alcool estimé.",
+        ],
+      }
   }
 }
 

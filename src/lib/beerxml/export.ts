@@ -79,8 +79,9 @@ function miscXml(o: OtherIngredient) {
     NAME: o.name,
     VERSION: 1,
     TYPE: 'Other',
-    USE: 'Boil',
-    TIME: o.timeMin,
+    USE: o.use === 'fermentation' ? 'Secondary' : 'Boil',
+    // BeerXML exprime TIME en minutes, y compris la durée de contact d'un ajout en fermentation.
+    TIME: o.use === 'fermentation' ? (o.contactDays ?? 0) * 1440 : o.timeMin,
     // Quantité libre (« 1 pastille ») : AMOUNT est obligatoire, la vraie valeur va dans DISPLAY_AMOUNT.
     AMOUNT: 0,
     DISPLAY_AMOUNT: o.amount,

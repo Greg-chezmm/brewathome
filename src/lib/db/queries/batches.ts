@@ -65,6 +65,7 @@ export type BatchStepType =
   | 'cleanup'
   | 'dry-hop-addition'
   | 'fermentation-addition'
+  | 'other-fermentation-addition'
 export type BatchStepStatus = 'todo' | 'in-progress' | 'done' | 'skipped'
 
 /** Étape terminée ou volontairement passée : plus rien à faire dessus. */
@@ -93,6 +94,8 @@ export interface BatchStep {
 export interface BatchSummary {
   id: string
   name: string
+  /** Numéro du brassin (propre à l'utilisateur, modifiable) ; null tant que la migration 0027 n'est pas appliquée. */
+  batchNumber: number | null
   status: BatchStatus
   brewDate: string | null
   createdAt: string
@@ -262,12 +265,13 @@ export async function listImportedBrewfatherBatches(): Promise<Map<string, strin
 export async function listBatches(): Promise<BatchSummary[]> {
   const { data, error } = await supabase
     .from('batches')
-    .select('id, name, status, brew_date, created_at')
+    .select('id, name, batch_number, status, brew_date, created_at')
     .order('created_at', { ascending: false })
   if (error) throw error
   return (data ?? []).map((b) => ({
     id: b.id,
     name: b.name,
+    batchNumber: b.batch_number ?? null,
     status: b.status as BatchStatus,
     brewDate: b.brew_date,
     createdAt: b.created_at,
@@ -307,6 +311,7 @@ function batchFromRow(data: Record<string, any>): BatchDetails {
   return {
     id: data.id,
     name: data.name,
+    batchNumber: data.batch_number ?? null,
     status: data.status,
     brewDate: data.brew_date,
     createdAt: data.created_at,
@@ -402,6 +407,13 @@ export async function toggleBatchStepItem(stepId: string, itemId: string, checke
 /** Enregistre les notes libres d'une étape (null/chaîne vide efface). */
 export async function updateBatchStepNotes(stepId: string, notes: string | null): Promise<void> {
   const { error } = await supabase.from('batch_steps').update({ notes: notes || null }).eq('id', stepId)
+  if (error) throw error
+}
+
+/** Change le numéro d'un brassin ; deux brassins ne peuvent pas porter le même numéro. */
+export async function updateBatchNumber(batchId: string, batchNumber: number): Promise<void> {
+  const { error } = await supabase.from('batches').update({ batch_number: batchNumber }).eq('id', batchId)
+  if (error?.code === '23505') throw new Error(`Le numéro ${batchNumber} est déjà pris par un autre brassin.`)
   if (error) throw error
 }
 

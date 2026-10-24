@@ -48,6 +48,7 @@ const paleAle: BrewfatherRecipe = {
   ],
   yeasts: [{ name: 'US-05', type: 'Ale', form: 'Dry', attenuation: 78 }],
   miscs: [
+    { name: "Copeaux de chêne", amount: 65, unit: "g", use: "Secondary", time: 21, timeIsDays: true },
     { name: 'Whirlfloc', amount: 1, unit: 'items', use: 'Boil', time: 10 },
     { name: 'Gypse', amount: 5, unit: 'g', use: 'Mash', time: 60 },
   ],
@@ -75,8 +76,11 @@ describe('brewfatherRecipeToDraft', () => {
     expect(draft.hops[3]).toMatchObject({ timeMin: 0, dryHopDays: 4 })
   })
 
-  it('ne garde que les divers ajoutés en ébullition', () => {
-    expect(draft.otherIngredients).toEqual([{ name: 'Whirlfloc', amount: '1 items', timeMin: 10 }])
+  it('garde les divers ajoutés en ébullition et en fermentation', () => {
+    expect(draft.otherIngredients).toEqual([
+      { name: 'Copeaux de chêne', amount: '65 g', timeMin: 0, use: 'fermentation', contactDays: 21 },
+      { name: 'Whirlfloc', amount: '1 items', timeMin: 10 },
+    ])
   })
 
   it('convertit la levure', () => {

@@ -57,6 +57,8 @@ export interface BrewfatherMisc {
   unit?: string
   use?: string
   time?: number
+  /** `time` est un nombre de jours (ajouts en fermentation) plutôt que de minutes. */
+  timeIsDays?: boolean
 }
 
 export interface BrewfatherMashStep {

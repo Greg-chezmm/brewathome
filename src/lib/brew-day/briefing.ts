@@ -47,6 +47,7 @@ export function buildBriefing(steps: BatchStep[]): Briefing {
   if (has(steps, 'sparge', 'sparge-water')) equipment.push("Seconde cuve ou arrosoir pour l'eau de rinçage")
   if (has(steps, 'cooling', 'chiller-sanitize')) equipment.push('Refroidisseur à serpentin, ou bac de glace')
   if (has(steps, 'dry-hop-addition')) equipment.push('Sachet ou filtre pour le houblon de la fermentation (dry hop)')
+  if (has(steps, 'other-fermentation-addition')) equipment.push('Sachet ou boule inox désinfectés pour les ajouts en fermentation (copeaux, épices…)')
 
   return { totalMinutes, equipment, safety: [...SAFETY] }
 }

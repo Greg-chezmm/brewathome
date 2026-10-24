@@ -226,7 +226,7 @@ function StepTimer({
   onStart: () => void
   onStop: () => void
 }) {
-  const fmt = step.stepType === 'dry-hop-addition' ? formatDurationLong : formatDuration
+  const fmt = step.stepType === 'dry-hop-addition' || step.stepType === 'other-fermentation-addition' ? formatDurationLong : formatDuration
 
   if (step.status === 'done') {
     if (!step.actualStartAt || !step.actualEndAt) return null

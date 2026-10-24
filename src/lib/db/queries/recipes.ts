@@ -145,6 +145,9 @@ export async function getRecipeWithDetails(recipeId: string): Promise<RecipeDeta
       name: o.name,
       amount: o.amount,
       timeMin: o.time_min,
+      use: (o.use ?? undefined) as OtherIngredient['use'],
+      day: o.day ?? undefined,
+      contactDays: o.contact_days ?? undefined,
     })),
   }
 }
@@ -248,6 +251,9 @@ async function replaceChildRows(recipeId: string, input: RecipeInput): Promise<v
             name: o.name,
             amount: o.amount,
             time_min: o.timeMin,
+            use: o.use ?? null,
+            day: o.use === 'fermentation' ? (o.day ?? null) : null,
+            contact_days: o.use === 'fermentation' ? (o.contactDays ?? null) : null,
             sort_order: i,
           })),
         )
