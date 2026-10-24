@@ -77,3 +77,20 @@ Déroulé :
 
 Attention : auth.users est vide sur une stack locale neuve — créer un utilisateur via Studio avant d'insérer des données liées par clé étrangère. Les colonnes `numeric` arrondissent à leur échelle (`gravity` en `numeric(5,3)` : 12.5 °P donne 1.050 en base, pas 1.0505).
 
+## Outils ECC (plugin installé)
+
+ECC est installé en global (scope `user`, hooks `minimal`) : ses agents, skills et
+commandes sont disponibles sans rien copier dans le dépôt. Pour cette stack
+(React 19 / TS / Vite / Supabase) :
+
+- **Agents** : `ecc:react-reviewer`, `ecc:typescript-reviewer`,
+  `ecc:react-build-resolver`, `ecc:database-reviewer` (Postgres/Supabase)
+- **Skills** : `ecc:react-patterns`, `ecc:react-performance`, `ecc:react-testing`,
+  `ecc:frontend-patterns`, `ecc:vite-patterns`, `ecc:postgres-patterns`,
+  `ecc:coding-standards`, `ecc:tdd-workflow`
+- **Commandes** : `/ecc:react-review`, `/ecc:react-test`, `/ecc:react-build`,
+  `/ecc:code-review`, `/ecc:plan`, `/ecc:ecc-guide` (liste complète)
+
+Ne pas lancer l'install ECC niveau projet (`--target claude-project`) : elle copierait
+~900 fichiers dans `.claude/` (versionné + déployé), en doublon de l'install globale.
+
