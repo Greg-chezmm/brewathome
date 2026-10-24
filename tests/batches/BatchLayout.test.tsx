@@ -35,7 +35,7 @@ describe('Onglets du brassin', () => {
 
     const tabs = screen.getByRole('navigation', { name: 'Sections du brassin' })
     expect(screen.getByRole('link', { name: 'Fermentation' })).toHaveAttribute('aria-current', 'page')
-    expect(tabs).toHaveTextContent('AperçuBrew DayFermentationEmbouteillageRecette')
+    expect(tabs).toHaveTextContent('AperçuBrew DayFermentationEmbouteillageDégustationCoûtRecette')
     expect(screen.getByRole('link', { name: 'Brew Day' })).toHaveAttribute('href', '/batches/b1/brew-day')
 
     fireEvent.click(screen.getByRole('link', { name: 'Aperçu' }))

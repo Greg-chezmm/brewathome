@@ -122,8 +122,7 @@ Application personnelle de brassage de bière maison (type Brewfather/Little Boc
 - Calculateur de starter de levure — repoussé (petits volumes, pas de starter pour l'instant).
 - Brewfather : utiliser l'atténuation réelle par levure et le rendement mesuré pour ajuster les recettes. Écarts restants connus : IBU des bières fortes (Brewfather prend la densité pré-ébullition, nous la moyenne des specs) et DF (Brewfather ajuste l'atténuation selon l'empâtage et le sucre).
 - Gestion de stock d'ingrédients (si besoin confirmé un jour).
-- **Notes de dégustation** par brassin : note sur 5, aspect, arôme, goût, à changer la prochaine fois ; visibles dans l'historique et depuis la recette.
-- **Suivi du conditionnement** : date d'embouteillage et date « prête à boire » calculée (refermentation ~2–3 semaines), avec un rappel.
+- Dégustations : les afficher aussi dans l'historique des brassins et depuis la fiche recette (la saisie existe, onglet « Dégustation » du brassin).
 - **Écritures concurrentes** (reste) : `session_measurements` : verrou optimiste (colonne version) ou RPC avec `FOR UPDATE` ; `cancelQueries` avant la mise à jour optimiste de `saveStepNotes`, et verrou par étape contre le double clic sur « Terminer ». (Cases cochées : fait, voir plus bas.)
 - **Clé Brewfather (gravité LOW, reste)** : vérifier ses droits côté Brewfather ; décider si l'inscription publique de Supabase reste ouverte (chacun saisit sa propre clé, RLS par utilisateur) ; chiffrement côté serveur écarté (Edge Function, trop lourd pour un usage perso).
 
@@ -158,3 +157,7 @@ npm run build     # build de production
 - Revue LOW, fin : le formulaire de recette refuse un volume cible ≤ 0 (`recipeFormErrors`), l'import BeerXML rejette une recette sans `BATCH_SIZE` valide, `calculateStrikeWaterTempC` ne divise plus par un ratio ≤ 0 ; code mort supprimé (`calculateABV`, `calculateABV_Hall`, `calculateOG`, leurs tests passant par `computeRecipe`).
 - Clé Brewfather : le cache de l'appli est vidé à la déconnexion (bouton ou fin de session ailleurs, `AuthProvider`) ; la page de fermentation ne met plus la clé en cache (`hasBrewfatherAccount` ne la lit pas, elle n'est lue qu'au clic sur l'import).
 - Recette : bouton « Redimensionner » (fiche recette) : copie à un autre volume avec quantités proportionnelles (fermentables, houblons, levure au sachet entier, premier nombre des ajouts divers), temps/températures/paliers inchangés, équipement au choix, note d'origine ; ouvre ensuite l'éditeur (`scaleRecipe`, `ScaleRecipe`).
+- Brassin, 3 nouveaux onglets/cartes (migration `0025_batches_tastings_conditioning_costs.sql` écrite, **pas encore appliquée en prod** ; il faudra ensuite `npm run db:types`) :
+  - **Dégustation** (`BatchTastings`) : plusieurs dégustations par brassin (date, note sur 5, aspect, arôme, goût, à changer la prochaine fois), moyenne affichée.
+  - **Conditionnement** (`ConditioningCard`, onglet Embouteillage) : date de début du conditionnement choisie au calendrier, modifiable à tout moment ; bouton de suggestion « fin de fermentation prévue » (date de brassage + durées du plan de fermentation, `suggestedConditioningStart`) et bouton « Aujourd’hui ». Durée de refermentation 21 jours par défaut, réglable par brassin ; la date « prête à boire » apparaît sur l'aperçu.
+  - **Coût** (`BatchCost`) : prix saisis sur le brassin (jamais sur la recette), un champ par ingrédient plus des frais libres (bouteilles, capsules, gaz) ; total, coût au litre et à la bouteille de 33 cl (volume conditionné, sinon volume fermenteur, sinon volume de la recette).

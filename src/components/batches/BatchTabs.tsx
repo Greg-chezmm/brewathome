@@ -5,10 +5,12 @@ const TABS: { path: string; label: string; end?: boolean }[] = [
   { path: '/brew-day', label: 'Brew Day' },
   { path: '/fermentation', label: 'Fermentation' },
   { path: '/bottling', label: 'Embouteillage' },
+  { path: '/tasting', label: 'Dégustation' },
+  { path: '/cost', label: 'Coût' },
   { path: '/edit-recipe', label: 'Recette' },
 ]
 
-/** Onglets d'un brassin : Aperçu, Brew Day, Fermentation, Embouteillage, Recette. */
+/** Onglets d'un brassin : Aperçu, Brew Day, Fermentation, Embouteillage, Dégustation, Coût, Recette. */
 export function BatchTabs({ batchId }: { batchId: string }) {
   return (
     <nav aria-label="Sections du brassin" className="flex gap-1 overflow-x-auto border-b border-slate-200">
