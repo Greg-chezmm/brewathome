@@ -15,7 +15,7 @@ import { StepCard } from '@/components/brew-day/StepCard'
 import { StepMeasurements } from '@/components/brew-day/StepMeasurements'
 import { StepOverview } from '@/components/brew-day/StepOverview'
 import { additionTiming, boilTiming, groupSteps } from '@/components/brew-day/stepMeta'
-import { useAlertSound } from '@/hooks/useAlertSound'
+import { useSoundSetting } from '@/hooks/useAlertSound'
 import { useBoilAlerts } from '@/hooks/useBoilAlerts'
 import { useNowTick } from '@/hooks/useBrewTimer'
 import { useStepActions } from '@/hooks/useStepActions'
@@ -37,8 +37,7 @@ import { getEquipmentProfile } from '@/lib/db/queries/equipmentProfiles'
 export function BrewDay() {
   const { batchId } = useParams<{ batchId: string }>()
   const [searchParams, setSearchParams] = useSearchParams()
-  const { unlock, play } = useAlertSound()
-  const [soundEnabled, setSoundEnabled] = useState(false)
+  const { soundEnabled, toggleSound, play } = useSoundSetting()
   const now = useNowTick()
   const [activeId, setActiveId] = useState<string | null>(null)
   const [overviewOpen, setOverviewOpen] = useState(false)
@@ -143,16 +142,6 @@ export function BrewDay() {
     onAdvance: goToNextUnfinished,
     onReset: (step) => forget(step.id),
   })
-
-  function toggleSound() {
-    if (soundEnabled) {
-      setSoundEnabled(false)
-      return
-    }
-    unlock()
-    play()
-    setSoundEnabled(true)
-  }
 
   const loadError = batchQuery.error ?? stepsQuery.error
   if (loadError && (!batch || !steps)) {
