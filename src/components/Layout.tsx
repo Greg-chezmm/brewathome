@@ -106,8 +106,8 @@ export function Layout() {
         <main
           className={
             immersive
-              ? 'mx-auto w-full max-w-5xl px-4 pt-5 sm:px-6 lg:px-8 lg:pt-10'
-              : 'mx-auto w-full max-w-5xl px-4 pb-[calc(5.5rem+env(safe-area-inset-bottom))] pt-5 sm:px-6 lg:px-8 lg:py-10'
+              ? 'mx-auto w-full max-w-5xl lg:max-w-none px-4 pt-5 sm:px-6 lg:px-8 lg:pt-10'
+              : 'mx-auto w-full max-w-5xl lg:max-w-none px-4 pb-[calc(5.5rem+env(safe-area-inset-bottom))] pt-5 sm:px-6 lg:px-8 lg:py-10'
           }
         >
           {/* Pages chargées à la demande (voir App) : le menu reste affiché pendant le téléchargement. */}
