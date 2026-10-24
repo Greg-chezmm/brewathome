@@ -62,6 +62,8 @@ export function stepGuide(step: BatchStep, ctx: StepGuideContext): StepGuide {
       return {
         checklist: [
           { id: 'sanitize', label: 'Nettoyer et désinfecter fermenteur, tuyaux, barboteur et ustensiles (Star San, Chemipro OXI…)' },
+          // Une pesée par grain, pour préparer chaque quantité avant le moulin ; la case `mill` garde son id.
+          ...grains.map((f, i) => ({ id: `weigh-grain-${i}`, label: `Peser ${formatWeightKg(f.amountKg)} de ${f.name}` })),
           { id: 'mill', label: `Concasser le malt si besoin (${totalGrainKg.toFixed(2)} kg, rouleaux à ~1–1,2 mm)`, optional: true },
           {
             id: 'water',

@@ -75,6 +75,56 @@ describe('stepGuide', () => {
   })
 })
 
+describe('stepGuide — préparation du malt pour le moulin', () => {
+  const prep = (r: RecipeDetails) => stepGuide(step('preparation'), { ...ctx, recipe: r }).checklist
+
+  it('détaille chaque grain à peser avant le moulin', () => {
+    const labels = prep(recipe).map((i) => i.label)
+    expect(labels).toContain('Peser 5 kg de Pale')
+    expect(labels).toContain('Peser 300 g de Crystal')
+  })
+
+  it('met les pesées avant la case du moulin, qui garde son identifiant et son total', () => {
+    const items = prep(recipe)
+    const ids = items.map((i) => i.id)
+    expect(ids).toContain('weigh-grain-0')
+    expect(ids).toContain('weigh-grain-1')
+    expect(ids.indexOf('weigh-grain-1')).toBeLessThan(ids.indexOf('mill'))
+    const mill = items.find((i) => i.id === 'mill')!
+    expect(mill.optional).toBe(true)
+    expect(mill.label).toContain('5.30 kg')
+  })
+
+  it('ne liste que les grains : le sucre et l’extrait ne passent pas au moulin', () => {
+    const withSugar: RecipeDetails = {
+      ...recipe,
+      fermentables: [...recipe.fermentables, { name: 'Sucre candi', type: 'sugar', amountKg: 0.4, colorLovibond: 1, yieldPercent: 100 }],
+    }
+    const labels = prep(withSugar).map((i) => i.label)
+    expect(labels.some((l) => l.includes('Sucre candi'))).toBe(false)
+    expect(prep(withSugar).filter((i) => i.id.startsWith('weigh-grain-'))).toHaveLength(2)
+  })
+
+  it('n’ajoute aucune pesée de grain à une recette sans grain', () => {
+    const extract: RecipeDetails = {
+      ...recipe,
+      type: 'extract',
+      fermentables: [{ name: 'Extrait de malt', type: 'extract', amountKg: 3, colorLovibond: 8, yieldPercent: 78 }],
+    }
+    expect(prep(extract).some((i) => i.id.startsWith('weigh-grain-'))).toBe(false)
+  })
+
+  it('compte les pesées dans l’avancement, pas le moulin facultatif', () => {
+    const prepStep = { ...step('preparation'), checkedItems: ['weigh-grain-0', 'mill'] }
+    const guide = stepGuide(prepStep, ctx)
+    const required = guide.checklist.filter((i) => !i.optional).length
+    expect(checklistProgress(guide, prepStep)).toEqual({ done: 1, total: required })
+    expect(guide.checklist.filter((i) => !i.optional).map((i) => i.id)).toEqual(
+      expect.arrayContaining(['weigh-grain-0', 'weigh-grain-1']),
+    )
+  })
+})
+
 describe('checklistProgress', () => {
   it('counts only required items that still exist', () => {
     const mash = { ...step('mash'), checkedItems: ['grain-0', 'iodine', 'removed-item'] }
