@@ -75,15 +75,14 @@ export type Database = {
           brew_date: string | null
           brew_sessions: number
           brewfather_id: string | null
+          conditioning_days: number | null
+          conditioning_start: string | null
+          costs: Json
           created_at: string
           fermenter_top_up_l: number | null
           fg_measured: number | null
           id: string
           ispindel_offset: number | null
-          conditioning_start: string | null
-          conditioning_days: number | null
-          costs: Json
-          tastings: Json
           mash_ph_measured: number | null
           mash_temp_reached_c: number | null
           max_fermentation_temp_c: number | null
@@ -100,6 +99,7 @@ export type Database = {
           recipe_snapshot: Json
           session_measurements: Json | null
           status: string
+          tastings: Json
           user_id: string
           volume_measured_l: number | null
         }
@@ -107,15 +107,14 @@ export type Database = {
           brew_date?: string | null
           brew_sessions?: number
           brewfather_id?: string | null
+          conditioning_days?: number | null
+          conditioning_start?: string | null
+          costs?: Json
           created_at?: string
           fermenter_top_up_l?: number | null
           fg_measured?: number | null
           id?: string
           ispindel_offset?: number | null
-          conditioning_start?: string | null
-          conditioning_days?: number | null
-          costs?: Json
-          tastings?: Json
           mash_ph_measured?: number | null
           mash_temp_reached_c?: number | null
           max_fermentation_temp_c?: number | null
@@ -132,6 +131,7 @@ export type Database = {
           recipe_snapshot: Json
           session_measurements?: Json | null
           status?: string
+          tastings?: Json
           user_id: string
           volume_measured_l?: number | null
         }
@@ -139,15 +139,14 @@ export type Database = {
           brew_date?: string | null
           brew_sessions?: number
           brewfather_id?: string | null
+          conditioning_days?: number | null
+          conditioning_start?: string | null
+          costs?: Json
           created_at?: string
           fermenter_top_up_l?: number | null
           fg_measured?: number | null
           id?: string
           ispindel_offset?: number | null
-          conditioning_start?: string | null
-          conditioning_days?: number | null
-          costs?: Json
-          tastings?: Json
           mash_ph_measured?: number | null
           mash_temp_reached_c?: number | null
           max_fermentation_temp_c?: number | null
@@ -164,6 +163,7 @@ export type Database = {
           recipe_snapshot?: Json
           session_measurements?: Json | null
           status?: string
+          tastings?: Json
           user_id?: string
           volume_measured_l?: number | null
         }
