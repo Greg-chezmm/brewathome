@@ -29,3 +29,13 @@ export function formatBuildInfo(info: BuildInfo = buildInfo, timeZone?: string):
   }
   return parts.join(' · ')
 }
+
+/**
+ * Version affichée : majeur.mineur du package.json, correctif = nombre de commits du dépôt (1.0.131).
+ * Sans décompte fiable (hors git, clone tronqué), la version du package.json telle quelle.
+ */
+export function computeVersion(packageVersion: string, commitCount: number | null): string {
+  if (commitCount === null || !Number.isInteger(commitCount) || commitCount < 1) return packageVersion
+  const [major, minor] = packageVersion.split('.')
+  return `${major}.${minor ?? '0'}.${commitCount}`
+}

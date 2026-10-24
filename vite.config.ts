@@ -6,6 +6,7 @@ import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
 import { configDefaults } from 'vitest/config'
 import { VitePWA } from 'vite-plugin-pwa'
+import { computeVersion } from './src/lib/version.ts'
 
 /** Commit déployé : GITHUB_SHA en CI, sinon git en local ; vide hors dépôt. */
 function buildCommit(): string {
@@ -17,7 +18,19 @@ function buildCommit(): string {
   }
 }
 
-const { version } = JSON.parse(readFileSync(path.resolve(import.meta.dirname, 'package.json'), 'utf8')) as { version: string }
+/** Nombre de commits de l'historique ; null hors dépôt git. */
+function commitCount(): number | null {
+  try {
+    return Number.parseInt(execSync('git rev-list --count HEAD', { stdio: ['ignore', 'pipe', 'ignore'] }).toString(), 10)
+  } catch {
+    return null
+  }
+}
+
+const { version: packageVersion } = JSON.parse(readFileSync(path.resolve(import.meta.dirname, 'package.json'), 'utf8')) as {
+  version: string
+}
+const version = computeVersion(packageVersion, commitCount())
 
 // https://vite.dev/config/
 export default defineConfig({
