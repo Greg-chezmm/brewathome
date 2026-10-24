@@ -1,3 +1,5 @@
+import { execSync } from 'node:child_process'
+import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
@@ -5,9 +7,27 @@ import { defineConfig } from 'vite'
 import { configDefaults } from 'vitest/config'
 import { VitePWA } from 'vite-plugin-pwa'
 
+/** Commit déployé : GITHUB_SHA en CI, sinon git en local ; vide hors dépôt. */
+function buildCommit(): string {
+  if (process.env.GITHUB_SHA) return process.env.GITHUB_SHA
+  try {
+    return execSync('git rev-parse HEAD', { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim()
+  } catch {
+    return ''
+  }
+}
+
+const { version } = JSON.parse(readFileSync(path.resolve(import.meta.dirname, 'package.json'), 'utf8')) as { version: string }
+
 // https://vite.dev/config/
 export default defineConfig({
   base: '/brewathome/',
+  // Affichés dans le menu (src/lib/version.ts) pour savoir quelle version est en ligne.
+  define: {
+    __APP_VERSION__: JSON.stringify(version),
+    __BUILD_COMMIT__: JSON.stringify(buildCommit()),
+    __BUILD_DATE__: JSON.stringify(new Date().toISOString()),
+  },
   plugins: [
     react(),
     tailwindcss(),

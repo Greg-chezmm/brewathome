@@ -5,6 +5,7 @@ import { ArrowDownUp, Beer, BookOpen, Calculator, Cpu, Ellipsis, House, Library,
 import { useAuth } from '@/lib/auth/AuthProvider'
 import { BrewLogo } from '@/components/BrewLogo'
 import { InstallAppButton } from '@/components/InstallAppButton'
+import { formatBuildInfo } from '@/lib/version'
 
 interface NavItem {
   to: string
@@ -90,6 +91,7 @@ export function Layout() {
             <LogOut size={16} />
             Déconnexion
           </button>
+          <p className="mt-3 text-xs text-slate-500">{formatBuildInfo()}</p>
         </div>
       </aside>
 
@@ -172,6 +174,7 @@ export function Layout() {
                 <LogOut size={20} />
                 Déconnexion
               </button>
+              <p className="mt-1 text-xs text-slate-400">{formatBuildInfo()}</p>
             </div>
           </div>
         </div>
