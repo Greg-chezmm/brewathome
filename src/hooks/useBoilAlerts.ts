@@ -2,6 +2,8 @@ import { useEffect, useRef } from 'react'
 import { boilTiming } from '@/components/brew-day/stepMeta'
 import type { BatchStep } from '@/lib/db/queries/batches'
 
+const FERMENTATION_STEP_TYPES: BatchStep['stepType'][] = ['dry-hop-addition', 'other-fermentation-addition']
+
 /**
  * Alerte sonore (et titre de l'onglet) quand un ajout de l'ébullition arrive à échéance.
  * Toutes les sessions comptent, même celles d'un autre onglet : un ajout oublié coûte plus qu'un bip en double.
@@ -18,8 +20,27 @@ export function useBoilAlerts(steps: BatchStep[] | undefined, now: number, enabl
         play()
         document.title = `⏰ ${step.label} — BrewAtHome`
       }
+      // Minuteur arrivé à zéro : l'étape suivante peut commencer (les étapes de fermentation se comptent en jours, hors Brew Day).
+      const endKey = `end:${step.id}`
+      if (
+        step.status === 'in-progress' &&
+        step.actualStartAt &&
+        step.plannedDurationMin &&
+        !FERMENTATION_STEP_TYPES.includes(step.stepType) &&
+        now - new Date(step.actualStartAt).getTime() >= step.plannedDurationMin * 60_000 &&
+        !alertedStepIds.current.has(endKey)
+      ) {
+        alertedStepIds.current.add(endKey)
+        play()
+        document.title = `⏰ Minuteur terminé : ${step.label} — BrewAtHome`
+      }
     }
   }, [now, steps, enabled, play])
 
-  return { forget: (stepId: string) => alertedStepIds.current.delete(stepId) }
+  return {
+    forget: (stepId: string) => {
+      alertedStepIds.current.delete(stepId)
+      alertedStepIds.current.delete(`end:${stepId}`)
+    },
+  }
 }
