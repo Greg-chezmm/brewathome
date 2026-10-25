@@ -15,7 +15,7 @@ import { StepCard } from '@/components/brew-day/StepCard'
 import { StepMeasurements } from '@/components/brew-day/StepMeasurements'
 import { BatchDeviceLink } from '@/components/devices/BatchDeviceLink'
 import { StepOverview } from '@/components/brew-day/StepOverview'
-import { additionTiming, boilTiming, groupSteps } from '@/components/brew-day/stepMeta'
+import { additionTiming, BOIL_TRIGGERED_STEP_TYPES, boilElapsedSeconds, boilStepFor, boilTiming, groupSteps } from '@/components/brew-day/stepMeta'
 import { useSoundSetting } from '@/hooks/useAlertSound'
 import { useBoilAlerts } from '@/hooks/useBoilAlerts'
 import { useNowTick } from '@/hooks/useBrewTimer'
@@ -134,6 +134,12 @@ export function BrewDay() {
   }
 
   function goToNextUnfinished(step: BatchStep) {
+    // Un ajout fait pendant l'ébullition ramène à l'ébullition tant qu'elle court : on ne passe à la suite qu'en la terminant.
+    const boil = steps && BOIL_TRIGGERED_STEP_TYPES.includes(step.stepType) ? boilStepFor(steps, step) : undefined
+    if (boil?.status === 'in-progress') {
+      setActiveId(boil.id)
+      return
+    }
     const next = visibleSteps ? nextUnfinishedStep(visibleSteps, step) : null
     if (next) setActiveId(next.id)
   }
@@ -187,12 +193,14 @@ export function BrewDay() {
       !phaseEnded(s) &&
       (s.status === 'in-progress' ||
         (s.stepType === 'boil' &&
-          steps.some(
-            (a) =>
-              (a.session ?? null) === (s.session ?? null) &&
-              !isStepFinished(a.status) &&
-              additionTiming(a, s, 0).triggerAtSeconds !== null,
-          ))),
+          // Ébullition terminée plus tôt pour passer aux ajouts : elle reste affichée jusqu'au bout de sa durée prévue.
+          (boilElapsedSeconds(s, now) < (s.plannedDurationMin ?? 0) * 60 ||
+            steps.some(
+              (a) =>
+                (a.session ?? null) === (s.session ?? null) &&
+                !isStepFinished(a.status) &&
+                additionTiming(a, s, 0).triggerAtSeconds !== null,
+            )))),
   )
   const stepMeasured = activeStep && stepMeasurement(batch, activeStep)
   const allDone = steps.every((s) => isStepFinished(s.status))
@@ -306,7 +314,21 @@ export function BrewDay() {
           isLast={activeIndex === visibleSteps.length - 1}
           onPrevious={() => setActiveId(visibleSteps[Math.max(0, activeIndex - 1)].id)}
           onNext={() => setActiveId(visibleSteps[Math.min(visibleSteps.length - 1, activeIndex + 1)].id)}
-          onComplete={() => completeStep(activeStep)}
+          onComplete={() => {
+            // Ébullition en cours avec du temps et des ajouts à venir : elle reste en cours, on passe juste à l'ajout suivant.
+            const boilRunning =
+              activeStep.stepType === 'boil' &&
+              activeStep.status === 'in-progress' &&
+              boilElapsedSeconds(activeStep, now) < (activeStep.plannedDurationMin ?? 0) * 60 &&
+              steps.some(
+                (a) =>
+                  (a.session ?? null) === (activeStep.session ?? null) &&
+                  !isStepFinished(a.status) &&
+                  additionTiming(a, activeStep, 0).triggerAtSeconds !== null,
+              )
+            if (boilRunning) goToNextUnfinished(activeStep)
+            else void completeStep(activeStep)
+          }}
           onReset={() => resetStep(activeStep)}
         />
       )}
