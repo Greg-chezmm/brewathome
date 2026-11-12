@@ -5,6 +5,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { DevicesList } from '@/pages/devices/DevicesList'
 
 const updateDeviceSettings = vi.fn(async () => undefined)
+const updateDeviceGravityUnit = vi.fn(async () => 12)
 
 vi.mock('@/lib/auth/AuthProvider', () => ({ useAuth: () => ({ user: { id: 'u1' } }) }))
 vi.mock('@/lib/db/queries/batches', () => ({
@@ -19,15 +20,17 @@ vi.mock('@/lib/db/queries/devices', () => ({
       apiToken: 'abc123',
       activeBatchId: 'b9',
       settings: { polynomial: '0.0052*tilt^2 - 2.35' },
+      gravityUnit: 'auto',
       lastSeenAt: new Date(Date.now() - 3 * 60_000).toISOString(),
       createdAt: '2026-01-01',
     },
-    { id: 'd2', type: 'ispindel', name: 'iSpindel Rouge', apiToken: 'zz', activeBatchId: null, settings: {}, lastSeenAt: null, createdAt: '2026-01-01' },
+    { id: 'd2', type: 'ispindel', name: 'iSpindel Rouge', apiToken: 'zz', activeBatchId: null, settings: {}, gravityUnit: 'sg', lastSeenAt: null, createdAt: '2026-01-01' },
   ],
   createDevice: vi.fn(),
   deleteDevice: vi.fn(),
   setDeviceActiveBatch: vi.fn(),
   updateDeviceSettings: (...args: unknown[]) => updateDeviceSettings(...(args as [])),
+  updateDeviceGravityUnit: (...args: unknown[]) => updateDeviceGravityUnit(...(args as [])),
 }))
 
 describe('Appareils', () => {
@@ -58,5 +61,36 @@ describe('Appareils', () => {
       ),
     )
     expect(await screen.findByText('Réglages enregistrés ✓')).toBeInTheDocument()
+  })
+
+  it('règle l’unité du polynôme et annonce les relevés recalculés', async () => {
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <MemoryRouter>
+          <DevicesList />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    )
+    const selects = await screen.findAllByLabelText('Unité du polynôme')
+    expect((selects[0] as HTMLSelectElement).value).toBe('auto')
+    expect((selects[1] as HTMLSelectElement).value).toBe('sg')
+
+    fireEvent.change(selects[0], { target: { value: 'plato' } })
+    await waitFor(() => expect(updateDeviceGravityUnit).toHaveBeenCalledWith('d1', 'plato'))
+    expect(await screen.findByText('Unité enregistrée ✓ 12 relevé(s) recalculé(s).')).toBeInTheDocument()
+  })
+
+  it('affiche l’erreur si l’unité ne peut pas être enregistrée', async () => {
+    updateDeviceGravityUnit.mockRejectedValueOnce(new Error('réseau indisponible'))
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <MemoryRouter>
+          <DevicesList />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    )
+    const selects = await screen.findAllByLabelText('Unité du polynôme')
+    fireEvent.change(selects[1], { target: { value: 'auto' } })
+    expect(await screen.findByRole('alert')).toHaveTextContent('réseau indisponible')
   })
 })

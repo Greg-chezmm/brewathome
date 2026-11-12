@@ -7,6 +7,7 @@ import { IspindelCalibration } from '@/pages/devices/IspindelCalibration'
 vi.mock('@/lib/db/queries/devices', () => ({
   listDevices: vi.fn().mockResolvedValue([]),
   updateDeviceSettings: vi.fn(),
+  updateDeviceGravityUnit: vi.fn(),
 }))
 
 function renderPage() {

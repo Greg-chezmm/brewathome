@@ -9,7 +9,7 @@
 // (--no-verify-jwt car l'authentification se fait par le token de device dans
 // l'URL, pas par un JWT Supabase — l'iSpindel ne peut pas en fournir un).
 import { createClient } from 'npm:@supabase/supabase-js@2'
-import { parseGravity } from './gravity.ts'
+import { parseGravity, toDeviceGravityUnit } from './gravity.ts'
 
 interface ISpindelPayload {
   name?: string
@@ -59,7 +59,7 @@ Deno.serve(async (req: Request) => {
 
   const { data: device, error: deviceError } = await supabase
     .from('devices')
-    .select('id, active_batch_id, type')
+    .select('id, active_batch_id, type, gravity_unit')
     .eq('api_token', token)
     .eq('type', 'ispindel')
     .maybeSingle()
@@ -83,12 +83,17 @@ Deno.serve(async (req: Request) => {
   const temperature = finiteNumberOrNull(payload.temperature)
   const temperatureC = temperature === null ? null : tempUnit === 'F' ? ((temperature - 32) * 5) / 9 : temperature
 
-  const gravity = parseGravity(payload.gravity, payload.gravity_unit)
+  const gravity = parseGravity(payload.gravity, payload.gravity_unit, toDeviceGravityUnit(device.gravity_unit))
+  // Valeur et unité reçues, gardées telles quelles : reinterpret_ispindel_gravity recalcule la densité
+  // si l'unité de l'appareil était mal réglée.
+  const rawGravityUnit = payload.gravity_unit === 'G' || payload.gravity_unit === 'P' ? payload.gravity_unit : null
 
   const { error: insertError } = await supabase.from('fermentation_readings').insert({
     batch_id: device.active_batch_id,
     source: 'ispindel',
     gravity,
+    raw_gravity: finiteNumberOrNull(payload.gravity),
+    raw_gravity_unit: rawGravityUnit,
     temperature_c: temperatureC,
     battery_percent: finiteNumberOrNull(payload.battery),
     raw_angle: finiteNumberOrNull(payload.angle),

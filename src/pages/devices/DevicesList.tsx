@@ -16,6 +16,7 @@ import { listBatches } from '@/lib/db/queries/batches'
 import { batchTitle } from '@/lib/batches/title'
 import { FieldLabel, InfoTooltip } from '@/components/InfoTooltip'
 import { ConnectionBadge } from '@/components/devices/ConnectionBadge'
+import { GravityUnitSetting } from '@/components/devices/GravityUnitSetting'
 
 // L'iSpindel (service « HTTPS Post », firmware 6.6+) demande l'adresse du serveur et le chemin dans deux champs.
 const ISPINDEL_SERVER = import.meta.env.VITE_SUPABASE_URL as string
@@ -287,6 +288,7 @@ export function DevicesList() {
               )}
             </div>
 
+            {device.type === 'ispindel' && <GravityUnitSetting device={device} />}
             {device.type === 'ispindel' && <ISpindelSettingsForm device={device} />}
           </li>
         ))}

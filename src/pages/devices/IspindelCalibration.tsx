@@ -6,7 +6,7 @@ import { FieldLabel } from '@/components/InfoTooltip'
 import { correctGravityForTemperature, HYDROMETER_CALIBRATION_C } from '@/lib/brew-calc/gravity-correction'
 import { platoToSg } from '@/lib/brew-calc/gravity-input'
 import { sgToPlato } from '@/lib/brew-calc/yeast'
-import { listDevices, updateDeviceSettings } from '@/lib/db/queries/devices'
+import { listDevices, updateDeviceGravityUnit, updateDeviceSettings } from '@/lib/db/queries/devices'
 import {
   MAX_DEGREE,
   fitPolynomial,
@@ -146,8 +146,13 @@ export function IspindelCalibration() {
     if (!device || !polynomial) return
     try {
       await updateDeviceSettings(device.id, { ...device.settings, polynomial })
+      // Le polynôme calcule dans l'unité choisie ici : l'Edge Function n'a plus à la deviner.
+      await updateDeviceGravityUnit(device.id, unit)
       await queryClient.invalidateQueries({ queryKey: ['devices'] })
-      setMessage({ kind: 'ok', text: `Polynôme enregistré dans le mémo de « ${device.name} ».` })
+      setMessage({
+        kind: 'ok',
+        text: `Polynôme enregistré dans le mémo de « ${device.name} », unité réglée en ${unit === 'plato' ? '°Plato' : 'SG'}.`,
+      })
     } catch (err) {
       setMessage({ kind: 'error', text: (err as Error).message })
     }

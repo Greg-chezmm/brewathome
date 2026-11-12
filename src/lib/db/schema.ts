@@ -319,6 +319,10 @@ export const fermentationReadings = pgTable('fermentation_readings', {
   temperatureC: numeric('temperature_c', { precision: 4, scale: 1 }),
   batteryPercent: numeric('battery_percent', { precision: 5, scale: 2 }),
   rawAngle: numeric('raw_angle', { precision: 6, scale: 2 }),
+  // Valeur « gravity » reçue telle quelle de l'iSpindel et unité annoncée par le firmware ('G' / 'P') :
+  // permet de recalculer la densité si l'unité de l'appareil était mal réglée (migration 0028).
+  rawGravity: numeric('raw_gravity'),
+  rawGravityUnit: text('raw_gravity_unit'),
   comment: text('comment'),
 }, (t) => [index('fermentation_readings_batch_id_recorded_at_idx').on(t.batchId, t.recordedAt)])
 
@@ -333,6 +337,8 @@ export const devices = pgTable('devices', {
   // Réglages recopiés de l'iSpindel (polynôme de calibration, facteur batterie, intervalle…) : mémo pour
   // pouvoir les ressaisir après une mise à jour du firmware, qui efface sa configuration.
   calibrationCoefficients: jsonb('calibration_coefficients'),
+  // Unité du polynôme de l'iSpindel : 'auto' (devinée), 'sg' ou 'plato'. Le firmware ne l'envoie pas.
+  gravityUnit: text('gravity_unit', { enum: ['auto', 'sg', 'plato'] }).notNull().default('auto'),
   // Brassin actuellement suivi par ce device : l'Edge Function d'ingestion y
   // rattache les lectures reçues. NULL = device inactif / non assigné.
   activeBatchId: uuid('active_batch_id').references(() => batches.id, { onDelete: 'set null' }),

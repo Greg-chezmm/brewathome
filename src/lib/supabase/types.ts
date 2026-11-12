@@ -270,6 +270,7 @@ export type Database = {
           api_token: string
           calibration_coefficients: Json | null
           created_at: string
+          gravity_unit: string
           id: string
           last_seen_at: string | null
           name: string
@@ -281,6 +282,7 @@ export type Database = {
           api_token: string
           calibration_coefficients?: Json | null
           created_at?: string
+          gravity_unit?: string
           id?: string
           last_seen_at?: string | null
           name: string
@@ -292,6 +294,7 @@ export type Database = {
           api_token?: string
           calibration_coefficients?: Json | null
           created_at?: string
+          gravity_unit?: string
           id?: string
           last_seen_at?: string | null
           name?: string
@@ -382,6 +385,8 @@ export type Database = {
           gravity: number | null
           id: string
           raw_angle: number | null
+          raw_gravity: number | null
+          raw_gravity_unit: string | null
           recorded_at: string
           source: string
           temperature_c: number | null
@@ -393,6 +398,8 @@ export type Database = {
           gravity?: number | null
           id?: string
           raw_angle?: number | null
+          raw_gravity?: number | null
+          raw_gravity_unit?: string | null
           recorded_at?: string
           source?: string
           temperature_c?: number | null
@@ -404,6 +411,8 @@ export type Database = {
           gravity?: number | null
           id?: string
           raw_angle?: number | null
+          raw_gravity?: number | null
+          raw_gravity_unit?: string | null
           recorded_at?: string
           source?: string
           temperature_c?: number | null
@@ -713,6 +722,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      reinterpret_ispindel_gravity: {
+        Args: { p_device_id: string }
+        Returns: number
+      }
       toggle_checked_item: {
         Args: { p_checked: boolean; p_item: string; p_step_id: string }
         Returns: Json

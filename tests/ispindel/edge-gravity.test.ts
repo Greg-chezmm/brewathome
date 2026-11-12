@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parseGravity, plateauToSG } from '../../supabase/functions/ispindel/gravity'
+import { parseGravity, plateauToSG, toDeviceGravityUnit } from '../../supabase/functions/ispindel/gravity'
 
 describe('parseGravity (Edge Function iSpindel)', () => {
   it('ignore le 0 exact d’un iSpindel non calibré, et les valeurs absentes ou invalides', () => {
@@ -39,5 +39,25 @@ describe('parseGravity (Edge Function iSpindel)', () => {
     expect(parseGravity(1.012, 'G')).toBe(1.012)
     expect(parseGravity(-1, 'G')).toBeNull()
     expect(parseGravity(3, 'P')).toBeCloseTo(plateauToSG(3), 6)
+  })
+
+  it('suit l’unité réglée sur l’appareil, prioritaire sur la devinette', () => {
+    // Le cas ambigu : 1,1 °P en fin de fermentation, lu comme une SG en « auto ».
+    expect(parseGravity(1.1, undefined)).toBe(1.1)
+    expect(parseGravity(1.1, undefined, 'plato')).toBeCloseTo(plateauToSG(1.1), 6)
+    expect(parseGravity(1.048, undefined, 'sg')).toBe(1.048)
+    expect(parseGravity(1.048, 'P', 'sg')).toBe(1.048)
+  })
+
+  it('rejette une valeur réglée en SG qui ne peut pas en être une', () => {
+    expect(parseGravity(12, undefined, 'sg')).toBeNull()
+    expect(parseGravity(-0.2, undefined, 'sg')).toBeNull()
+  })
+
+  it('lit le réglage de l’appareil, « auto » par défaut', () => {
+    expect(toDeviceGravityUnit('sg')).toBe('sg')
+    expect(toDeviceGravityUnit('plato')).toBe('plato')
+    expect(toDeviceGravityUnit(null)).toBe('auto')
+    expect(toDeviceGravityUnit('SG')).toBe('auto')
   })
 })
