@@ -131,18 +131,26 @@ export interface BatchDetails extends BatchSummary {
 }
 
 /**
- * Insère les étapes d'un brassin tout juste créé. Si l'insertion échoue, supprime le brassin
- * (supabase-js n'offre pas de transaction) : pas de brassin au Brew Day vide, et un nouvel essai
- * ne crée pas de doublon. C'est l'erreur d'insertion qui est remontée, quoi qu'il arrive au nettoyage.
+ * Supprime au mieux un brassin dont la création n'a pas abouti (supabase-js n'offre pas de
+ * transaction ; ses étapes partent avec lui par cascade). Un échec ici est ignoré : c'est l'erreur
+ * de création, remontée par l'appelant, qui reste la cause à signaler.
+ */
+async function discardBatch(batchId: string): Promise<void> {
+  try {
+    await supabase.from('batches').delete().eq('id', batchId)
+  } catch {
+    // Nettoyage au mieux : voir ci-dessus.
+  }
+}
+
+/**
+ * Insère les étapes d'un brassin tout juste créé. Si l'insertion échoue, supprime le brassin :
+ * pas de brassin au Brew Day vide, et un nouvel essai ne crée pas de doublon.
  */
 async function insertStepsOrDiscardBatch(batchId: string, steps: NewBatchStep[]): Promise<void> {
   const { error } = await supabase.from('batch_steps').insert(steps.map((s) => toStepRow(batchId, s)))
   if (!error) return
-  try {
-    await supabase.from('batches').delete().eq('id', batchId)
-  } catch {
-    // Nettoyage au mieux : l'erreur d'insertion, remontée ci-dessous, reste la cause à signaler.
-  }
+  await discardBatch(batchId)
   throw error
 }
 
@@ -200,7 +208,14 @@ export async function createBatchFromRecipe(
   await insertStepsOrDiscardBatch(batchId, buildBatchSteps(recipe, equipmentProfile, brewSessions))
 
   onPhase(3)
-  await updateRecipeStatus(recipeId, 'validated')
+  // Tout ou rien, comme pour les étapes : si la fonction rejette, aucun brassin ne reste en base
+  // (sinon un nouvel essai depuis la page de validation créerait un doublon).
+  try {
+    await updateRecipeStatus(recipeId, 'validated')
+  } catch (err) {
+    await discardBatch(batchId)
+    throw err
+  }
 
   return batchId
 }

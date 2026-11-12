@@ -46,6 +46,19 @@ function setup(measured: MeasurementValues) {
   return { onSave, unmount: view.unmount, otherDeviceSaves }
 }
 
+describe('MeasurementsPanel : échec d’enregistrement', () => {
+  it('affiche l’erreur dans le panneau et garde la saisie', async () => {
+    const { onSave } = setup(measuredWith({}))
+    onSave.mockRejectedValueOnce({ message: 'permission denied for table batches' })
+
+    fireEvent.change(screen.getByLabelText(PH), { target: { value: '5.2' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Enregistrer' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('permission denied for table batches')
+    expect(screen.getByLabelText(PH)).toHaveValue(5.2)
+  })
+})
+
 describe('MeasurementsPanel : écritures concurrentes entre appareils', () => {
   it('suit la valeur enregistrée ailleurs au lieu de garder un brouillon périmé', () => {
     const { otherDeviceSaves } = setup(measuredWith({}))

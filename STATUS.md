@@ -1,6 +1,6 @@
 # BrewAtHome — État du projet
 
-_Dernière mise à jour : 2026-10-19_
+_Dernière mise à jour : 2026-11-12_
 
 
 Application personnelle de brassage de bière maison (type Brewfather/Little Bock), SPA React + TypeScript, backend Supabase, déployée sur GitHub Pages.
@@ -8,6 +8,14 @@ Application personnelle de brassage de bière maison (type Brewfather/Little Boc
 ## Où on en est (résumé)
 
 **Dernières avancées** (migration `0019` appliquée sur la base live le 2026-10-18)
+- **Revue de code et de logique de brassage (2026-11-12)**, corrections sans migration :
+  - **Alertes du Brew Day plus fiables** : une alerte dont le son n'a pas pu sortir (audio suspendu par le navigateur) est retentée à chaque seconde au lieu d'être considérée comme émise (`useAlertSound.play` renvoie un booléen, `useBoilAlerts`) ; contexte audio fermé et titre de l'onglet restauré en quittant la page.
+  - **Alcalinité résiduelle corrigée** (`residualAlkalinity`, `brew-calc/water.ts`) : formule de Kolbach en ppm d'ions (Ca/1,4 et Mg/1,7 au lieu de /3,5 et /7) — l'ancienne valeur était trop haute, donc le pH d'empâtage estimé aussi.
+  - **DI prévue en 2 sessions** (`plannedMeasurements`) : c'est celle du mélange des deux moûts, un peu plus basse qu'en une session (pertes fixes comptées deux fois), et non plus celle de la recette brassée d'une traite.
+  - **Minuteur de whirlpool** : durée et température de l'infusion prévues par la recette (`hopstandOf`), 15 min seulement à défaut.
+  - **Échecs d'écriture visibles** : changement de statut, suppression, nombre de sessions (fiche brassin), ajout/suppression de relevé et détachement d'iSpindel (Fermentation) affichent l'erreur au lieu d'échouer en silence (`lib/errors.ts`) ; un relevé entièrement vide est refusé ; une température de 0 °C n'affiche plus « 0 ».
+  - **Création de brassin tout ou rien** : si la validation de la recette échoue après la création, le brassin est supprimé (pas de doublon au nouvel essai).
+  - **Densité iSpindel en °Plato proche de 0** (`supabase/functions/ispindel/gravity.ts`, à redéployer) : sans unité, seule une valeur entre 0,98 et 1,2 est lue comme une SG ; le reste est en °Plato, y compris proche de 0 ou négatif en fin de fermentation (avant : 0,057 °P enregistré comme SG 0,057, puis valeurs ≤ 0 rejetées). Seul le 0 exact (polynôme vide) est ignoré. Les relevés déjà enregistrés ne sont pas corrigés.
 - **DI proposée à l'ensemencement** (`derivedOg`, `brew-day/measurements.ts`) : en session unique, la densité de fin d'ébullition, diluée par l'eau d'appoint, est proposée en un clic dans le champ DI ; jamais enregistrée seule, jamais proposée si la DI est déjà saisie (le densimètre fait foi).
 - **iSpindel recalé sur la DI au densimètre** (`fermentation/calibration.ts`, calcul à la volée, relevés bruts intacts) : décalage = DI saisie − médiane des relevés des 6 premières heures (avant les ajouts en fermentation, 3 relevés minimum), appliqué à la courbe, la densité actuelle, l'alcool, l'atténuation et la stabilité ; courbe brute en pointillés et bouton « Voir les valeurs brutes ». Sans DI saisie, aucun recalage.
 - **Densité corrigée de la température de l'échantillon** : chaque champ de densité du panneau de mesures (pré-ébullition, fin d'ébullition, DI, DF) a un champ facultatif « Temp. de l'échantillon » ; la lecture est ramenée à 20 °C (densimètre étalonné à 20 °C, `correctGravityForTemperature`, `brew-calc/gravity-correction.ts`) avant enregistrement, donc efficacités, alcool et atténuation s'appuient sur la valeur corrigée. Champ vide = aucun changement ; la température n'est pas stockée.
@@ -121,6 +129,13 @@ Application personnelle de brassage de bière maison (type Brewfather/Little Boc
 - E-mails d'auth : configurer un SMTP personnalisé (expéditeur « BrewAtHome » au lieu de « Supabase Auth ») et coller les modèles de `supabase/templates/` dans Authentication → Emails. Écran Google : nom d'app « BrewAtHome » dans Google Cloud.
 - Profils d'équipement importés de Brewfather : la capacité de la cuve n'existe pas dans Brewfather ; elle est lue dans le nom (« Marmite 20L ») ou estimée à 1,2 × pré-ébullition et signalée à l'import — à vérifier dans le profil.
 - **Rappels par e-mail** (alternative aux rappels d'agenda) : dates gérées dans l'app, envoi planifié (pg_cron + Edge Function) ; prévenir aussi quand la densité est stable (fin de fermentation détectée). Prérequis : le SMTP / service d'envoi ci-dessus.
+- **Suites de la revue du 2026-11-12** (non traitées : base de production ou décision nécessaire) :
+  - numérotation des brassins/recettes en `max()+1` sans verrou (doublon possible sur deux créations simultanées) ;
+  - droits `anon` résiduels à retirer, clés étrangères non indexées ;
+  - journal Drizzle désynchronisé (dernier snapshot `0019`, migrations jusqu'à `0021`) : à resynchroniser avant le prochain `db:generate` ;
+  - clé API Brewfather stockée en clair ; Edge Function iSpindel qui renvoie les messages d'erreur Postgres ; pas de régénération du jeton d'appareil ;
+  - mesures non enregistrées perdues sans message si la sauvegarde automatique échoue en quittant une étape (pas de bannière globale) ;
+  - alertes du Brew Day dépendantes de l'onglet au premier plan (pas de notifications système).
 - Support Tilt/TiltBridge au-delà de la saisie manuelle.
 - Calculateur de starter de levure — repoussé (petits volumes, pas de starter pour l'instant).
 - Brewfather : utiliser l'atténuation réelle par levure et le rendement mesuré pour ajuster les recettes. Écarts restants connus : IBU des bières fortes (Brewfather prend la densité pré-ébullition, nous la moyenne des specs) et DF (Brewfather ajuste l'atténuation selon l'empâtage et le sucre).

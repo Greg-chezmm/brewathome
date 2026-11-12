@@ -1,6 +1,7 @@
 import { effectiveMashSteps, isMashOut, type MashStep } from '@/lib/brew-calc/mash'
 import { REFERENCE_MASH_TEMP_C } from '@/lib/brew-calc/recipe-stats'
 import { fermentableUse } from '@/lib/brew-calc/gravity'
+import { hopstandOf } from '@/lib/brew-calc/ibu'
 import { calculateStrikeWaterTempC, calculateVolumes, SPARGE_WATER_TEMP_C } from '@/lib/brew-calc/volumes'
 import type { EquipmentProfile } from '@/lib/brew-calc/types'
 import { formatWeightKg } from '@/lib/brew-calc/units'
@@ -15,6 +16,9 @@ export function strikeWaterTempFor(mashTempC: number, totalGrainKg: number, mash
   if (!mashWaterL || totalGrainKg <= 0) return null
   return calculateStrikeWaterTempC(mashTempC, GRAIN_TEMP_C, mashWaterL / totalGrainKg)
 }
+
+/** Durée du whirlpool quand les houblons de la recette n'en donnent pas. */
+const DEFAULT_WHIRLPOOL_MIN = 15
 
 /** Température du grain supposée (pièce), pour le calcul de l'eau d'empâtage. */
 export const GRAIN_TEMP_C = 20
@@ -172,7 +176,16 @@ function addHotSideSteps(
   }
 
   if (recipe.hops.some((h) => h.use === 'whirlpool')) {
-    add({ stepType: 'whirlpool', label: 'Whirlpool / hopstand', plannedDurationMin: 15, triggerTimeMin: 0 })
+    // Durée et température de l'infusion prévues par la recette : ce sont elles que le calcul d'IBU suppose.
+    const hopstand = hopstandOf(recipe.hops)
+    add({
+      stepType: 'whirlpool',
+      label: hopstand
+        ? `Whirlpool / hopstand (${hopstand.minutes} min à ${Math.round(hopstand.temperatureC)} °C)`
+        : 'Whirlpool / hopstand',
+      plannedDurationMin: hopstand?.minutes ?? DEFAULT_WHIRLPOOL_MIN,
+      triggerTimeMin: 0,
+    })
   }
 
   add({

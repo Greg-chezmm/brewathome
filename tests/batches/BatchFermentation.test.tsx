@@ -4,13 +4,15 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { BatchFermentation } from '@/pages/batches/BatchFermentation'
 import { updateBatchIspindelOffset } from '@/lib/db/queries/batches'
+import { setDeviceActiveBatch } from '@/lib/db/queries/devices'
+import { addFermentationReading, deleteFermentationReading } from '@/lib/db/queries/fermentation'
 
 vi.mock('@/lib/auth/AuthProvider', () => ({ useAuth: () => ({ user: { id: 'u1' } }) }))
 vi.mock('recharts', async (importOriginal) => ({
   ...(await importOriginal<typeof import('recharts')>()),
   ResponsiveContainer: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }))
-const page = vi.hoisted(() => ({ status: 'completed', plateau: false, flatStart: false }))
+const page = vi.hoisted(() => ({ status: 'completed', plateau: false, flatStart: false, zeroTemp: false }))
 
 vi.mock('@/lib/db/queries/batches', () => ({
   updateBatchIspindelOffset: vi.fn(async () => undefined),
@@ -46,6 +48,7 @@ vi.mock('@/lib/db/queries/devices', () => ({
     { id: 'd1', name: 'iSpindel Vert', activeBatchId: 'b1', lastSeenAt: new Date().toISOString(), settings: {} },
     { id: 'd2', name: 'iSpindel Rouge', activeBatchId: null, lastSeenAt: null, settings: {} },
   ],
+  setDeviceActiveBatch: vi.fn(async () => undefined),
 }))
 vi.mock('@/lib/db/queries/fermentation', () => ({
   listFermentationReadings: async () =>
@@ -59,7 +62,7 @@ vi.mock('@/lib/db/queries/fermentation', () => ({
         : page.flatStart
           ? 1.1 - Math.max(0, i - 12) * 0.0005
           : 1.1 - i * 0.0005,
-      temperatureC: 18,
+      temperatureC: page.zeroTemp ? 0 : 18,
       source: 'ispindel',
       comment: null,
       rawAngle: 70,
@@ -165,6 +168,49 @@ describe('Suivi de fermentation', () => {
     renderPage()
     await screen.findByText('Importer les relevés')
     expect(brewfatherApi.getAccount).not.toHaveBeenCalled()
+  })
+
+  it('affiche une température de 0 °C au lieu d’un « 0 » isolé', async () => {
+    page.zeroTemp = true
+    try {
+      renderPage()
+      await screen.findByText(/^120 relevés/)
+      expect(screen.getAllByText(/· 0°C/)).toHaveLength(20)
+    } finally {
+      page.zeroTemp = false
+    }
+  })
+
+  it('refuse un relevé sans densité ni température', async () => {
+    vi.mocked(addFermentationReading).mockClear()
+    renderPage()
+    fireEvent.click(await screen.findByRole('button', { name: 'Ajouter' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Saisissez une densité, une température ou un commentaire.')
+    expect(addFermentationReading).not.toHaveBeenCalled()
+  })
+
+  it('signale l’échec d’enregistrement d’un relevé et garde la saisie', async () => {
+    vi.mocked(addFermentationReading).mockRejectedValueOnce(new Error('réseau coupé'))
+    renderPage()
+    fireEvent.change(await screen.findByPlaceholderText('1.020'), { target: { value: '1.018' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Ajouter' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('réseau coupé')
+    expect(screen.getByPlaceholderText('1.020')).toHaveValue(1.018)
+  })
+
+  it('signale l’échec de suppression d’un relevé', async () => {
+    vi.mocked(deleteFermentationReading).mockRejectedValueOnce(new Error('suppression refusée'))
+    renderPage()
+    await screen.findByText(/^120 relevés/)
+    fireEvent.click(screen.getAllByText('Supprimer')[0])
+    expect(await screen.findByRole('alert')).toHaveTextContent('suppression refusée')
+  })
+
+  it('signale l’échec du détachement de l’iSpindel', async () => {
+    vi.mocked(setDeviceActiveBatch).mockRejectedValueOnce(new Error('détachement refusé'))
+    renderPage()
+    fireEvent.click(await screen.findByRole('button', { name: 'Détacher' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('détachement refusé')
   })
 
   it('ne propose pas l’import sans compte Brewfather relié', async () => {

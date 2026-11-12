@@ -163,5 +163,5 @@ export function ionsAboveTarget(source: WaterProfile, target: WaterProfile): (ke
  */
 export function residualAlkalinity(profile: WaterProfile): number {
   const alkalinity = (profile.bicarbonate * 50) / 61
-  return alkalinity - profile.calcium / 3.5 - profile.magnesium / 7
+  return alkalinity - profile.calcium / 1.4 - profile.magnesium / 1.7
 }

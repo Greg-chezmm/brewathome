@@ -187,3 +187,27 @@ describe('ajouts divers en fermentation (copeaux de chêne…)', () => {
     expect(buildBatchSteps(oak, null).some((s) => s.stepType === 'fermentation-addition')).toBe(false)
   })
 })
+
+describe('étape whirlpool / hopstand', () => {
+  const whirlpoolStep = (hops: RecipeDetails['hops']) =>
+    buildBatchSteps({ ...recipe, hops }, null).find((s) => s.stepType === 'whirlpool')
+
+  it('n’existe pas sans houblon de whirlpool', () => {
+    expect(whirlpoolStep(recipe.hops)).toBeUndefined()
+  })
+
+  it('dure le temps de la plus longue infusion de la recette, à sa température', () => {
+    const step = whirlpoolStep([
+      { name: 'Citra', amountG: 30, alphaAcidPercent: 12, timeMin: 20, use: 'whirlpool', temperatureC: 75 },
+      { name: 'Mosaic', amountG: 30, alphaAcidPercent: 12, timeMin: 30, use: 'whirlpool', temperatureC: 85 },
+    ])!
+    expect(step.plannedDurationMin).toBe(30)
+    expect(step.label).toBe('Whirlpool / hopstand (30 min à 80 °C)')
+  })
+
+  it('garde 15 min quand la recette ne donne pas de durée', () => {
+    const step = whirlpoolStep([{ name: 'Citra', amountG: 30, alphaAcidPercent: 12, timeMin: 0, use: 'whirlpool' }])!
+    expect(step.plannedDurationMin).toBe(15)
+    expect(step.label).toBe('Whirlpool / hopstand')
+  })
+})

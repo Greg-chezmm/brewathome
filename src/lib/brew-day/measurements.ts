@@ -64,6 +64,8 @@ const DEFAULT_SHRINKAGE_PERCENT = 4
  * miel…), que la DI estimée de la recette inclut. Ils reviennent dans l'alcool via `measuredAbv`.
  * Brassin en plusieurs sessions : densités avant/après ébullition d'une session (part de la recette),
  * volumes d'une session multipliés par leur nombre — ce que donnent les mesures additionnées des sessions.
+ * La DI prévue suit : c'est celle du mélange des moûts, plus basse qu'en une seule session car les
+ * pertes fixes (houblon, fond de cuve) comptent à chaque session.
  */
 export function plannedMeasurements(
   recipe: RecipeDetails,
@@ -74,6 +76,10 @@ export function plannedMeasurements(
   const calculation = computeRecipe({ ...recipe, mashTempC, equipment })
   const boilSide = sessions > 1 ? computeRecipe({ ...sessionRecipe(recipe, sessions), mashTempC, equipment }) : calculation
   const volumes = boilSide.volumes
+  // DI hors ajouts en fermentation : computeRecipe les dilue dans son volume de calcul, on les retire de même.
+  // (`sessionRecipe` les laisse entiers dans la part : même retrait, sur le volume de calcul de la part.)
+  const wortOg = calculation.og - fermentationAdditionsGravity(recipe.fermentables, calculation.calculationVolumeL)
+  const sessionWortOg = boilSide.og - fermentationAdditionsGravity(recipe.fermentables, boilSide.calculationVolumeL)
   return {
     mashPh: null,
     // Cible d'empâtage de la recette : sert de « prévu » en face de la température relevée.
@@ -84,8 +90,8 @@ export function plannedMeasurements(
     postBoilGravity: boilSide.postBoilGravity,
     fermenterTopUpL: 0,
     fermenterVolumeL: recipe.targetVolumeL,
-    // computeRecipe dilue les ajouts en fermentation dans son volume de calcul : on les retire de même.
-    og: (recipe.estOg ?? calculation.og) - fermentationAdditionsGravity(recipe.fermentables, calculation.calculationVolumeL),
+    // La DI estimée enregistrée reste la base ; l'écart d'une session à la recette entière s'y applique.
+    og: (recipe.estOg ?? calculation.og) - (calculation.og - wortOg) + (sessionWortOg - wortOg),
     fg: recipe.estFg ?? calculation.fg,
     packagingVolumeL: equipment ? recipe.targetVolumeL - equipment.fermenterLossL : null,
     maxFermentationTempC: null,

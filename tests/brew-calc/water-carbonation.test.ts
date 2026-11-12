@@ -80,6 +80,6 @@ describe('suggestSalts', () => {
   })
 
   it('alcalinité résiduelle : bicarbonates moins calcium et magnésium', () => {
-    expect(residualAlkalinity({ ...distilled, bicarbonate: 61, calcium: 35, magnesium: 7 })).toBeCloseTo(50 - 10 - 1, 6)
+    expect(residualAlkalinity({ ...distilled, bicarbonate: 61, calcium: 35, magnesium: 7 })).toBeCloseTo(50 - 35 / 1.4 - 7 / 1.7, 6)
   })
 })

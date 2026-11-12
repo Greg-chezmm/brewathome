@@ -95,6 +95,14 @@ describe('création d’un brassin : jamais de brassin sans étapes', () => {
     await expect(createBatchFromRecipe('u1', 'r1', 'Brassin', null)).rejects.toBe(stepsError)
   })
 
+  it('supprime le brassin (étapes comprises) si la validation de la recette échoue, et remonte son erreur', async () => {
+    const statusError = new Error('statut de recette non enregistré')
+    recipes.updateRecipeStatus.mockRejectedValueOnce(statusError)
+    await expect(createBatchFromRecipe('u1', 'r1', 'Brassin', null)).rejects.toBe(statusError)
+    expect(fakeDb.find('batch_steps', 'insert')).toBeDefined()
+    expect(fakeDb.find('batches', 'delete')?.filters).toEqual([['id', 'batches-1']])
+  })
+
   it('même garantie pour un brassin importé de Brewfather non encore brassé', async () => {
     failStepsInsert()
     await expect(createBatchFromBrewfather('u1', imported)).rejects.toBe(stepsError)

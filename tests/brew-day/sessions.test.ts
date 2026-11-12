@@ -227,6 +227,23 @@ describe('Mesures par session', () => {
     expect(whole.fermenterVolumeL).toBe(20)
   })
 
+  it('DI prévue en 2 sessions : celle du mélange des deux moûts, hors ajouts en fermentation', () => {
+    const computed = { ...recipe, estOg: null }
+    const whole = plannedMeasurements(computed, equipment, 2)
+    const part = plannedMeasurements(sessionRecipe(computed, 2), equipment)
+    const single = plannedMeasurements(computed, equipment)
+    // Les pertes fixes (houblon, fond de cuve) comptent à chaque session : moût moins dense qu'en une seule fois.
+    expect(whole.og).toBeCloseTo(part.og!, 6)
+    expect(whole.og!).toBeLessThan(single.og!)
+  })
+
+  it('DI prévue en 2 sessions : la DI estimée enregistrée reste la base, corrigée du même écart', () => {
+    const computed = { ...recipe, estOg: null }
+    const delta = plannedMeasurements(computed, equipment, 2).og! - plannedMeasurements(computed, equipment).og!
+    const whole = plannedMeasurements(recipe, equipment, 2)
+    expect(whole.og! - plannedMeasurements(recipe, equipment).og!).toBeCloseTo(delta, 6)
+  })
+
   it('résumé : évaporation horaire par session', () => {
     const measured = {
       ...Object.fromEntries(Object.keys(plannedMeasurements(recipe, equipment)).map((k) => [k, null])),

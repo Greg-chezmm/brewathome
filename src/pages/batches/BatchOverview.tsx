@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ActionBar } from '@/components/ActionBar'
@@ -28,6 +29,7 @@ import {
   type BatchStatus,
 } from '@/lib/db/queries/batches'
 import { getEquipmentProfile } from '@/lib/db/queries/equipmentProfiles'
+import { errorMessage } from '@/lib/errors'
 
 const STATUS_FLOW: BatchStatus[] = ['planned', 'brew_day', 'fermentation', 'conditioning', 'completed']
 const STATUS_LABELS: Record<BatchStatus, string> = {
@@ -42,6 +44,9 @@ export function BatchOverview() {
   const { batchId } = useParams<{ batchId: string }>()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  // Échec d'une écriture lancée depuis la barre d'actions (statut, suppression) ou le choix des sessions.
+  const [actionError, setActionError] = useState<string | null>(null)
+  const [sessionsError, setSessionsError] = useState<string | null>(null)
   const { data: batch } = useQuery({
     queryKey: ['batch', batchId],
     queryFn: () => getBatchWithDetails(batchId!),
@@ -97,15 +102,25 @@ export function BatchOverview() {
     const currentIndex = STATUS_FLOW.indexOf(batch!.status)
     const next = STATUS_FLOW[currentIndex + 1]
     if (!next) return
-    await updateBatchStatus(batchId, next)
-    queryClient.invalidateQueries({ queryKey: ['batch', batchId] })
+    setActionError(null)
+    try {
+      await updateBatchStatus(batchId, next)
+      queryClient.invalidateQueries({ queryKey: ['batch', batchId] })
+    } catch (err) {
+      setActionError(errorMessage(err))
+    }
   }
 
   async function changeSessions(brewSessions: number) {
     if (!batchId) return
-    await updateBatchBrewSessions(batchId, recipe, brewSessions)
-    queryClient.invalidateQueries({ queryKey: ['batch', batchId] })
-    queryClient.invalidateQueries({ queryKey: ['batch-steps', batchId] })
+    setSessionsError(null)
+    try {
+      await updateBatchBrewSessions(batchId, recipe, brewSessions)
+      queryClient.invalidateQueries({ queryKey: ['batch', batchId] })
+      queryClient.invalidateQueries({ queryKey: ['batch-steps', batchId] })
+    } catch (err) {
+      setSessionsError(errorMessage(err))
+    }
   }
 
   const readyText = readyLabel(batch.conditioningStart, batch.conditioningDays ?? DEFAULT_CONDITIONING_DAYS, todayIso())
@@ -113,7 +128,13 @@ export function BatchOverview() {
   async function handleDelete() {
     if (!batchId) return
     if (!confirm('Supprimer définitivement ce brassin (étapes et lectures de fermentation incluses) ?')) return
-    await deleteBatch(batchId)
+    setActionError(null)
+    try {
+      await deleteBatch(batchId)
+    } catch (err) {
+      setActionError(errorMessage(err))
+      return
+    }
     queryClient.invalidateQueries({ queryKey: ['batches'] })
     navigate('/batches')
   }
@@ -156,6 +177,11 @@ export function BatchOverview() {
             onChange={changeSessions}
             disabled={batch.status !== 'planned'}
           />
+          {sessionsError && (
+            <p role="alert" className="mt-2 text-sm text-red-600">
+              {sessionsError}
+            </p>
+          )}
           {sessions > 1 && (
             <p className="mt-2 text-xs text-slate-500">
               Au Brew Day, suivez une session par onglet (ou passez de l'une à l'autre) : chacune a son ébullition et ses mesures.
@@ -209,9 +235,17 @@ export function BatchOverview() {
 
       <ActionBar
         danger={
-          <button type="button" onClick={handleDelete} className="btn-danger">
-            Supprimer
-          </button>
+          <>
+            <button type="button" onClick={handleDelete} className="btn-danger">
+              Supprimer
+            </button>
+            {/* Dans la barre collée en bas : visible là où l'on vient de cliquer, sur sa propre ligne. */}
+            {actionError && (
+              <p role="alert" className="order-last w-full text-sm text-red-600">
+                {actionError}
+              </p>
+            )}
+          </>
         }
       >
         <Link to={`/tools?${toolsParams}`} className="btn-secondary">

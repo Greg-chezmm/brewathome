@@ -3,19 +3,38 @@ import { act, fireEvent, renderHook } from '@testing-library/react'
 import { readSoundPreference, useAlertSound, useSoundSetting, writeSoundPreference } from '@/hooks/useAlertSound'
 
 /** Faux AudioContext : compte les instances, comme le fait un navigateur qui exige un geste de l'utilisateur. */
-const created = vi.hoisted(() => ({ count: 0, resumed: 0, state: 'running' as 'running' | 'suspended' }))
+const created = vi.hoisted(() => ({
+  count: 0,
+  resumed: 0,
+  closed: 0,
+  oscillators: 0,
+  state: 'running' as 'running' | 'suspended',
+  resumeRejects: false,
+  hasClose: true,
+  closeRejects: false,
+}))
 class FakeAudioContext {
   currentTime = 0
   destination = {}
   state = created.state
+  close?: () => Promise<void>
   constructor() {
     created.count += 1
+    if (created.hasClose) {
+      this.close = () => {
+        created.closed += 1
+        return created.closeRejects ? Promise.reject(new Error('close refusé')) : Promise.resolve()
+      }
+    }
   }
   resume() {
     created.resumed += 1
+    if (created.resumeRejects) return Promise.reject(new Error('resume refusé'))
+    this.state = 'running'
     return Promise.resolve()
   }
   createOscillator() {
+    created.oscillators += 1
     return { frequency: { value: 0 }, connect: vi.fn(), start: vi.fn(), stop: vi.fn() }
   }
   createGain() {
@@ -28,6 +47,11 @@ beforeEach(() => {
   created.count = 0
   created.resumed = 0
   created.state = 'running'
+  created.closed = 0
+  created.oscillators = 0
+  created.resumeRejects = false
+  created.hasClose = true
+  created.closeRejects = false
   vi.stubGlobal('AudioContext', FakeAudioContext)
 })
 afterEach(() => vi.unstubAllGlobals())
@@ -70,6 +94,88 @@ describe('useAlertSound.unlock', () => {
     act(() => result.current.unlock())
     expect(created.count).toBe(1)
     expect(created.resumed).toBe(1)
+  })
+})
+
+describe('useAlertSound.play', () => {
+  it('renvoie false sans contexte audio', () => {
+    const { result } = renderHook(() => useAlertSound())
+    let played = true
+    act(() => {
+      played = result.current.play()
+    })
+    expect(played).toBe(false)
+    expect(created.oscillators).toBe(0)
+  })
+
+  it('renvoie true et programme les bips sur un contexte actif', () => {
+    const { result } = renderHook(() => useAlertSound())
+    act(() => result.current.unlock())
+    let played = false
+    act(() => {
+      played = result.current.play()
+    })
+    expect(played).toBe(true)
+    expect(created.oscillators).toBe(3)
+  })
+
+  it('renvoie false sur un contexte suspendu, tente de le reprendre, puis réussit au rappel', async () => {
+    created.state = 'suspended'
+    const { result } = renderHook(() => useAlertSound())
+    act(() => result.current.unlock())
+    created.resumed = 0
+    let first = true
+    await act(async () => {
+      first = result.current.play()
+    })
+    expect(first).toBe(false)
+    expect(created.resumed).toBe(1)
+    expect(created.oscillators).toBe(0)
+
+    let second = false
+    act(() => {
+      second = result.current.play()
+    })
+    expect(second).toBe(true)
+    expect(created.oscillators).toBe(3)
+  })
+
+  it('ne plante pas si la reprise du contexte est refusée', async () => {
+    created.state = 'suspended'
+    created.resumeRejects = true
+    const { result } = renderHook(() => useAlertSound())
+    act(() => result.current.unlock())
+    let played = true
+    await act(async () => {
+      played = result.current.play()
+      await Promise.resolve()
+    })
+    expect(played).toBe(false)
+  })
+})
+
+describe('useAlertSound (démontage)', () => {
+  it('ferme le contexte audio au démontage', () => {
+    const { result, unmount } = renderHook(() => useAlertSound())
+    act(() => result.current.unlock())
+    unmount()
+    expect(created.closed).toBe(1)
+  })
+
+  it('ne plante pas si close est absent', () => {
+    created.hasClose = false
+    const { result, unmount } = renderHook(() => useAlertSound())
+    act(() => result.current.unlock())
+    expect(() => unmount()).not.toThrow()
+  })
+
+  it('ne plante pas si close est refusé', async () => {
+    created.closeRejects = true
+    const { result, unmount } = renderHook(() => useAlertSound())
+    act(() => result.current.unlock())
+    expect(() => unmount()).not.toThrow()
+    await Promise.resolve()
+    expect(created.closed).toBe(1)
   })
 })
 

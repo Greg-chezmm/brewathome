@@ -71,7 +71,6 @@ export function App() {
           <Route path="/styles" element={<StylesList />} />
           <Route path="/devices" element={<DevicesList />} />
           <Route path="/devices/calibration" element={<IspindelCalibration />} />
-          <Route path="/devices/calibration" element={<IspindelCalibration />} />
           <Route path="/tools" element={<Tools />} />
           <Route path="/ingredients" element={<IngredientsGuide />} />
           <Route path="*" element={<Navigate to="/" replace />} />

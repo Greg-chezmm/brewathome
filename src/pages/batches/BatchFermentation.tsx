@@ -37,6 +37,7 @@ import { fermentationStartTime, primingTemperatureC } from '@/lib/fermentation/p
 import { applyCalibration, gravityCalibration, manualCalibration } from '@/lib/fermentation/calibration'
 import { IspindelCalibrationNote } from '@/components/batches/IspindelCalibrationNote'
 import { gravityStability } from '@/lib/fermentation/stability'
+import { errorMessage } from '@/lib/errors'
 
 /** Relevés affichés avant « Tout afficher » : un iSpindel en envoie ~100 par jour. */
 const LIST_PREVIEW = 20
@@ -93,11 +94,21 @@ export function BatchFermentation() {
   const [importing, setImporting] = useState(false)
   const [importMessage, setImportMessage] = useState<string | null>(null)
   const [openedAt] = useState(() => Date.now())
+  // Échecs d'écriture, affichés là où l'action a été lancée.
+  const [formError, setFormError] = useState<string | null>(null)
+  const [listError, setListError] = useState<string | null>(null)
+  const [detachError, setDetachError] = useState<{ deviceId: string; message: string } | null>(null)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!batchId) return
+    // Une note seule (« dry hop fait ») reste un relevé valable ; un relevé entièrement vide, non.
+    if (!gravity && !temperature && !comment.trim()) {
+      setFormError('Saisissez une densité, une température ou un commentaire.')
+      return
+    }
     setSaving(true)
+    setFormError(null)
     try {
       await addFermentationReading(batchId, {
         gravity: gravity ? Number.parseFloat(gravity) : undefined,
@@ -108,14 +119,31 @@ export function BatchFermentation() {
       setTemperature('')
       setComment('')
       queryClient.invalidateQueries({ queryKey: ['fermentation-readings', batchId] })
+    } catch (err) {
+      setFormError(errorMessage(err))
     } finally {
       setSaving(false)
     }
   }
 
   async function handleDelete(id: string) {
-    await deleteFermentationReading(id)
-    queryClient.invalidateQueries({ queryKey: ['fermentation-readings', batchId] })
+    setListError(null)
+    try {
+      await deleteFermentationReading(id)
+      queryClient.invalidateQueries({ queryKey: ['fermentation-readings', batchId] })
+    } catch (err) {
+      setListError(errorMessage(err))
+    }
+  }
+
+  async function handleDetach(deviceId: string) {
+    setDetachError(null)
+    try {
+      await setDeviceActiveBatch(deviceId, null)
+      queryClient.invalidateQueries({ queryKey: ['devices'] })
+    } catch (err) {
+      setDetachError({ deviceId, message: errorMessage(err) })
+    }
   }
 
   async function handleBrewfatherImport() {
@@ -262,20 +290,18 @@ export function BatchFermentation() {
             <ConnectionBadge device={device} now={devicesUpdatedAt} />
           </div>
           <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={async () => {
-                await setDeviceActiveBatch(device.id, null)
-                queryClient.invalidateQueries({ queryKey: ['devices'] })
-              }}
-              className="btn-secondary btn-sm"
-            >
+            <button type="button" onClick={() => handleDetach(device.id)} className="btn-secondary btn-sm">
               Détacher
             </button>
             <Link to="/devices" className="btn-secondary btn-sm">
               Gérer l'appareil
             </Link>
           </div>
+          {detachError?.deviceId === device.id && (
+            <p role="alert" className="w-full text-sm text-red-600">
+              {detachError.message}
+            </p>
+          )}
         </div>
       ))}
 
@@ -329,6 +355,11 @@ export function BatchFermentation() {
         <button type="submit" disabled={saving} className="btn-primary">
           Ajouter
         </button>
+        {formError && (
+          <p role="alert" className="w-full text-sm text-red-600">
+            {formError}
+          </p>
+        )}
       </form>
 
       {progress && ogBase !== null && gravityNow !== null && (
@@ -428,13 +459,18 @@ export function BatchFermentation() {
             {all.length > 1 &&
               ` · du ${new Date(all[0].recordedAt).toLocaleDateString('fr-FR')} au ${new Date(all[all.length - 1].recordedAt).toLocaleDateString('fr-FR')}`}
           </p>
+          {listError && (
+            <p role="alert" className="text-sm text-red-600">
+              {listError}
+            </p>
+          )}
           <ul className={`space-y-1 ${showAll ? 'max-h-[60vh] overflow-y-auto rounded-lg border border-slate-200 bg-slate-50 p-1' : ''}`}>
             {listed.map((r) => (
               <li key={r.id} className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm">
                 <span className="flex items-center gap-2">
                   {r.source === 'ispindel' && <span title="iSpindel">📡</span>}
-                  {new Date(r.recordedAt).toLocaleString('fr-FR')} — {r.gravity && `SG ${r.gravity.toFixed(3)}`}{' '}
-                  {r.temperatureC && `· ${r.temperatureC}°C`} {r.comment && `· ${r.comment}`}
+                  {new Date(r.recordedAt).toLocaleString('fr-FR')} — {r.gravity !== null && `SG ${r.gravity.toFixed(3)}`}{' '}
+                  {r.temperatureC !== null && `· ${r.temperatureC}°C`} {r.comment && `· ${r.comment}`}
                   {r.rawAngle !== null && (
                     <span className="text-slate-500" title="Angle d'inclinaison de l'iSpindel (≈ 23° dans l'eau pure avec la calibration actuelle)">
                       · {r.rawAngle.toFixed(1).replace('.', ',')}°

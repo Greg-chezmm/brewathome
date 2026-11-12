@@ -2,6 +2,9 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 
 const SOUND_PREFERENCE_KEY = 'brewathome.alert-sound'
 
+/** Décalage de chacun des trois bips d'une alerte, en secondes. */
+const BEEP_OFFSETS_S = [0, 0.5, 1.0]
+
 /** Alertes sonores activées par défaut ; seul un « Couper » explicite est mémorisé. */
 export function readSoundPreference(): boolean {
   try {
@@ -41,12 +44,21 @@ export function useAlertSound() {
     }
   }, [])
 
-  const play = useCallback(() => {
+  /** Programme les bips. Renvoie `false` si rien n'a pu sonner (audio pas encore débloqué ou suspendu) : à retenter. */
+  const play = useCallback((): boolean => {
     const ctx = audioCtxRef.current
-    if (!ctx) return
+    if (!ctx) return false
+    if (ctx.state !== 'running') {
+      // Contexte suspendu par le navigateur (onglet en arrière-plan, veille…) : on tente de le reprendre pour le prochain essai.
+      try {
+        ctx.resume().catch(() => {})
+      } catch {
+        // Reprise impossible : le prochain geste de l'utilisateur débloquera l'audio.
+      }
+      return false
+    }
 
-    const beepTimes = [0, 0.5, 1.0]
-    for (const offset of beepTimes) {
+    for (const offset of BEEP_OFFSETS_S) {
       const oscillator = ctx.createOscillator()
       const gain = ctx.createGain()
       oscillator.frequency.value = 880
@@ -57,7 +69,22 @@ export function useAlertSound() {
       oscillator.start(startTime)
       oscillator.stop(startTime + 0.35)
     }
+    return true
   }, [])
+
+  // Libère le contexte audio en quittant la page (les navigateurs en limitent le nombre).
+  useEffect(
+    () => () => {
+      const ctx = audioCtxRef.current
+      audioCtxRef.current = null
+      try {
+        ctx?.close?.().catch(() => {})
+      } catch {
+        // Fermeture impossible : rien à faire de plus.
+      }
+    },
+    [],
+  )
 
   return { unlock, play }
 }

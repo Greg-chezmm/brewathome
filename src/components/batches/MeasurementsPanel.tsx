@@ -16,6 +16,7 @@ import {
 } from '@/lib/brew-day/measurements'
 import { updateBatchMeasurements, type BatchDetails } from '@/lib/db/queries/batches'
 import type { RecipeDetails } from '@/lib/db/queries/recipes'
+import { errorMessage } from '@/lib/errors'
 
 const INPUT: Record<MeasurementKind, { step: string; min: number; max: number; decimals: number }> = {
   gravity: { step: '0.001', min: 0.98, max: 1.2, decimals: 3 },
@@ -117,8 +118,15 @@ export function MeasurementsPanel({
       if (!pending.current.ready) return
       onSave(pending.current.changes)
         .then(() => queryClient.invalidateQueries({ queryKey: ['batch', batchId] }))
-        .catch(() => {})
+        .catch(() => {
+          // Limite connue : le panneau est démonté, il ne peut plus afficher l'échec, et l'appli n'a pas
+          // de mécanisme global (toast, bannière) pour le signaler ailleurs. La saisie est alors perdue ;
+          // le catch évite seulement un rejet non géré. En usage normal, « Enregistrer » affiche l'erreur.
+        })
     },
+    // Nettoyage au démontage seulement (les valeurs à jour sont lues dans `pending`) : avec `onSave`
+    // en dépendance (fonction recréée à chaque rendu), il s'exécuterait à chaque frappe et enregistrerait
+    // les mesures en cours de saisie.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
   )
@@ -145,7 +153,7 @@ export function MeasurementsPanel({
         Object.fromEntries(Object.entries(current).filter(([key, text]) => !(key in changes) || text !== submitted[key as MeasurementKey])),
       )
     } catch (err) {
-      setError((err as Error).message)
+      setError(errorMessage(err))
     } finally {
       setSaving(false)
     }
@@ -270,7 +278,11 @@ export function MeasurementsPanel({
         <button type="submit" disabled={saving || !dirty || invalid.length > 0} className="btn-primary btn-sm">
           {saving ? 'Enregistrement…' : 'Enregistrer'}
         </button>
-        {error && <p className="text-xs text-red-600">{error}</p>}
+        {error && (
+          <p role="alert" className="text-xs text-red-600">
+            {error}
+          </p>
+        )}
         {dirty && invalid.length === 0 && !saving && (
           <p className="text-xs text-amber-700">Non enregistré : sera sauvegardé en quittant l’étape.</p>
         )}
