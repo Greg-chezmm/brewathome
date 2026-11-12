@@ -9,6 +9,7 @@
 // (--no-verify-jwt car l'authentification se fait par le token de device dans
 // l'URL, pas par un JWT Supabase — l'iSpindel ne peut pas en fournir un).
 import { createClient } from 'npm:@supabase/supabase-js@2'
+import { parseGravity } from './gravity.ts'
 
 interface ISpindelPayload {
   name?: string
@@ -22,31 +23,12 @@ interface ISpindelPayload {
   RSSI?: number
 }
 
-function plateauToSG(plato: number): number {
-  // Formule standard de conversion °Plato -> densité spécifique (SG).
-  return 1 + plato / (258.6 - (plato / 258.2) * 227.1)
-}
-
-// Au-dessous de ce seuil, une valeur sans unité explicite est forcément une SG
-// (une bière ne dépasse pas ~40 °P, alors qu'une SG vaut environ 1.0 à 1.2).
-const MAX_SG_WITHOUT_UNIT = 2
-
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
 function finiteNumberOrNull(value: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null
-}
-
-// Densité en SG, ou null si la mesure est absente ou inutilisable.
-// Un iSpindel non calibré envoie 0 : ce n'est pas une mesure, on l'ignore.
-function parseGravity(raw: unknown, unit: unknown): number | null {
-  const value = finiteNumberOrNull(raw)
-  if (value === null || value <= 0) return null
-  if (unit === 'G') return value
-  if (unit === 'P') return plateauToSG(value)
-  return value < MAX_SG_WITHOUT_UNIT ? value : plateauToSG(value)
 }
 
 Deno.serve(async (req: Request) => {
